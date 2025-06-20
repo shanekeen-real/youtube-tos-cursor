@@ -37,7 +37,7 @@ export default function DashboardPage() {
       // Remove the query param so it doesn't show again
       const params = new URLSearchParams(window.location.search);
       params.delete('payment_success');
-      router.replace(`/dashboard?${params.toString()}`, undefined, { shallow: true });
+      router.replace(`/dashboard?${params.toString()}`);
     }
   }, [searchParams, router]);
 
@@ -157,15 +157,14 @@ export default function DashboardPage() {
                  </div>
                  <div className="text-right text-sm text-gray-500 mt-1">{Math.round(progress)}%</div>
             </Card>
-              <Card>
+            <Card>
                 <h2 className="text-xl font-semibold mb-2">Account Details</h2>
                 <p><strong>Email:</strong> {userProfile.email}</p>
                 <p><strong>Member Since:</strong> {new Date(userProfile.createdAt).toLocaleDateString()}</p>
                  <Link href="/scan-history">
                     <Button variant="secondary" className="mt-4">View Scan History</Button>
                  </Link>
-              </Card>
-            </div>
+            </Card>
         </div>
       )}
     </main>
