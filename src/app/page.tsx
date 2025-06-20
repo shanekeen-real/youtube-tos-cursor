@@ -6,6 +6,8 @@ import FeatureGrid, { FeatureSet } from '../components/FeatureGrid';
 import { AuthContext } from '../components/ClientLayout';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
+import { getFirestore, collection, addDoc, doc, getDoc, updateDoc, increment } from 'firebase/firestore';
+import { app } from '../lib/firebase';
 
 const featureSets: FeatureSet[] = [
   {
@@ -98,11 +100,43 @@ export default function Home() {
 
   const handleFullReport = async () => {
     if (!input.trim()) return;
+    if (!auth?.user) {
+      auth?.setAuthOpen(true);
+      return;
+    }
     setLoadingFull(true);
     try {
-      await new Promise(res => setTimeout(res, 3000)); // ensure loading bar is visible for 3s
-      const res = await axios.post('/api/analyze-policy?mode=free', { text: input });
-      router.push(`/results?data=${encodeURIComponent(JSON.stringify({ ...res.data, input }))}`);
+      // --- Check Scan Limit ---
+      const db = getFirestore(app);
+      const userRef = doc(db, 'users', auth.user.uid);
+      const userDoc = await getDoc(userRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        if (userData.scanCount >= userData.scanLimit) {
+          alert("You have reached your free scan limit. Please upgrade for unlimited scans.");
+          setLoadingFull(false);
+          return;
+        }
+      }
+      
+      const res = await axios.post('/api/analyze-policy', { text: input });
+      
+      // Save to Firestore on client side
+      const scanData = {
+        ...res.data,
+        userId: auth.user.uid,
+        createdAt: new Date().toISOString(),
+        originalText: input.substring(0, 500),
+      };
+      const scanRef = await addDoc(collection(db, 'scans'), scanData);
+      
+      // --- Increment User's Scan Count ---
+      await updateDoc(userRef, {
+        scanCount: increment(1)
+      });
+      
+      router.push(`/results?scanId=${scanRef.id}`);
     } catch (e) {
       alert('Error analyzing policy. Please try again.');
     } finally {
@@ -112,18 +146,51 @@ export default function Home() {
 
   const handleFreeScan = async () => {
     if (!input.trim()) return;
+    if (!auth?.user) {
+      auth?.setAuthOpen(true);
+      return;
+    }
     setLoadingFree(true);
     try {
-      // Simulate a basic scan (just risk score and policy analysis)
-      setTimeout(() => {
-        setFreeScanResult({
-          risk_score: 73,
-          flagged_section: 'Section 4.3 - High demonetization risk detected',
-        });
-        setLoadingFree(false);
-      }, 4000); // match slow progress bar
+      // --- Check Scan Limit ---
+      const db = getFirestore(app);
+      const userRef = doc(db, 'users', auth.user.uid);
+      const userDoc = await getDoc(userRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        if (userData.scanCount >= userData.scanLimit) {
+          alert("You have reached your free scan limit. Please upgrade for unlimited scans.");
+          setLoadingFree(false);
+          return;
+        }
+      }
+      
+      const res = await axios.post('/api/analyze-policy', { text: input });
+      
+      // Save to Firestore on client side
+      const scanData = {
+        ...res.data,
+        userId: auth.user.uid,
+        createdAt: new Date().toISOString(),
+        originalText: input.substring(0, 500),
+      };
+      await addDoc(collection(db, 'scans'), scanData);
+      
+      // --- Increment User's Scan Count ---
+      await updateDoc(userRef, {
+        scanCount: increment(1)
+      });
+      
+      setFreeScanResult({
+        risk_score: res.data.risk_score,
+        flagged_section: res.data.flagged_section,
+        risk_level: res.data.risk_level,
+        highlights: res.data.highlights
+      });
     } catch (e) {
       alert('Error analyzing policy. Please try again.');
+    } finally {
       setLoadingFree(false);
     }
   };

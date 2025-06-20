@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { app } from '../lib/firebase';
 import Button from './Button';
+import { getFirestore, doc, setDoc } from 'firebase/firestore';
 
 interface AuthModalProps {
   open: boolean;
@@ -10,6 +11,21 @@ interface AuthModalProps {
 
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
+const db = getFirestore(app);
+
+// Helper function to create user profile in Firestore
+const createUserProfile = async (user: User) => {
+  const userRef = doc(db, 'users', user.uid);
+  await setDoc(userRef, {
+    email: user.email,
+    displayName: user.displayName,
+    photoURL: user.photoURL,
+    createdAt: new Date().toISOString(),
+    scanCount: 0,
+    scanLimit: 3,
+    subscriptionTier: 'free',
+  }, { merge: true }); // Use merge to avoid overwriting existing data
+};
 
 export default function AuthModal({ open, onClose }: AuthModalProps) {
   const [email, setEmail] = useState('');
@@ -28,7 +44,8 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
     setError(null);
     setLoading(true);
     try {
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      await createUserProfile(result.user); // Create profile on Google sign-in
       onClose();
     } catch (err: any) {
       setError(err.message);
@@ -45,7 +62,8 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
       if (mode === 'signin') {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const result = await createUserWithEmailAndPassword(auth, email, password);
+        await createUserProfile(result.user); // Create profile on email sign-up
       }
       onClose();
     } catch (err: any) {
