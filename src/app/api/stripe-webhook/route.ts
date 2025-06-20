@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { headers } from 'next/headers';
 import { adminDb } from '@/lib/firebase-admin'; // Use the Admin SDK
 
 // This is your Stripe CLI webhook secret for testing
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+  apiVersion: '2025-05-28.basil',
+});
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET as string;
 
 export async function POST(req: NextRequest) {
-  const sig = headers().get('stripe-signature') as string;
+  const sig = req.headers.get('stripe-signature') as string;
   const body = await req.text();
   
   let event: Stripe.Event;
