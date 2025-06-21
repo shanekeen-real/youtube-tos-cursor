@@ -61,7 +61,8 @@ const ProgressBar = ({ progress, rainbow = false }: { progress: number; rainbow?
 
 export default function Home() {
   const auth = useContext(AuthContext);
-  const [input, setInput] = useState('');
+  const [analysisType, setAnalysisType] = useState('text'); // 'text' or 'url'
+  const [inputValue, setInputValue] = useState('');
   const [loadingFree, setLoadingFree] = useState(false);
   const [loadingFull, setLoadingFull] = useState(false);
   const [freeScanResult, setFreeScanResult] = useState<any | null>(null);
@@ -99,14 +100,13 @@ export default function Home() {
   }, [loadingFree, loadingFull]);
 
   const handleFullReport = async () => {
-    if (!input.trim()) return;
+    if (!inputValue.trim()) return;
     if (!auth?.user) {
       auth?.setAuthOpen(true);
       return;
     }
     setLoadingFull(true);
     try {
-      // --- Check Scan Limit ---
       const db = getFirestore(app);
       const userRef = doc(db, 'users', auth.user.uid);
       const userDoc = await getDoc(userRef);
@@ -119,33 +119,39 @@ export default function Home() {
           return;
         }
       }
+
+      const isUrl = analysisType === 'url';
+      const endpoint = isUrl ? '/api/analyze-url' : '/api/analyze-policy';
+      const payload = isUrl ? { url: inputValue } : { text: inputValue };
       
-      const res = await axios.post('/api/analyze-policy', { text: input });
+      const res = await axios.post(endpoint, payload);
       
-      // Save to Firestore on client side
       const scanData = {
         ...res.data,
         userId: auth.user.uid,
         createdAt: new Date().toISOString(),
-        originalText: input.substring(0, 500),
+        originalText: isUrl ? inputValue : inputValue.substring(0, 500), // Store URL or text snippet
       };
       const scanRef = await addDoc(collection(db, 'scans'), scanData);
       
-      // --- Increment User's Scan Count ---
       await updateDoc(userRef, {
         scanCount: increment(1)
       });
       
       router.push(`/results?scanId=${scanRef.id}`);
-    } catch (e) {
-      alert('Error analyzing policy. Please try again.');
+    } catch (e: any) {
+       if (e.response && e.response.status === 400) {
+        alert(e.response.data.error); // Show specific error from backend
+      } else {
+        alert('Error analyzing content. Please try again.');
+      }
     } finally {
       setLoadingFull(false);
     }
   };
 
   const handleFreeScan = async () => {
-    if (!input.trim()) return;
+    if (!inputValue.trim()) return;
     if (!auth?.user) {
       auth?.setAuthOpen(true);
       return;
@@ -166,14 +172,14 @@ export default function Home() {
         }
       }
       
-      const res = await axios.post('/api/analyze-policy', { text: input });
+      const res = await axios.post('/api/analyze-policy', { text: inputValue });
       
       // Save to Firestore on client side
       const scanData = {
         ...res.data,
         userId: auth.user.uid,
         createdAt: new Date().toISOString(),
-        originalText: input.substring(0, 500),
+        originalText: inputValue.substring(0, 500),
       };
       await addDoc(collection(db, 'scans'), scanData);
       
@@ -203,27 +209,66 @@ export default function Home() {
           Protect Your YouTube Channel from <span className="text-red-600">Demonetization</span>
         </h1>
         <p className="text-lg text-[#212121] max-w-2xl mb-8">
-          Paste YouTube's policies to discover risks instantly. Get fix advice with AI.
+          Paste YouTube's policies or a video URL to discover risks instantly. Get fix advice with AI.
         </p>
         <Card className="w-full max-w-xl flex flex-col items-center border border-gray-200">
+          <div className="w-full flex mb-3">
+             <button 
+              onClick={() => { setAnalysisType('text'); setInputValue(''); }}
+              className={`flex-1 py-2 px-4 rounded-l-lg text-sm font-semibold focus:outline-none ${analysisType === 'text' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+            >
+              Analyze by Text
+            </button>
+            <button 
+              onClick={() => { setAnalysisType('url'); setInputValue(''); }}
+              className={`flex-1 py-2 px-4 rounded-r-lg text-sm font-semibold focus:outline-none ${analysisType === 'url' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+            >
+              Analyze by URL
+            </button>
+          </div>
+
           <label htmlFor="tos-input" className="font-semibold mb-2 w-full text-left text-[#212121]">Content to analyze</label>
-          <textarea
-            id="tos-input"
-            placeholder="Paste YouTube Terms or Policy text here..."
-            className="w-full h-32 border border-gray-300 rounded-lg p-3 mb-4 resize-none focus:outline-none focus:ring-2 focus:ring-red-500 bg-[#FAFAFA] text-[#212121]"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            disabled={loadingFree || loadingFull}
-          />
+          {analysisType === 'text' ? (
+            <textarea
+              id="tos-input"
+              placeholder="Paste YouTube Terms or Policy text here..."
+              className="w-full h-32 border border-gray-300 rounded-lg p-3 mb-4 resize-none focus:outline-none focus:ring-2 focus:ring-red-500 bg-[#FAFAFA] text-[#212121]"
+              value={inputValue}
+              onChange={e => setInputValue(e.target.value)}
+              disabled={loadingFree || loadingFull}
+            />
+          ) : (
+            <input
+              id="url-input"
+              type="url"
+              placeholder="Enter YouTube video URL..."
+              className="w-full h-12 border border-gray-300 rounded-lg p-3 mb-4 focus:outline-none focus:ring-2 focus:ring-red-500 bg-[#FAFAFA] text-[#212121]"
+              value={inputValue}
+              onChange={e => setInputValue(e.target.value)}
+              disabled={loadingFree || loadingFull}
+            />
+          )}
+
           {(loadingFree || loadingFull) && (
             <ProgressBar progress={progress} rainbow={loadingFull} />
           )}
           <div className="flex w-full gap-4">
-            <Button variant="secondary" className="flex-1 flex items-center justify-center" onClick={handleFreeScan} disabled={loadingFree || loadingFull || !input.trim()}>
+            <Button 
+              variant="secondary" 
+              className="flex-1 flex items-center justify-center" 
+              onClick={handleFreeScan} 
+              disabled={loadingFree || loadingFull || !inputValue.trim() || analysisType === 'url'}
+              title={analysisType === 'url' ? "Free scan not available for URLs" : ""}
+            >
               {loadingFree ? 'Scanning...' : 'Free Scan'}
             </Button>
-            <Button variant="blue" className="flex-1 flex items-center justify-center" onClick={handleFullReport} disabled={loadingFull || loadingFree || !input.trim()}>
-              {loadingFull ? 'Scanning...' : 'Full Report ($5)'}
+            <Button 
+              variant="blue" 
+              className="flex-1 flex items-center justify-center" 
+              onClick={handleFullReport} 
+              disabled={loadingFull || loadingFree || !inputValue.trim()}
+            >
+              {loadingFull ? 'Analyzing...' : 'Full Report'}
             </Button>
           </div>
         </Card>
@@ -237,7 +282,7 @@ export default function Home() {
               <div className="font-semibold mb-2">Policy Analysis</div>
               <textarea
                 className="w-full h-20 border border-gray-300 rounded-lg p-3 mb-2 resize-none bg-[#FAFAFA] text-[#212121]"
-                value={input}
+                value={inputValue}
                 readOnly
               />
             </Card>
