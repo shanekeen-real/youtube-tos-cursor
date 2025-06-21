@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { performAnalysis } from '@/lib/ai-analysis';
 import { YoutubeTranscript } from 'youtube-transcript';
+import axios from 'axios';
 
 // Function to extract video ID from YouTube URL
 function extractVideoId(url: string): string | null {
@@ -36,54 +37,62 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Could not extract video ID from URL' }, { status: 400 });
     }
 
-    // --- New: Fetch Transcript ---
-    let transcript = '';
-    let transcriptError = null;
-    try {
-      const transcriptParts = await YoutubeTranscript.fetchTranscript(url);
-      transcript = transcriptParts.map(part => part.text).join(' ');
-    } catch (error: any) {
-      console.error(`Transcript fetch error for ${url}:`, error.message);
-      transcriptError = `Transcript retrieval failed: ${error.message}`;
-    }
+    let contentToAnalyze = '';
+    let analyzedContent = '';
+    let analysisSource = ''; // 'transcript' or 'metadata'
 
-    // --- Enhanced Content for Analysis ---
-    // Now we send the transcript to the AI for a much more accurate analysis.
-    const contentToAnalyze = `
-      YouTube Video Analysis Request:
-      
-      Video URL: ${url}
-      Video ID: ${videoId}
-      
-      Transcript:
-      ---
-      ${transcript || transcriptError || 'No transcript provided.'}
-      ---
-      
-      Please analyze the provided video transcript for potential violations of YouTube's policies.
-    `;
+    try {
+      // 1. First, try to get the transcript
+      const transcriptParts = await YoutubeTranscript.fetchTranscript(url);
+      analyzedContent = transcriptParts.map(part => part.text).join(' ');
+      contentToAnalyze = `Analyze the following YouTube video transcript: \n\n---${analyzedContent}---`;
+      analysisSource = 'transcript';
+    } catch (error) {
+      // 2. If transcript fails, fall back to YouTube Data API
+      console.log(`Transcript failed, falling back to YouTube Data API for video ${videoId}`);
+      try {
+        const apiKey = process.env.YOUTUBE_API_KEY;
+        if (!apiKey) {
+          throw new Error("YouTube API key is not configured.");
+        }
+        const apiUrl = `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet&key=${apiKey}`;
+        const response = await axios.get(apiUrl);
+        
+        const video = response.data.items[0];
+        if (!video) {
+          throw new Error("Video not found via YouTube API.");
+        }
+        
+        const { title, description } = video.snippet;
+        analyzedContent = `Title: ${title}\n\nDescription:\n${description}`;
+        contentToAnalyze = `Analyze the following YouTube video title and description: \n\n---${analyzedContent}---`;
+        analysisSource = 'metadata';
+
+      } catch (apiError: any) {
+        console.error('YouTube Data API fetch failed:', apiError.message);
+        // Final fallback if both transcript and API fail
+        return NextResponse.json({ 
+          error: "Could not retrieve transcript or video metadata. Please try another video.",
+          details: apiError.message 
+        }, { status: 500 });
+      }
+    }
 
     const analysisResult = await performAnalysis(contentToAnalyze);
 
-    // --- Return both analysis and the transcript ---
     return NextResponse.json({
       ...analysisResult,
-      transcript: transcript || transcriptError, // Send transcript or error message to frontend
+      analyzed_content: analyzedContent,
+      analysis_source: analysisSource,
       mode: 'pro',
-      source: 'youtube-url-analysis',
       videoId: videoId,
     });
 
-  } catch (error) {
-    console.error('URL Analysis API error:', error);
-    let errorMessage = 'AI analysis for the URL failed.';
-    if (error instanceof Error) {
-        errorMessage = error.message;
-    }
-    
+  } catch (error: any) {
+    console.error('Unhandled URL Analysis API error:', error);
     return NextResponse.json({
-      error: errorMessage,
-      details: error instanceof Error ? error.message : 'An unknown error occurred.'
+      error: 'An unexpected error occurred during analysis.',
+      details: error.message
     }, { status: 500 });
   }
 } 

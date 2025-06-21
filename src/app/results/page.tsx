@@ -21,7 +21,9 @@ interface ScanData {
   originalText?: string;
   input?: string; // from the old data structure
   source?: 'youtube-url-analysis' | string; // To identify the analysis type
-  transcript?: string; // For the new transcription feature
+  transcript?: string; // For the old transcription feature
+  analysis_source?: 'transcript' | 'metadata'; // To know what was analyzed
+  analyzed_content?: string; // The actual content that was analyzed
 }
 
 function ResultsPageContent() {
@@ -99,7 +101,7 @@ function ResultsPageContent() {
     return <div className="text-center py-10">No data available for this scan.</div>;
   }
   
-  const isUrlAnalysis = data.source === 'youtube-url-analysis';
+  const isUrlAnalysis = data.source === 'youtube-url-analysis' || data.analysis_source;
 
   const getRiskBadgeColor = (level: string) => {
     if (level?.toLowerCase() === 'high') return 'red';
@@ -125,12 +127,21 @@ function ResultsPageContent() {
           
           {isUrlAnalysis ? (
             <Card className="border border-gray-200">
-              <div className="font-semibold mb-2">Transcription</div>
+              <div className="font-semibold mb-2">
+                {data.analysis_source === 'transcript' 
+                  ? 'Analyzed Transcript' 
+                  : 'Analyzed Content (Title & Description)'}
+              </div>
               <textarea
                 className="w-full h-64 border border-gray-300 rounded-lg p-3 text-sm resize-none bg-[#FAFAFA] text-[#212121]"
-                value={data.transcript || 'Transcription not available.'}
+                value={data.analyzed_content || 'Content not available.'}
                 readOnly
               />
+               {data.analysis_source === 'metadata' && (
+                <p className="text-xs text-gray-500 mt-2">
+                  Transcript was not available, so the analysis was based on the video's title and description.
+                </p>
+              )}
             </Card>
           ) : (
             <>
