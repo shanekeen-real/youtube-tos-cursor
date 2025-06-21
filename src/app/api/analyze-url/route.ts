@@ -42,9 +42,9 @@ export async function POST(req: NextRequest) {
     try {
       const transcriptParts = await YoutubeTranscript.fetchTranscript(url);
       transcript = transcriptParts.map(part => part.text).join(' ');
-    } catch (error) {
-      transcriptError = "Transcript not available for this video.";
-      console.log(`Transcript fetch error for ${url}:`, error);
+    } catch (error: any) {
+      console.error(`Transcript fetch error for ${url}:`, error.message);
+      transcriptError = `Transcript retrieval failed: ${error.message}`;
     }
 
     // --- Enhanced Content for Analysis ---
