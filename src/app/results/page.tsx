@@ -20,6 +20,8 @@ interface ScanData {
   highlights: { category: string, risk: string, score: number }[];
   originalText?: string;
   input?: string; // from the old data structure
+  source?: 'youtube-url-analysis' | string; // To identify the analysis type
+  transcript?: string; // For the new transcription feature
 }
 
 function ResultsPageContent() {
@@ -97,6 +99,8 @@ function ResultsPageContent() {
     return <div className="text-center py-10">No data available for this scan.</div>;
   }
   
+  const isUrlAnalysis = data.source === 'youtube-url-analysis';
+
   const getRiskBadgeColor = (level: string) => {
     if (level?.toLowerCase() === 'high') return 'red';
     if (level?.toLowerCase() === 'medium') return 'yellow';
@@ -115,21 +119,35 @@ function ResultsPageContent() {
           <Card className="flex flex-col items-center border border-gray-200">
             <div className="text-5xl font-bold text-red-600 mb-2">{data.risk_score ?? '--'}%</div>
             {data.risk_level && <Badge color={getRiskBadgeColor(data.risk_level)} className="mb-2">{data.risk_level.toUpperCase()} RISK</Badge>}
-            <div className="text-sm text-[#606060] mb-2">{data.flagged_section}</div>
+            <div className="text-sm text-[#606060] mb-2 text-center">{data.flagged_section}</div>
             {data.risk_score && <ProgressMeter value={data.risk_score} color="red" label="Overall Risk Score" />}
           </Card>
-          <Card className="border border-gray-200">
-            <div className="font-semibold mb-2">Revenue Impact</div>
-            <div className="text-3xl font-bold text-red-600">$2,847</div>
-            <div className="text-xs text-[#606060]">Estimated monthly revenue at risk</div>
-          </Card>
-          <Card className="border border-gray-200">
-            <div className="font-semibold mb-2">Quick Fixes</div>
-            <div className="flex flex-col gap-2">
-              <Button variant="secondary" className="w-full">High-Risk Content Detection</Button>
-              <Button variant="secondary" className="w-full">Thumbnail Compliance</Button>
-            </div>
-          </Card>
+          
+          {isUrlAnalysis ? (
+            <Card className="border border-gray-200">
+              <div className="font-semibold mb-2">Transcription</div>
+              <textarea
+                className="w-full h-64 border border-gray-300 rounded-lg p-3 text-sm resize-none bg-[#FAFAFA] text-[#212121]"
+                value={data.transcript || 'Transcription not available.'}
+                readOnly
+              />
+            </Card>
+          ) : (
+            <>
+              <Card className="border border-gray-200">
+                <div className="font-semibold mb-2">Revenue Impact</div>
+                <div className="text-3xl font-bold text-red-600">$2,847</div>
+                <div className="text-xs text-[#606060]">Estimated monthly revenue at risk</div>
+              </Card>
+              <Card className="border border-gray-200">
+                <div className="font-semibold mb-2">Quick Fixes</div>
+                <div className="flex flex-col gap-2">
+                  <Button variant="secondary" className="w-full">High-Risk Content Detection</Button>
+                  <Button variant="secondary" className="w-full">Thumbnail Compliance</Button>
+                </div>
+              </Card>
+            </>
+          )}
         </div>
         {/* Right: Policy Analysis & Suggestions */}
         <div className="flex flex-col gap-6">

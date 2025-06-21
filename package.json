@@ -19,6 +19,7 @@
     "react": "^19.1.0",
     "react-dom": "^19.0.0",
     "stripe": "^18.2.1",
+    "youtube-transcript": "^1.2.1",
     "ytdl-core": "^4.11.5"
   },
   "devDependencies": {

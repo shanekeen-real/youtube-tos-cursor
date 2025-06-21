@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { performAnalysis } from '@/lib/ai-analysis';
+import { YoutubeTranscript } from 'youtube-transcript';
 
 // Function to extract video ID from YouTube URL
 function extractVideoId(url: string): string | null {
@@ -35,30 +36,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Could not extract video ID from URL' }, { status: 400 });
     }
 
-    // For now, we'll analyze the URL itself and provide guidance
-    // In a production environment, you might want to use YouTube Data API v3
-    const contentToAnalyze = `YouTube Video Analysis Request:
-    
-Video URL: ${url}
-Video ID: ${videoId}
+    // --- New: Fetch Transcript ---
+    let transcript = '';
+    let transcriptError = null;
+    try {
+      const transcriptParts = await YoutubeTranscript.fetchTranscript(url);
+      transcript = transcriptParts.map(part => part.text).join(' ');
+    } catch (error) {
+      transcriptError = "Transcript not available for this video.";
+      console.log(`Transcript fetch error for ${url}:`, error);
+    }
 
-Please analyze this YouTube video URL and provide guidance on potential content risks. Since we cannot directly access the video content in this serverless environment, please provide general guidance for YouTube content creators on:
-
-1. Common YouTube policy violations to watch out for
-2. Best practices for maintaining advertiser-friendly content
-3. General risk assessment for YouTube video content
-4. Recommendations for content creators to avoid demonetization
-
-Focus on providing actionable advice that would be relevant for any YouTube content creator.`;
+    // --- Enhanced Content for Analysis ---
+    // Now we send the transcript to the AI for a much more accurate analysis.
+    const contentToAnalyze = `
+      YouTube Video Analysis Request:
+      
+      Video URL: ${url}
+      Video ID: ${videoId}
+      
+      Transcript:
+      ---
+      ${transcript || transcriptError || 'No transcript provided.'}
+      ---
+      
+      Please analyze the provided video transcript for potential violations of YouTube's policies.
+    `;
 
     const analysisResult = await performAnalysis(contentToAnalyze);
 
+    // --- Return both analysis and the transcript ---
     return NextResponse.json({
       ...analysisResult,
+      transcript: transcript || transcriptError, // Send transcript or error message to frontend
       mode: 'pro',
       source: 'youtube-url-analysis',
       videoId: videoId,
-      note: 'Analysis based on general YouTube guidelines. For detailed video-specific analysis, consider using YouTube Data API v3.'
     });
 
   } catch (error) {
