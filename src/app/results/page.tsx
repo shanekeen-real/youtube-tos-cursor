@@ -140,7 +140,7 @@ function ResultsPageContent() {
               value={data.originalText || data.input || ''}
               readOnly
             />
-            <div className="flex gap-2 mt-2">
+            <div className="flex flex-wrap gap-2 mt-2">
               {data.highlights?.map((h, i) => (
                  <Badge key={i} color={getRiskBadgeColor(h.risk)}>{h.category}</Badge>
               ))}
