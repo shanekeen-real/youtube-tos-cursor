@@ -542,16 +542,16 @@ function getRiskLevel(score: number): 'LOW' | 'MEDIUM' | 'HIGH' {
   return 'HIGH';
 }
 
-function generateHighlights(policyAnalysis: any): any[] {
+function generateHighlights(policyAnalysis: { [key: string]: PolicyCategoryAnalysis }): any[] {
   const highlights = [];
   
   for (const [category, analysis] of Object.entries(policyAnalysis)) {
-    if (analysis.risk_score > 20) { // Only include significant risks
+    if ((analysis as PolicyCategoryAnalysis).risk_score > 20) { // Only include significant risks
       highlights.push({
         category: category.replace(/_/g, ' '),
-        risk: analysis.severity,
-        score: analysis.risk_score,
-        confidence: analysis.confidence
+        risk: (analysis as PolicyCategoryAnalysis).severity,
+        score: (analysis as PolicyCategoryAnalysis).risk_score,
+        confidence: (analysis as PolicyCategoryAnalysis).confidence
       });
     }
   }
