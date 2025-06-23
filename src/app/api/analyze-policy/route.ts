@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { performAnalysis } from '@/lib/ai-analysis';
+import { performEnhancedAnalysis } from '@/lib/ai-analysis';
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,16 +9,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No text provided' }, { status: 400 });
     }
     
-    const analysisResult = await performAnalysis(text);
+    const analysisResult = await performEnhancedAnalysis(text);
 
     return NextResponse.json({
       ...analysisResult,
-      mode: 'free',
-      source: 'gemini-pro'
+      mode: 'enhanced',
+      source: 'gemini-1.5-flash-latest'
     });
 
   } catch (error) {
-    console.error('Analysis API error:', error);
+    console.error('Enhanced Analysis API error:', error);
     return NextResponse.json({
       error: 'AI analysis failed',
       details: error instanceof Error ? error.message : 'An unknown error occurred.'

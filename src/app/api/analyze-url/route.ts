@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { performAnalysis } from '@/lib/ai-analysis';
+import { performAnalysis, performEnhancedAnalysis } from '@/lib/ai-analysis';
 import { YoutubeTranscript } from 'youtube-transcript';
 import axios from 'axios';
 
@@ -240,18 +240,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const analysisResult = await performAnalysis(contentToAnalyze);
+    const analysisResult = await performEnhancedAnalysis(contentToAnalyze);
 
     return NextResponse.json({
       ...analysisResult,
       analyzed_content: analyzedContent,
       analysis_source: analysisSource,
-      mode: 'pro',
+      mode: 'enhanced',
       videoId: videoId,
     });
 
   } catch (error: any) {
-    console.error('URL Analysis API error:', error);
+    console.error('Enhanced URL Analysis API error:', error);
     return NextResponse.json({
       error: 'An unexpected error occurred during analysis.',
       details: error.message
