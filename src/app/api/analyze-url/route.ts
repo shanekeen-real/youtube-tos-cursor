@@ -4,6 +4,13 @@ import { YoutubeTranscript } from 'youtube-transcript';
 import axios from 'axios';
 import { adminDb } from '@/lib/firebase-admin'; // Correctly import adminDb
 import { createHash } from 'crypto';
+import TranscriptClient from "youtube-transcript-api";
+
+// Temporary module declaration for missing types
+// @ts-ignore
+// eslint-disable-next-line
+// If you want to add types, create a .d.ts file in your project root
+// declare module 'youtube-transcript-api';
 
 // --- Caching Configuration ---
 const CACHE_ENABLED = true; // Enable cache for both development and production
@@ -35,25 +42,26 @@ function isValidYouTubeUrl(url: string): boolean {
   return videoId !== null && videoId.length === 11;
 }
 
-// Try youtube-transcript library first (already installed)
-async function getTranscriptViaLibrary(videoId: string): Promise<string | null> {
+// Replace the old getTranscriptViaLibrary with the new Node.js library implementation
+async function getTranscriptViaNodeLibrary(videoId: string): Promise<string | null> {
   try {
-    console.log(`Trying youtube-transcript library for video ${videoId}...`);
-    
-    const transcriptItems = await YoutubeTranscript.fetchTranscript(videoId);
-    
-    if (transcriptItems && transcriptItems.length > 0) {
-      const transcriptText = transcriptItems
-        .map(item => item.text)
+    console.log(`Trying youtube-transcript-api Node.js library for video ${videoId}...`);
+    const client = new TranscriptClient();
+    await client.ready;
+    const transcriptObj = await client.getTranscript(videoId);
+    if (transcriptObj && transcriptObj.tracks && transcriptObj.tracks.length > 0) {
+      // Concatenate all text segments from all tracks
+      const transcriptText = transcriptObj.tracks
+        .map((track: any) => (track.transcript as Array<{ text: string }> | undefined)?.map((seg: { text: string }) => seg.text).join(' ') || '')
         .join(' ');
-      
-      console.log(`Successfully fetched transcript via library: ${transcriptText.length} characters`);
-      return transcriptText;
+      if (transcriptText && transcriptText.length > 0) {
+        console.log(`Successfully fetched transcript via Node.js library: ${transcriptText.length} characters`);
+        return transcriptText;
+      }
     }
-    
     return null;
   } catch (error: any) {
-    console.error(`youtube-transcript library failed:`, error.message);
+    console.error(`youtube-transcript-api Node.js library failed:`, error.message);
     return null;
   }
 }
@@ -243,26 +251,24 @@ export async function POST(req: NextRequest) {
     let analyzedContent = '';
     let analysisSource = '';
 
-    // 1. Try youtube-transcript library first (most reliable)
-    const libraryTranscript = await getTranscriptViaLibrary(videoId);
-    if (libraryTranscript) {
-      analyzedContent = libraryTranscript;
+    // 1. Try Node.js youtube-transcript-api library first (most reliable)
+    const nodeLibraryTranscript = await getTranscriptViaNodeLibrary(videoId);
+    if (nodeLibraryTranscript) {
+      analyzedContent = nodeLibraryTranscript;
       contentToAnalyze = `Analyze the following YouTube video transcript: \n\n---${analyzedContent}---`;
-      analysisSource = 'transcript (library)';
+      analysisSource = 'transcript (nodejs library)';
     } else {
       // 2. Try advanced web scraping external services
-      console.log(`Library failed, trying advanced web scraping for video ${videoId}`);
+      console.log(`Node.js library failed, trying advanced web scraping for video ${videoId}`);
       const webScrapedTranscript = await getTranscriptViaWebScraping(videoId);
-      
       if (webScrapedTranscript) {
         analyzedContent = webScrapedTranscript;
         contentToAnalyze = `Analyze the following YouTube video transcript: \n\n---${analyzedContent}---`;
         analysisSource = 'transcript (web scraping)';
       } else {
         // 3. Fallback to video metadata
-        console.log(`Advanced web scraping failed, falling back to video metadata for video ${videoId}`);
+        console.log(`All transcript methods failed, falling back to video metadata for video ${videoId}`);
         const metadata = await getVideoMetadata(videoId);
-        
         if (metadata) {
           analyzedContent = `Title: ${metadata.title}\n\nDescription:\n${metadata.description}`;
           contentToAnalyze = `Analyze the following YouTube video title and description: \n\n---${analyzedContent}---`;

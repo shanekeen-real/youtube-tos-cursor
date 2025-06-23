@@ -1,0 +1,260 @@
+{
+  "timestamp": "2025-06-23T01:41:39.680Z",
+  "sessionId": "2025-06-23T01-41-15-112Z",
+  "input": "This video contains graphic violence and explicit language that may not be suitable for all audiences.",
+  "result": {
+    "risk_score": 73,
+    "risk_level": "HIGH",
+    "confidence_score": 85,
+    "flagged_section": "Graphic violence and explicit language significantly impact monetization and risk content removal.",
+    "policy_categories": {
+      "CONTENT_SAFETY_VIOLENCE": {
+        "risk_score": 80,
+        "confidence": 95,
+        "violations": [
+          "Graphic Violence"
+        ],
+        "severity": "HIGH",
+        "explanation": "The statement explicitly mentions 'graphic violence,' indicating a high probability of content violating YouTube's policies on violent and graphic content.  This could include depictions of bloodshed, injury, or other acts of violence that are excessively graphic or gratuitous.  This directly impacts monetization; videos containing graphic violence are usually demonetized."
+      },
+      "CONTENT_SAFETY_DANGEROUS_ACTS": {
+        "risk_score": 10,
+        "confidence": 50,
+        "violations": [],
+        "severity": "LOW",
+        "explanation": "The statement does not explicitly mention dangerous acts or challenges.  However, depending on the nature of the graphic violence, there's a possibility of indirect violation if the violence depicts or promotes dangerous activities.  Without further details, the risk is low. Monetization impact is low unless dangerous acts are explicitly shown."
+      },
+      "CONTENT_SAFETY_HARMFUL_CONTENT": {
+        "risk_score": 60,
+        "confidence": 80,
+        "violations": [
+          "Explicit Language"
+        ],
+        "severity": "MEDIUM",
+        "explanation": "The mention of 'explicit language' suggests potential violations related to hate speech, profanity, or other forms of harmful content. The severity depends on the nature and context of the explicit language used.  Excessive profanity or hate speech will lead to demonetization and potential content removal."
+      },
+      "CONTENT_SAFETY_CHILD_SAFETY": {
+        "risk_score": 20,
+        "confidence": 70,
+        "violations": [],
+        "severity": "LOW",
+        "explanation": "While the content is targeted at adults, the presence of graphic violence and explicit language could potentially expose children to inappropriate content if safeguards (age restrictions) are not in place.  The risk is low if appropriate age restrictions are applied.  Failure to do so could lead to demonetization and penalties."
+      },
+      "COMMUNITY_STANDARDS_HARASSMENT": {
+        "risk_score": 10,
+        "confidence": 30,
+        "violations": [],
+        "severity": "LOW",
+        "explanation": "There's no indication of harassment or cyberbullying in the statement.  The risk is very low unless the content specifically targets individuals with abusive language or promotes harassment. Monetization is not directly affected unless harassment is present."
+      },
+      "COMMUNITY_STANDARDS_HATE_SPEECH": {
+        "risk_score": 0,
+        "confidence": 100,
+        "violations": [],
+        "severity": "LOW",
+        "explanation": "The provided description does not indicate any hate speech.  There is no mention of targeting or inciting violence against individuals or groups based on protected attributes."
+      },
+      "COMMUNITY_STANDARDS_SPAM": {
+        "risk_score": 0,
+        "confidence": 100,
+        "violations": [],
+        "severity": "LOW",
+        "explanation": "The description does not suggest any spammy behavior such as deceptive solicitations, misleading information for promotional purposes, or repetitive content designed to manipulate the platform."
+      },
+      "COMMUNITY_STANDARDS_MISINFORMATION": {
+        "risk_score": 0,
+        "confidence": 100,
+        "violations": [],
+        "severity": "LOW",
+        "explanation": "The description itself does not contain any misinformation.  The statement is a warning about the content's nature, not a claim of factual information."
+      },
+      "ADVERTISER_FRIENDLY_SEXUAL_CONTENT": {
+        "risk_score": 0,
+        "confidence": 100,
+        "violations": [],
+        "severity": "LOW",
+        "explanation": "While the description doesn't explicitly mention sexual content, the possibility exists depending on the video's actual content.  The description acts as a disclaimer, however.  Without seeing the video, it is impossible to definitively assess this category.  If sexual content is present, it would depend on the nature and context of that content."
+      },
+      "ADVERTISER_FRIENDLY_PROFANITY": {
+        "risk_score": 70,
+        "confidence": 95,
+        "violations": [
+          "Use of explicit language"
+        ],
+        "severity": "MEDIUM",
+        "explanation": "The description explicitly mentions 'explicit language'.  This is a strong indicator of profanity.  The presence of profanity can severely impact monetization.  YouTube's advertiser-friendly policies restrict the use of profanity in monetized videos.  Depending on the frequency and severity of the language, the video might be demonetized or receive a content warning."
+      },
+      "ADVERTISER_FRIENDLY_CONTROVERSIAL": {
+        "risk_score": 85,
+        "confidence": 95,
+        "violations": [
+          "Graphic Violence",
+          "Explicit Language"
+        ],
+        "severity": "HIGH",
+        "explanation": "The presence of graphic violence and explicit language significantly increases the risk of the video being flagged as unsuitable for advertisers.  Many advertisers avoid associating their brands with content containing such material, leading to limited or no monetization opportunities.  The higher the graphic nature and frequency of explicit language, the higher the risk."
+      },
+      "ADVERTISER_FRIENDLY_BRAND_SAFETY": {
+        "risk_score": 90,
+        "confidence": 90,
+        "violations": [
+          "Graphic Violence",
+          "Explicit Language"
+        ],
+        "severity": "HIGH",
+        "explanation": "Brand safety is a major concern for advertisers.  Graphic violence and explicit language are highly likely to trigger brand safety restrictions, preventing the video from being monetized. Advertisers want to protect their brand image and avoid association with potentially offensive content. This significantly impacts monetization potential."
+      },
+      "LEGAL_COMPLIANCE_COPYRIGHT": {
+        "risk_score": 10,
+        "confidence": 90,
+        "violations": [],
+        "severity": "LOW",
+        "explanation": "No information suggests copyright infringement.  The statement only describes the content, not its source. However, if the video uses copyrighted material without permission, this score would increase dramatically."
+      },
+      "LEGAL_COMPLIANCE_PRIVACY": {
+        "risk_score": 10,
+        "confidence": 90,
+        "violations": [],
+        "severity": "LOW",
+        "explanation": "No information indicates any privacy violations.  The description doesn't mention the use of personally identifiable information or unauthorized footage of individuals.  However, if the video included such content without consent, this score would be significantly higher and lead to potential takedown."
+      },
+      "LEGAL_COMPLIANCE_TRADEMARK": {
+        "risk_score": 10,
+        "confidence": 90,
+        "violations": [],
+        "severity": "LOW",
+        "explanation": "There's no mention of trademark violations.  The description provides no indication that the video uses any trademarked material in a way that infringes on the rights of the trademark holder.  This score would change if the video used trademarked logos or branding without permission."
+      },
+      "LEGAL_COMPLIANCE_LEGAL_REQUESTS": {
+        "risk_score": 20,
+        "confidence": 90,
+        "violations": [],
+        "severity": "LOW",
+        "explanation": "The statement itself doesn't indicate a direct violation of legal requests or compliance.  The risk is low because the content creator acknowledges the potentially sensitive nature of their video. However, the graphic violence and explicit language *could* become a legal issue if it depicts illegal acts or infringes on copyright/intellectual property, depending on the specifics of the content.  Further investigation of the actual video content is needed."
+      },
+      "MONETIZATION_AD_POLICIES": {
+        "risk_score": 90,
+        "confidence": 95,
+        "violations": [
+          "Graphic Violence",
+          "Explicit Language"
+        ],
+        "severity": "HIGH",
+        "explanation": "Graphic violence and explicit language are major violations of YouTube's ad-friendly content guidelines.  Advertisers are unlikely to associate their brands with such content, resulting in demonetization.  The statement itself admits to these violations, severely impacting monetization eligibility."
+      },
+      "MONETIZATION_SPONSORED_CONTENT": {
+        "risk_score": 10,
+        "confidence": 80,
+        "violations": [],
+        "severity": "LOW",
+        "explanation": "No information about sponsored content is provided.  The risk is low, but if the video contains sponsored content, the graphic violence and explicit language could affect the advertiser's willingness to be associated with the video and could lead to issues if not properly disclosed."
+      },
+      "MONETIZATION_MONETIZATION_ELIGIBILITY": {
+        "risk_score": 95,
+        "confidence": 95,
+        "violations": [
+          "Graphic Violence",
+          "Explicit Language"
+        ],
+        "severity": "HIGH",
+        "explanation": "Due to the graphic violence and explicit language, the video is highly unlikely to be eligible for monetization.  YouTube's monetization policies strictly prohibit this type of content. The explicit warning in the description itself doesn't negate the violations; rather, it confirms them."
+      }
+    },
+    "context_analysis": {
+      "content_type": "Entertainment",
+      "target_audience": "Adults",
+      "monetization_impact": 50,
+      "content_length": 14,
+      "language_detected": "English"
+    },
+    "highlights": [
+      {
+        "category": "MONETIZATION MONETIZATION ELIGIBILITY",
+        "risk": "HIGH",
+        "score": 95,
+        "confidence": 95
+      },
+      {
+        "category": "ADVERTISER FRIENDLY BRAND SAFETY",
+        "risk": "HIGH",
+        "score": 90,
+        "confidence": 90
+      },
+      {
+        "category": "MONETIZATION AD POLICIES",
+        "risk": "HIGH",
+        "score": 90,
+        "confidence": 95
+      },
+      {
+        "category": "ADVERTISER FRIENDLY CONTROVERSIAL",
+        "risk": "HIGH",
+        "score": 85,
+        "confidence": 95
+      }
+    ],
+    "suggestions": [
+      {
+        "title": "Remove or Heavily Edit Graphic Violence",
+        "text": "Completely remove all scenes depicting graphic violence, or heavily edit them to minimize the graphic nature.  Focus on conveying the narrative without gratuitous depictions of bloodshed or injury. This directly addresses the highest risk factors related to Content Safety, Advertiser-Friendly policies, and Monetization.",
+        "priority": "HIGH",
+        "impact_score": 90
+      },
+      {
+        "title": "Remove or Moderate Explicit Language",
+        "text": "Remove all explicit language or replace it with less offensive alternatives.  Consider using bleeps or other audio editing techniques to mitigate the impact.  This addresses violations in Content Safety, Advertiser-Friendly policies, and Monetization.",
+        "priority": "HIGH",
+        "impact_score": 85
+      },
+      {
+        "title": "Implement Age Restrictions",
+        "text": "Apply YouTube's age restrictions to the video to prevent accidental exposure to children. This reduces the risk associated with Child Safety violations, improving compliance and minimizing potential penalties.",
+        "priority": "MEDIUM",
+        "impact_score": 70
+      },
+      {
+        "title": "Review for Copyright and Trademark Infringement",
+        "text": "Thoroughly review the video for any copyrighted music, images, or trademarked materials. Secure necessary permissions or replace any infringing elements to avoid legal issues and maintain compliance.",
+        "priority": "MEDIUM",
+        "impact_score": 60
+      },
+      {
+        "title": "Clearly Disclose Sponsored Content (if applicable)",
+        "text": "If the video contains sponsored content, ensure clear and unambiguous disclosure according to YouTube's guidelines. This prevents potential penalties and maintains transparency with viewers.",
+        "priority": "LOW",
+        "impact_score": 30
+      },
+      {
+        "title": "Re-evaluate Monetization Eligibility After Edits",
+        "text": "After implementing the above suggestions, resubmit the video for monetization review.  The significant reduction in violations should increase the likelihood of approval.",
+        "priority": "HIGH",
+        "impact_score": 80
+      },
+      {
+        "title": "Add a Disclaimer (if necessary)",
+        "text": "If retaining some violent or suggestive content, add a prominent disclaimer warning viewers of potentially sensitive material. This could mitigate the risk slightly, though not a substitute for removing the content.",
+        "priority": "LOW",
+        "impact_score": 20
+      }
+    ],
+    "analysis_metadata": {
+      "model_used": "gemini-1.5-flash-latest",
+      "analysis_timestamp": "2025-06-23T01:41:39.680Z",
+      "processing_time_ms": 24553,
+      "content_length": 102,
+      "analysis_mode": "enhanced"
+    }
+  },
+  "processingTime": 24553,
+  "errors": [],
+  "metadata": {
+    "stages": [
+      "context",
+      "policy",
+      "risk",
+      "confidence",
+      "suggestions"
+    ],
+    "policyCategoriesAnalyzed": 19
+  }
+}

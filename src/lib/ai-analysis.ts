@@ -373,16 +373,31 @@ async function performPolicyCategoryAnalysisBatched(text: string, model: any, co
       
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const analysis = JSON.parse(jsonMatch[0]);
-        if (analysis.categories) {
-          for (const [categoryKey, categoryAnalysis] of Object.entries(analysis.categories)) {
-            const analysisData = categoryAnalysis as any;
-            policyAnalysis[categoryKey] = {
-              risk_score: Math.min(100, Math.max(0, analysisData.risk_score || 0)),
-              confidence: Math.min(100, Math.max(0, analysisData.confidence || 0)),
-              violations: analysisData.violations || [],
-              severity: analysisData.severity || 'LOW',
-              explanation: analysisData.explanation || ''
+        try {
+          const analysis = JSON.parse(jsonMatch[0]);
+          if (analysis.categories) {
+            for (const [categoryKey, categoryAnalysis] of Object.entries(analysis.categories)) {
+              const analysisData = categoryAnalysis as any;
+              policyAnalysis[categoryKey] = {
+                risk_score: Math.min(100, Math.max(0, analysisData.risk_score || 0)),
+                confidence: Math.min(100, Math.max(0, analysisData.confidence || 0)),
+                violations: analysisData.violations || [],
+                severity: analysisData.severity || 'LOW',
+                explanation: analysisData.explanation || ''
+              };
+            }
+          }
+        } catch (jsonError) {
+          console.error('Failed to parse policy analysis JSON:', jsonMatch[0]);
+          console.error('JSON parse error:', jsonError);
+          // Provide default analysis for failed batch
+          for (const category of batch) {
+            policyAnalysis[category.key] = {
+              risk_score: 0,
+              confidence: 0,
+              violations: [],
+              severity: 'LOW',
+              explanation: 'Analysis failed for this category (JSON parse error)'
             };
           }
         }

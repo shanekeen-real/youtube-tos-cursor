@@ -19,7 +19,8 @@
     "react": "^19.1.0",
     "react-dom": "^19.0.0",
     "stripe": "^18.2.1",
-    "youtube-transcript": "^1.2.1"
+    "youtube-transcript": "^1.2.1",
+    "youtube-transcript-api": "^3.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
