@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { performAnalysis, performEnhancedAnalysis } from '@/lib/ai-analysis';
 import { YoutubeTranscript } from 'youtube-transcript';
 import axios from 'axios';
+import { adminDb } from '@/lib/firebase-admin'; // Correctly import adminDb
+import { createHash } from 'crypto';
+
+// --- Caching Configuration ---
+const CACHE_ENABLED = true; // Enable cache for both development and production
+const CACHE_DURATION_DAYS = 7;
+
+// Function to create a consistent hash for a URL
+function createCacheKey(url: string): string {
+    return createHash('sha256').update(url).digest('hex');
+}
 
 // Function to extract video ID from YouTube URL
 function extractVideoId(url: string): string | null {
@@ -204,6 +215,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Could not extract video ID from URL' }, { status: 400 });
     }
 
+    // --- Cache Check ---
+    const cacheKey = createCacheKey(url);
+    if (CACHE_ENABLED) {
+        const cacheRef = adminDb.collection('analysis_cache').doc(cacheKey);
+        const cacheDoc = await cacheRef.get();
+
+        if (cacheDoc.exists) {
+            const cacheData = cacheDoc.data();
+            if (cacheData && cacheData.timestamp) {
+                const cacheAgeDays = (Date.now() - cacheData.timestamp.toMillis()) / (1000 * 60 * 60 * 24);
+
+                if (cacheAgeDays < CACHE_DURATION_DAYS) {
+                    console.log(`CACHE HIT: Returning cached analysis for URL: ${url}`);
+                    return NextResponse.json({
+                        ...cacheData.analysisResult,
+                        is_cached: true,
+                    });
+                }
+            }
+        }
+    }
+    console.log(`CACHE MISS: Performing new analysis for URL: ${url}`);
+    // --- End Cache Check ---
+
     let contentToAnalyze = '';
     let analyzedContent = '';
     let analysisSource = '';
@@ -241,6 +276,19 @@ export async function POST(req: NextRequest) {
     }
 
     const analysisResult = await performEnhancedAnalysis(contentToAnalyze);
+
+    // --- Save to Cache ---
+    if (CACHE_ENABLED) {
+        const cacheRef = adminDb.collection('analysis_cache').doc(cacheKey);
+        await cacheRef.set({
+            analysisResult,
+            timestamp: new Date(),
+            original_url: url,
+            video_id: videoId,
+        });
+        console.log(`CACHE SET: Saved new analysis to cache for URL: ${url}`);
+    }
+    // --- End Save to Cache ---
 
     return NextResponse.json({
       ...analysisResult,
