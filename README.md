@@ -9,6 +9,7 @@ A comprehensive YouTube policy analysis tool that helps content creators underst
 - **Context-Aware Analysis**: Considers content type, target audience, and monetization impact
 - **Actionable Suggestions**: Specific recommendations to improve content compliance
 - **Real-time Processing**: Fast analysis with intelligent fallback mechanisms
+- **Error Monitoring**: Integrated Sentry for real-time error tracking and debugging
 
 ## AI Models
 
@@ -40,8 +41,38 @@ ANTHROPIC_API_KEY=your_anthropic_api_key_here
 # Required for Gemini 1.5 Flash (fallback model)
 GOOGLE_API_KEY=your_google_api_key_here
 
+# Sentry Error Monitoring (recommended for production)
+SENTRY_DSN=your_sentry_dsn_here
+NEXT_PUBLIC_SENTRY_DSN=your_sentry_dsn_here
+
 # Other existing variables...
 ```
+
+## Error Monitoring with Sentry
+
+The application includes Sentry integration for comprehensive error monitoring:
+
+### Benefits
+- **Real-time Error Tracking**: Monitor errors as they happen
+- **Performance Monitoring**: Track API response times and bottlenecks
+- **User Session Replay**: Understand user interactions leading to errors
+- **Automatic Error Grouping**: Intelligent error categorization
+- **Production Debugging**: Detailed error context for faster resolution
+
+### Setup
+1. Create a Sentry account at [sentry.io](https://sentry.io)
+2. Create a new project for your Next.js application
+3. Copy your DSN from the project settings
+4. Add the DSN to your environment variables:
+   - `SENTRY_DSN` for server-side errors
+   - `NEXT_PUBLIC_SENTRY_DSN` for client-side errors
+
+### What's Monitored
+- AI analysis failures and fallbacks
+- API endpoint errors
+- Client-side JavaScript errors
+- Performance bottlenecks
+- User interactions leading to errors
 
 ## Model Selection Logic
 

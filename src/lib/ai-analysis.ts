@@ -2,6 +2,7 @@ import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/ge
 import Anthropic from '@anthropic-ai/sdk';
 import { usageTracker } from './usage-tracker';
 import { z } from 'zod';
+import * as Sentry from '@sentry/nextjs';
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY as string);
 const anthropic = new Anthropic({
@@ -281,6 +282,15 @@ export async function performEnhancedAnalysis(text: string): Promise<EnhancedAna
   } catch (error: any) {
     console.log('Enhanced analysis failed, falling back to basic analysis:', error.message);
     
+    // Track critical errors with Sentry
+    Sentry.captureException(error, {
+      tags: { component: 'ai-analysis', stage: 'enhanced' },
+      extra: { 
+        textLength: text.length,
+        modelUsed: model.name 
+      }
+    });
+    
     try {
       // Fallback to basic analysis
       const basicResult = await performBasicAnalysis(text, model);
@@ -311,6 +321,16 @@ export async function performEnhancedAnalysis(text: string): Promise<EnhancedAna
       };
     } catch (basicError: any) {
       console.log('Basic analysis also failed, using emergency fallback:', basicError.message);
+      
+      // Track fallback failures with Sentry
+      Sentry.captureException(basicError, {
+        tags: { component: 'ai-analysis', stage: 'basic-fallback' },
+        extra: { 
+          textLength: text.length,
+          modelUsed: model.name,
+          originalError: error.message
+        }
+      });
       
       // Emergency fallback - no AI required
       const processingTime = Date.now() - startTime;
