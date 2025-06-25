@@ -142,6 +142,8 @@ export default function Home() {
     } catch (e: any) {
        if (e.response && e.response.status === 400) {
         alert(e.response.data.error); // Show specific error from backend
+      } else if (e.response && e.response.status === 429) {
+        alert('AI analysis service is temporarily unavailable due to high usage. Please try again in a few minutes.');
       } else {
         alert('Error analyzing content. Please try again.');
       }

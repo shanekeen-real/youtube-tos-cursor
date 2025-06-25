@@ -306,6 +306,15 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error('Enhanced URL Analysis API error:', error);
+    
+    // Check if it's a quota error and provide a specific message
+    if (error.status === 429 || (error.message && error.message.includes('429'))) {
+      return NextResponse.json({
+        error: 'AI analysis service is temporarily unavailable due to high usage. Please try again in a few minutes.',
+        details: 'Daily quota limit reached. The service will reset at midnight UTC.'
+      }, { status: 429 });
+    }
+    
     return NextResponse.json({
       error: 'An unexpected error occurred during analysis.',
       details: error.message

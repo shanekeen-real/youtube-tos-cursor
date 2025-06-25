@@ -1,64 +1,89 @@
 # YouTube TOS Analyst
 
-by Shane Keen
+A comprehensive YouTube policy analysis tool that helps content creators understand and comply with YouTube's community guidelines and advertiser-friendly policies.
 
-## 🚀 **New Hybrid Transcript System**
+## Features
 
-This application now uses a robust hybrid approach to fetch YouTube video transcripts:
+- **Multi-Model AI Analysis**: Supports both Claude 3 Haiku and Gemini 1.5 Flash for robust policy analysis
+- **Enhanced Risk Assessment**: Detailed analysis across multiple policy categories
+- **Context-Aware Analysis**: Considers content type, target audience, and monetization impact
+- **Actionable Suggestions**: Specific recommendations to improve content compliance
+- **Real-time Processing**: Fast analysis with intelligent fallback mechanisms
 
-### **Primary Method: YouTube Data API v3**
-- **Cost:** FREE (10,000 requests/day)
-- **Reliability:** 95% success rate
-- **Requires:** `YOUTUBE_API_KEY` environment variable
+## AI Models
 
-### **Fallback Method: Piped API**
-- **Cost:** 100% FREE
-- **Reliability:** 70% success rate
-- **No API key required**
+The application now supports dual AI models for enhanced reliability and performance:
 
-### **Combined Success Rate:** 98%+
+### Primary Model: Claude 3 Haiku
+- **Provider**: Anthropic
+- **Model**: `claude-3-haiku-20240307`
+- **Benefits**: 
+  - Superior analysis accuracy
+  - Higher rate limits (100 requests/minute)
+  - Better understanding of nuanced policy violations
+  - More detailed explanations and suggestions
 
-## 🔧 **Environment Variables Required**
+### Fallback Model: Gemini 1.5 Flash
+- **Provider**: Google
+- **Model**: `gemini-1.5-flash-latest`
+- **Benefits**: 
+  - Reliable fallback option
+  - Good performance for basic analysis
+  - No additional API key required if already configured
 
-```bash
-# Required for YouTube Data API
-YOUTUBE_API_KEY=your_youtube_api_key_here
+## Environment Variables
 
-# Required for AI analysis
-GOOGLE_API_KEY=your_google_ai_key_here
+```env
+# Required for Claude 3 Haiku (primary model)
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
 
-# Required for Firebase
-FIREBASE_PROJECT_ID=your_project_id
-FIREBASE_PRIVATE_KEY=your_private_key
-FIREBASE_CLIENT_EMAIL=your_client_email
+# Required for Gemini 1.5 Flash (fallback model)
+GOOGLE_API_KEY=your_google_api_key_here
 
-# Required for Stripe
-STRIPE_SECRET_KEY=your_stripe_secret_key
-STRIPE_WEBHOOK_SECRET=your_webhook_secret
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=your_publishable_key
+# Other existing variables...
 ```
 
-## 📋 **How to Get YouTube API Key**
+## Model Selection Logic
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing
-3. Enable YouTube Data API v3
-4. Create credentials (API Key)
-5. Add to your `.env.local` file
+The application automatically selects the best available model:
 
-## 🎯 **Features**
+1. **Claude 3 Haiku** (if `ANTHROPIC_API_KEY` is set)
+2. **Gemini 1.5 Flash** (fallback if Claude unavailable or fails)
 
-- **Hybrid Transcript Fetching:** YouTube API + Piped API fallback
-- **AI-Powered Analysis:** Using Google's Gemini AI
-- **Risk Assessment:** YouTube policy compliance scoring
-- **User Authentication:** Firebase integration
-- **Payment Processing:** Stripe integration
+This ensures maximum uptime and analysis quality while maintaining backward compatibility.
 
-## 🚀 **Getting Started**
+## Testing the Integration
 
-```bash
-npm install
-npm run dev
-```
+Visit `/test-claude` to test the new Claude integration with sample content.
 
-Visit `http://localhost:3000` to start analyzing YouTube videos!
+## API Endpoints
+
+- `POST /api/test-claude` - Test Claude integration
+- `GET /api/test-claude` - Get integration status
+
+## Getting Started
+
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+2. Set up environment variables (see above)
+
+3. Run the development server:
+   ```bash
+   npm run dev
+   ```
+
+4. Visit `http://localhost:3000` to start analyzing content
+
+## Architecture
+
+The application uses a model abstraction layer that seamlessly switches between AI providers:
+
+- **AIModel Interface**: Common interface for all AI models
+- **ClaudeModel**: Implementation for Claude 3 Haiku
+- **GeminiModel**: Implementation for Gemini 1.5 Flash
+- **Automatic Fallback**: Graceful degradation if primary model fails
+
+This design ensures minimal code changes while providing maximum flexibility and reliability.
