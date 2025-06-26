@@ -1,26 +1,22 @@
 "use client";
-import React, { useState, useEffect, createContext } from 'react';
+import React, { useState, createContext } from 'react';
 import AuthModal from './AuthModal';
 import UserMenu from './UserMenu';
 import Button from './Button';
-import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
-import { app } from '../lib/firebase';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 
 export const AuthContext = createContext<{
-  user: User | null;
+  user: any;
   setAuthOpen: (open: boolean) => void;
 } | null>(null);
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [authOpen, setAuthOpen] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
-  useEffect(() => {
-    const unsub = onAuthStateChanged(getAuth(app), setUser);
-    return () => unsub();
-  }, []);
+  const { data: session, status } = useSession();
+
   return (
-    <AuthContext.Provider value={{ user, setAuthOpen }}>
+    <AuthContext.Provider value={{ user: session?.user || null, setAuthOpen }}>
       <header className="w-full flex items-center justify-between max-w-5xl mx-auto mb-12 pt-4 px-4">
         <div className="flex items-center gap-2">
           <Link href="/" className="flex items-center gap-2">
@@ -29,8 +25,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           </Link>
         </div>
         <nav className="flex gap-4 text-sm items-center">
-          {user ? (
-            <UserMenu user={user} />
+          {status === 'loading' ? (
+            <div className="animate-pulse bg-gray-200 h-9 w-20 rounded"></div>
+          ) : session?.user ? (
+            <UserMenu user={session.user} />
           ) : (
             <>
               <Button variant="outlined" className="h-9 px-4" onClick={() => setAuthOpen(true)}>Sign in</Button>

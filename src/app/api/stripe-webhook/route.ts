@@ -1,24 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { adminDb } from '@/lib/firebase-admin'; // Use the Admin SDK
+import { adminDb } from '@/lib/firebase-admin';
 
 // This is your Stripe CLI webhook secret for testing
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: '2025-05-28.basil',
 });
-const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET as string;
+const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 export async function POST(req: NextRequest) {
-  const sig = req.headers.get('stripe-signature') as string;
   const body = await req.text();
+  const sig = req.headers.get('stripe-signature')!;
   
   let event: Stripe.Event;
 
   try {
     event = stripe.webhooks.constructEvent(body, sig, endpointSecret);
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    return NextResponse.json({ error: `Webhook Error: ${errorMessage}` }, { status: 400 });
+  } catch (err: any) {
+    console.error('Webhook signature verification failed:', err.message);
+    return NextResponse.json({ error: 'Webhook signature verification failed' }, { status: 400 });
   }
 
   // Handle the event

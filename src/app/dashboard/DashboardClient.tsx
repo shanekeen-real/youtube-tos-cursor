@@ -1,6 +1,6 @@
 "use client";
-import React, { useState, useEffect, useContext } from 'react';
-import { AuthContext } from '@/components/ClientLayout';
+import React, { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 import { app } from '@/lib/firebase';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -9,6 +9,7 @@ import Button from '@/components/Button';
 import Link from 'next/link';
 import { loadStripe } from '@stripe/stripe-js';
 import axios from 'axios';
+import ConnectYouTubeButton from '@/components/ConnectYouTubeButton';
 
 // Define the structure of a user's profile data
 interface UserProfile {
@@ -23,13 +24,16 @@ interface UserProfile {
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 export default function DashboardClient() {
-  const authContext = useContext(AuthContext);
+  const { data: session, status } = useSession();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [ytChannel, setYtChannel] = useState<any>(null);
+  const [ytLoading, setYtLoading] = useState(false);
+  const [ytFetching, setYtFetching] = useState(false);
 
   useEffect(() => {
     if (searchParams.get('payment_success') === 'true') {
@@ -43,15 +47,14 @@ export default function DashboardClient() {
 
   useEffect(() => {
     const fetchUserProfile = async () => {
-      if (!authContext?.user) {
+      if (!session?.user?.id) {
         setLoading(false);
-        // This will be handled by the main loading/error/auth checks below
         return;
       }
 
       try {
         const db = getFirestore(app);
-        const userRef = doc(db, 'users', authContext.user.uid);
+        const userRef = doc(db, 'users', session.user.id);
         const userDoc = await getDoc(userRef);
 
         if (userDoc.exists()) {
@@ -60,7 +63,7 @@ export default function DashboardClient() {
           // User exists in Auth, but not in Firestore. Let's create their profile.
           console.log("User profile not found, creating one on the fly...");
           const newUserProfile: UserProfile = {
-            email: authContext.user.email!,
+            email: session.user.email!,
             createdAt: new Date().toISOString(),
             scanCount: 0,
             scanLimit: 3,
@@ -77,16 +80,65 @@ export default function DashboardClient() {
     };
 
     fetchUserProfile();
-  }, [authContext?.user]);
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    const fetchYouTube = async () => {
+      setYtLoading(true);
+      if (!session?.user?.id) {
+        setYtChannel(null);
+        setYtLoading(false);
+        return;
+      }
+      try {
+        const db = getFirestore(app);
+        const userRef = doc(db, 'users', session.user.id);
+        const userDoc = await getDoc(userRef);
+        if (userDoc.exists() && userDoc.data().youtube?.channel) {
+          setYtChannel(userDoc.data().youtube.channel);
+        } else {
+          // No channel data found, try to fetch it from YouTube API
+          setYtFetching(true);
+          try {
+            const response = await fetch('/api/fetch-youtube-channel', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              setYtChannel(data.channel);
+            } else {
+              const errorData = await response.json();
+              console.log('No YouTube channel found or error:', errorData.error);
+              setYtChannel(null);
+            }
+          } catch (error) {
+            console.error('Error fetching YouTube channel:', error);
+            setYtChannel(null);
+          } finally {
+            setYtFetching(false);
+          }
+        }
+      } catch {
+        setYtChannel(null);
+      } finally {
+        setYtLoading(false);
+      }
+    };
+    fetchYouTube();
+  }, [session?.user?.id]);
   
   const handleUpgradeClick = async () => {
-    if (!authContext?.user) {
+    if (!session?.user?.id) {
         alert("Please sign in to upgrade.");
         return;
     }
     try {
         const { data } = await axios.post('/api/create-checkout-session', {
-            userId: authContext.user.uid
+            userId: session.user.id
         });
         const stripe = await stripePromise;
         if (stripe) {
@@ -100,7 +152,7 @@ export default function DashboardClient() {
   
   const progress = userProfile ? (userProfile.scanCount / userProfile.scanLimit) * 100 : 0;
 
-  if (loading) {
+  if (status === 'loading' || loading) {
     return (
       <div className="text-center py-10">
         <p>Loading dashboard...</p>
@@ -108,11 +160,11 @@ export default function DashboardClient() {
     );
   }
 
-  if (!authContext?.user) {
+  if (!session?.user) {
     return (
       <div className="text-center py-10">
         <p className="mb-4">Please sign in to view your dashboard.</p>
-        <Button onClick={() => authContext?.setAuthOpen(true)}>Sign In</Button>
+        <Button onClick={() => router.push('/')}>Sign In</Button>
       </div>
     );
   }
@@ -133,6 +185,36 @@ export default function DashboardClient() {
         </div>
       )}
       <h1 className="text-3xl font-bold text-[#212121] mb-6">My Dashboard</h1>
+      {/* YouTube Channel Integration Section */}
+      <section className="mb-8">
+        <h2 className="text-2xl font-bold mb-2">YouTube Channel Integration</h2>
+        {ytLoading ? (
+          <div>Loading channel info...</div>
+        ) : ytFetching ? (
+          <div>Connecting to YouTube...</div>
+        ) : ytChannel ? (
+          <div className="mt-4 p-4 bg-gray-50 border rounded">
+            <h3 className="text-xl font-semibold mb-2">Connected Channel:</h3>
+            <div className="flex items-center gap-4">
+              {ytChannel.snippet?.thumbnails?.default?.url && (
+                <img src={ytChannel.snippet.thumbnails.default.url} alt="Channel" className="w-16 h-16 rounded-full" />
+              )}
+              <div>
+                <div className="font-bold text-lg">{ytChannel.snippet?.title}</div>
+                <div className="text-gray-600">{ytChannel.snippet?.customUrl}</div>
+                <div className="text-gray-600">Subscribers: {ytChannel.statistics?.subscriberCount}</div>
+                <div className="text-gray-600">Total Views: {ytChannel.statistics?.viewCount}</div>
+                <div className="text-gray-600">Videos: {ytChannel.statistics?.videoCount}</div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-4">
+            <p className="text-gray-600 mb-4">Connect your YouTube channel to analyze your own videos for TOS compliance.</p>
+            <ConnectYouTubeButton />
+          </div>
+        )}
+      </section>
       {userProfile && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>

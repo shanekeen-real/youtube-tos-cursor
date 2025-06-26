@@ -108,7 +108,7 @@ export default function Home() {
     setLoadingFull(true);
     try {
       const db = getFirestore(app);
-      const userRef = doc(db, 'users', auth.user.uid);
+      const userRef = doc(db, 'users', auth.user.id);
       const userDoc = await getDoc(userRef);
 
       if (userDoc.exists()) {
@@ -128,7 +128,7 @@ export default function Home() {
       
       const scanData = {
         ...res.data,
-        userId: auth.user.uid,
+        userId: auth.user.id,
         createdAt: new Date().toISOString(),
         originalText: isUrl ? inputValue : inputValue.substring(0, 500), // Store URL or text snippet
       };
@@ -162,7 +162,7 @@ export default function Home() {
     try {
       // --- Check Scan Limit ---
       const db = getFirestore(app);
-      const userRef = doc(db, 'users', auth.user.uid);
+      const userRef = doc(db, 'users', auth.user.id);
       const userDoc = await getDoc(userRef);
 
       if (userDoc.exists()) {
@@ -179,7 +179,7 @@ export default function Home() {
       // Save to Firestore on client side
       const scanData = {
         ...res.data,
-        userId: auth.user.uid,
+        userId: auth.user.id,
         createdAt: new Date().toISOString(),
         originalText: inputValue.substring(0, 500),
       };

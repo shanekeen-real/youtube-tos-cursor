@@ -1,25 +1,24 @@
 "use client";
-import React, { useState, useEffect, useContext } from 'react';
-import { AuthContext } from '@/components/ClientLayout';
+import React, { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { getFirestore, collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { app } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
-import Card from '@/components/Card';
 import Button from '@/components/Button';
+import Card from '@/components/Card';
 import Badge from '@/components/Badge';
 
-// Define the structure of a scan object
 interface Scan {
   id: string;
+  url: string;
+  title: string;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
   createdAt: string;
-  risk_score: number;
-  risk_level: 'LOW' | 'MEDIUM' | 'HIGH';
-  flagged_section: string;
-  originalText: string;
+  status: 'completed' | 'processing' | 'failed';
 }
 
 export default function ScanHistoryPage() {
-  const authContext = useContext(AuthContext);
+  const { data: session, status } = useSession();
   const [scans, setScans] = useState<Scan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +26,7 @@ export default function ScanHistoryPage() {
 
   useEffect(() => {
     const fetchScans = async () => {
-      if (!authContext?.user) {
+      if (!session?.user?.id) {
         setLoading(false);
         return;
       }
@@ -37,7 +36,7 @@ export default function ScanHistoryPage() {
         const scansRef = collection(db, 'scans');
         const q = query(
           scansRef,
-          where('userId', '==', authContext.user.uid),
+          where('userId', '==', session.user.id),
           orderBy('createdAt', 'desc')
         );
         
@@ -56,7 +55,7 @@ export default function ScanHistoryPage() {
     };
 
     fetchScans();
-  }, [authContext?.user]);
+  }, [session?.user?.id]);
 
   const getRiskBadgeColor = (level: 'LOW' | 'MEDIUM' | 'HIGH') => {
     switch (level) {
@@ -67,7 +66,7 @@ export default function ScanHistoryPage() {
     }
   };
 
-  if (loading) {
+  if (status === 'loading' || loading) {
     return (
       <div className="text-center py-10">
         <p>Loading scan history...</p>
@@ -75,11 +74,11 @@ export default function ScanHistoryPage() {
     );
   }
 
-  if (!authContext?.user) {
+  if (!session?.user) {
     return (
       <div className="text-center py-10">
         <p className="mb-4">Please sign in to view your scan history.</p>
-        <Button onClick={() => authContext?.setAuthOpen(true)}>Sign In</Button>
+        <Button onClick={() => router.push('/')}>Sign In</Button>
       </div>
     );
   }
@@ -89,45 +88,48 @@ export default function ScanHistoryPage() {
   }
 
   return (
-    <main className="min-h-screen w-full max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-[#212121] mb-6">Scan History</h1>
-      
+    <div className="w-full max-w-4xl mx-auto px-4">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-[#212121] mb-2">Scan History</h1>
+        <p className="text-gray-600">View all your previous content scans and their results.</p>
+      </div>
+
       {scans.length === 0 ? (
         <Card>
-            <div className="text-center text-gray-500">
-                <p>You have no saved scans.</p>
-                <Button variant="secondary" onClick={() => router.push('/')}>Make your first scan</Button>
-            </div>
+          <div className="text-center py-8">
+            <p className="text-gray-500 mb-4">No scans found.</p>
+            <Button onClick={() => router.push('/')}>Start Your First Scan</Button>
+          </div>
         </Card>
       ) : (
         <div className="space-y-4">
           {scans.map((scan) => (
-            <Card key={scan.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
-              <div className="flex-grow min-w-0">
-                <div className="text-sm text-gray-500 mb-1">
-                  {new Date(scan.createdAt).toLocaleString()}
+            <Card key={scan.id} className="hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-[#212121] mb-1">{scan.title}</h3>
+                  <p className="text-sm text-gray-600 mb-2">{scan.url}</p>
+                  <div className="flex items-center gap-4 text-sm text-gray-500">
+                    <span>{new Date(scan.createdAt).toLocaleDateString()}</span>
+                    <Badge color={getRiskBadgeColor(scan.riskLevel)}>
+                      {scan.riskLevel} Risk
+                    </Badge>
+                    <Badge color={scan.status === 'completed' ? 'green' : scan.status === 'processing' ? 'yellow' : 'red'}>
+                      {scan.status}
+                    </Badge>
+                  </div>
                 </div>
-                <p className="font-semibold text-lg text-gray-800 truncate" title={scan.flagged_section}>
-                  {scan.flagged_section}
-                </p>
-                <p className="text-sm text-gray-600 truncate" title={scan.originalText}>
-                  {scan.originalText}
-                </p>
-              </div>
-              <div className="flex items-center space-x-4 ml-4">
-                <Badge color={getRiskBadgeColor(scan.risk_level)}>{scan.risk_level}</Badge>
-                <div className="text-2xl font-bold text-gray-700">{scan.risk_score}</div>
                 <Button 
-                  variant="secondary"
+                  variant="outlined" 
                   onClick={() => router.push(`/results?scanId=${scan.id}`)}
                 >
-                  View Report
+                  View Details
                 </Button>
               </div>
             </Card>
           ))}
         </div>
       )}
-    </main>
+    </div>
   );
 } 

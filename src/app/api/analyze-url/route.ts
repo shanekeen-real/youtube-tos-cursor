@@ -282,12 +282,24 @@ export async function POST(req: NextRequest) {
     }
 
     const analysisResult = await performEnhancedAnalysis(contentToAnalyze);
+    console.log('AI analysisResult:', analysisResult);
+
+    // Normalize output for frontend compatibility
+    const result: any = analysisResult;
+    const safeResult = {
+      ...result,
+      riskLevel: result.riskLevel || result.risk_level || 'Unknown',
+      riskScore: result.riskScore || result.risk_score || 0,
+      title: result.title || '',
+      flaggedSections: result.flaggedSections || result.flagged_section || [],
+      suggestions: result.suggestions || [],
+    };
 
     // --- Save to Cache ---
     if (CACHE_ENABLED) {
         const cacheRef = adminDb.collection('analysis_cache').doc(cacheKey);
         await cacheRef.set({
-            analysisResult,
+            analysisResult: safeResult,
             timestamp: new Date(),
             original_url: url,
             video_id: videoId,
@@ -297,7 +309,7 @@ export async function POST(req: NextRequest) {
     // --- End Save to Cache ---
 
     return NextResponse.json({
-      ...analysisResult,
+      ...safeResult,
       analyzed_content: analyzedContent,
       analysis_source: analysisSource,
       mode: 'enhanced',

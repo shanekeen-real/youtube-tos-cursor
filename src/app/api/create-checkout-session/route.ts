@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { auth } from '@/lib/auth';
 
 // Initialize Stripe with your secret key
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
@@ -8,16 +9,16 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = await req.json();
-
-    if (!userId) {
+    const session = await auth();
+    
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
     }
 
     const YOUR_DOMAIN = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
     // Create a Checkout Session
-    const session = await stripe.checkout.sessions.create({
+    const checkoutSession = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
         {
@@ -39,15 +40,15 @@ export async function POST(req: NextRequest) {
       cancel_url: `${YOUR_DOMAIN}/dashboard?payment_canceled=true`,
       metadata: {
         // Pass the user's ID so we can identify them in the webhook
-        userId: userId,
+        userId: session.user.id,
       },
     });
 
-    if (!session.id) {
+    if (!checkoutSession.id) {
         throw new Error("Could not create Stripe session");
     }
 
-    return NextResponse.json({ sessionId: session.id });
+    return NextResponse.json({ sessionId: checkoutSession.id });
   } catch (error) {
     console.error('Stripe checkout error:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
