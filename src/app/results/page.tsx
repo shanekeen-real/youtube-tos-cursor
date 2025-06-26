@@ -8,6 +8,7 @@ import Card from '@/components/Card';
 import Button from '@/components/Button';
 import Badge from '@/components/Badge';
 import Link from 'next/link';
+import { Suspense } from "react";
 
 interface ScanData {
   id?: string;
@@ -425,5 +426,9 @@ function ResultsPageContent() {
 }
 
 export default function ResultsPage() {
-  return <ResultsPageContent />;
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ResultsPageContent />
+    </Suspense>
+  );
 }
