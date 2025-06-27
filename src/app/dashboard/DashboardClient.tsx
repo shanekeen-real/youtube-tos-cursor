@@ -312,7 +312,7 @@ export default function DashboardClient() {
                   </div>
                 </div>
                 <div className="mt-2 flex justify-end">
-                  <Button size="sm" onClick={() => {/* TODO: trigger analysis for video.id.videoId */}}>
+                  <Button onClick={() => { /* TODO: trigger analysis for video.id.videoId */ }}>
                     Scan/Analyze
                   </Button>
                 </div>
