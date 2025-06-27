@@ -33,7 +33,7 @@ export default function ScanHistoryPage() {
 
       try {
         const db = getFirestore(app);
-        const scansRef = collection(db, 'scans');
+        const scansRef = collection(db, 'analysis_cache');
         const q = query(
           scansRef,
           where('userId', '==', session.user.id),

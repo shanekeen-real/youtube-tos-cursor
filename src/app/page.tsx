@@ -132,7 +132,7 @@ export default function Home() {
         createdAt: new Date().toISOString(),
         originalText: isUrl ? inputValue : inputValue.substring(0, 500), // Store URL or text snippet
       };
-      const scanRef = await addDoc(collection(db, 'scans'), scanData);
+      const scanRef = await addDoc(collection(db, 'analysis_cache'), scanData);
       
       await updateDoc(userRef, {
         scanCount: increment(1)
@@ -183,7 +183,7 @@ export default function Home() {
         createdAt: new Date().toISOString(),
         originalText: inputValue.substring(0, 500),
       };
-      await addDoc(collection(db, 'scans'), scanData);
+      await addDoc(collection(db, 'analysis_cache'), scanData);
       
       // --- Increment User's Scan Count ---
       await updateDoc(userRef, {

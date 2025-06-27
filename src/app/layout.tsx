@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ClientLayout from "../components/ClientLayout";
 import SessionProvider from "../components/SessionProvider";
+import "./block-extensions";
 
 export const metadata: Metadata = {
   title: "Create Next App",

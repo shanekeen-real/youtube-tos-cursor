@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { loadStripe } from '@stripe/stripe-js';
 import axios from 'axios';
 import ConnectYouTubeButton from '@/components/ConnectYouTubeButton';
+import { format } from 'date-fns';
 
 // Define the structure of a user's profile data
 interface UserProfile {
@@ -34,6 +35,9 @@ export default function DashboardClient() {
   const [ytChannel, setYtChannel] = useState<any>(null);
   const [ytLoading, setYtLoading] = useState(false);
   const [ytFetching, setYtFetching] = useState(false);
+  const [recentVideos, setRecentVideos] = useState<any[]>([]);
+  const [videosLoading, setVideosLoading] = useState(false);
+  const [videosError, setVideosError] = useState<string | null>(null);
 
   useEffect(() => {
     if (searchParams.get('payment_success') === 'true') {
@@ -152,6 +156,43 @@ export default function DashboardClient() {
   
   const progress = userProfile ? (userProfile.scanCount / userProfile.scanLimit) * 100 : 0;
 
+  // Fetch recent 5 videos after YouTube channel is connected
+  useEffect(() => {
+    const fetchRecentVideos = async () => {
+      if (!ytChannel || !session?.user?.id) return;
+      setVideosLoading(true);
+      setVideosError(null);
+      try {
+        console.log('Fetching recent videos for user:', session.user.id);
+        const response = await fetch('/api/fetch-youtube-videos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pageSize: 5 }),
+        });
+        
+        console.log('Videos API response status:', response.status);
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('Videos API error:', errorData);
+          setVideosError(errorData.error || `Failed to fetch videos (${response.status})`);
+          setRecentVideos([]);
+        } else {
+          const data = await response.json();
+          console.log('Successfully fetched videos:', data.items?.length || 0);
+          setRecentVideos(data.items || []);
+        }
+      } catch (err: any) {
+        console.error('Network error fetching videos:', err);
+        setVideosError(err.message || 'Network error while fetching videos');
+        setRecentVideos([]);
+      } finally {
+        setVideosLoading(false);
+      }
+    };
+    fetchRecentVideos();
+  }, [ytChannel, session?.user?.id]);
+
   if (status === 'loading' || loading) {
     return (
       <div className="text-center py-10">
@@ -212,6 +253,71 @@ export default function DashboardClient() {
           <div className="mt-4">
             <p className="text-gray-600 mb-4">Connect your YouTube channel to analyze your own videos for TOS compliance.</p>
             <ConnectYouTubeButton />
+          </div>
+        )}
+      </section>
+      {/* Recent Videos Section */}
+      <section className="mb-8">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-2xl font-bold">Recent Videos</h2>
+          <Link href="/my-videos">
+            <Button variant="secondary">View All</Button>
+          </Link>
+        </div>
+        {videosLoading ? (
+          <div>Loading recent videos...</div>
+        ) : videosError ? (
+          <div className="text-red-500">{videosError}</div>
+        ) : recentVideos.length === 0 ? (
+          <div>No recent videos found.</div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {recentVideos.map((video) => (
+              <Card key={video.id.videoId || video.id} className="flex flex-col">
+                <div className="flex items-center gap-4">
+                  {video.snippet?.thumbnails?.medium?.url && (
+                    <img src={video.snippet.thumbnails.medium.url} alt={video.snippet.title} className="w-24 h-16 object-cover rounded" />
+                  )}
+                  <div className="flex-1">
+                    <div className="font-semibold text-base mb-1 truncate">{video.snippet?.title}</div>
+                    <div className="text-xs text-gray-500 mb-1">{video.snippet?.publishedAt ? format(new Date(video.snippet.publishedAt), 'PPP') : ''}</div>
+                    {/* Enhanced statistics display */}
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      {video.statistics?.viewCount && (
+                        <span className="flex items-center gap-1">
+                          <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                            <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                          </svg>
+                          {parseInt(video.statistics.viewCount).toLocaleString()}
+                        </span>
+                      )}
+                      {video.statistics?.likeCount && (
+                        <span className="flex items-center gap-1 text-green-600">
+                          <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z" />
+                          </svg>
+                          {parseInt(video.statistics.likeCount).toLocaleString()}
+                        </span>
+                      )}
+                      {video.statistics?.dislikeCount && (
+                        <span className="flex items-center gap-1 text-red-600">
+                          <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M18 9.5a1.5 1.5 0 11-3 0v-6a1.5 1.5 0 013 0v6zM14 9.667v-5.43a2 2 0 00-1.105-1.79l-.05-.025A4 4 0 0011.055 2H5.64a2 2 0 00-1.962 1.608l-1.2 6A2 2 0 004.44 12H8v4a2 2 0 002 2 1 1 0 001-1v-.667a4 4 0 01.8-2.4l1.4-1.866a4 4 0 00.8-2.4z" />
+                          </svg>
+                          {parseInt(video.statistics.dislikeCount).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-2 flex justify-end">
+                  <Button size="sm" onClick={() => {/* TODO: trigger analysis for video.id.videoId */}}>
+                    Scan/Analyze
+                  </Button>
+                </div>
+              </Card>
+            ))}
           </div>
         )}
       </section>

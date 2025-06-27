@@ -76,33 +76,33 @@ function ResultsPageContent() {
       const scanId = params.get('scanId');
       const directData = params.get('data');
 
+      // Debug: Log scanId and session user
+      console.log('[ResultsPage] scanId:', scanId, 'sessionUser:', session?.user);
+
       if (scanId) {
-        if (!session?.user?.id) {
-          setError('Authentication required to view scan details.');
-          setLoading(false);
-          return;
-        }
         try {
           const db = getFirestore(app);
-          const scanDoc = await getDoc(doc(db, 'scans', scanId));
-          
+          const scanDoc = await getDoc(doc(db, 'analysis_cache', scanId));
+          // Debug: Log Firestore fetch result
+          console.log('[ResultsPage] Firestore scanDoc.exists:', scanDoc.exists());
           if (!scanDoc.exists()) {
             setError('Scan not found.');
             setLoading(false);
             return;
           }
-          
           const scanData = scanDoc.data();
-          
+          // Debug: Log scanData and session userId
+          console.log('[ResultsPage] scanData:', scanData, 'sessionUserId:', session?.user?.id);
           // Security check: ensure the user owns this scan
-          if (scanData.userId !== session.user.id) {
+          if (scanData.userId && scanData.userId !== session?.user?.id) {
             setError('Unauthorized access to scan.');
             setLoading(false);
             return;
           }
-          
-          setData(scanData as ScanData);
+          setData((scanData.analysisResult || scanData) as ScanData);
         } catch (err: any) {
+          // Debug: Log error
+          console.error('[ResultsPage] Error fetching scan:', err);
           setError(err.message || 'Failed to fetch scan details.');
         } finally {
           setLoading(false);
@@ -110,8 +110,12 @@ function ResultsPageContent() {
       } else if (directData) {
         try {
           const parsedData = JSON.parse(directData);
+          // Debug: Log parsed directData
+          console.log('[ResultsPage] Parsed directData:', parsedData);
           setData(parsedData);
-        } catch {
+        } catch (err) {
+          // Debug: Log parse error
+          console.error('[ResultsPage] Error parsing directData:', err);
           setError('Failed to parse scan data.');
         } finally {
           setLoading(false);

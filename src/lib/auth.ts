@@ -9,7 +9,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
-          scope: "openid email profile https://www.googleapis.com/auth/youtube.readonly"
+          scope: "openid email profile https://www.googleapis.com/auth/youtube.readonly",
+          access_type: "offline",
+          prompt: "consent"
         }
       }
     })
@@ -30,6 +32,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       // Send properties to the client, like an access_token and user id from a provider.
       session.accessToken = token.accessToken as string | undefined
+      session.refreshToken = token.refreshToken as string | undefined
+      session.expiresAt = token.expiresAt as number | undefined
       session.user.id = token.sub || ''
       return session
     },
@@ -59,4 +63,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: {
     signIn: "/auth/signin",
   }
-}) 
+})
+
+/**
+ * Refreshes a Google OAuth access token using the refresh token.
+ * Returns { access_token, expires_in, refresh_token, scope, token_type } or throws on error.
+ */
+export async function refreshGoogleAccessToken(refreshToken: string) {
+  const params = new URLSearchParams();
+  params.append('client_id', process.env.GOOGLE_CLIENT_ID!);
+  params.append('client_secret', process.env.GOOGLE_CLIENT_SECRET!);
+  params.append('refresh_token', refreshToken);
+  params.append('grant_type', 'refresh_token');
+
+  const response = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to refresh Google access token: ${response.statusText}`);
+  }
+
+  return response.json();
+} 

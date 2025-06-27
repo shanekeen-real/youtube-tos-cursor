@@ -5,6 +5,7 @@ import axios from 'axios';
 import { adminDb } from '@/lib/firebase-admin'; // Correctly import adminDb
 import { createHash } from 'crypto';
 import TranscriptClient from "youtube-transcript-api";
+import { auth } from '@/lib/auth';
 
 // Temporary module declaration for missing types
 // @ts-ignore
@@ -213,6 +214,9 @@ async function getVideoMetadata(videoId: string): Promise<{ title: string; descr
 export async function POST(req: NextRequest) {
   try {
     const { url } = await req.json();
+    // Get user session for userId
+    const session = await auth();
+    const userId = session?.user?.id || null;
 
     if (!url || !isValidYouTubeUrl(url)) {
       return NextResponse.json({ error: 'A valid YouTube URL is required' }, { status: 400 });
@@ -222,28 +226,28 @@ export async function POST(req: NextRequest) {
     if (!videoId) {
       return NextResponse.json({ error: 'Could not extract video ID from URL' }, { status: 400 });
     }
-
-    // --- Cache Check ---
     const cacheKey = createCacheKey(url);
-    if (CACHE_ENABLED) {
-        const cacheRef = adminDb.collection('analysis_cache').doc(cacheKey);
-        const cacheDoc = await cacheRef.get();
-
-        if (cacheDoc.exists) {
-            const cacheData = cacheDoc.data();
-            if (cacheData && cacheData.timestamp) {
-                const cacheAgeDays = (Date.now() - cacheData.timestamp.toMillis()) / (1000 * 60 * 60 * 24);
-
-                if (cacheAgeDays < CACHE_DURATION_DAYS) {
-                    console.log(`CACHE HIT: Returning cached analysis for URL: ${url}`);
-                    return NextResponse.json({
-                        ...cacheData.analysisResult,
-                        is_cached: true,
-                    });
-                }
-            }
-        }
-    }
+    // --- Cache Check ---
+    // TEMPORARY: Disable cache reads for testing
+    // if (CACHE_ENABLED) {
+    //     const cacheRef = adminDb.collection('analysis_cache').doc(cacheKey);
+    //     const cacheDoc = await cacheRef.get();
+    //     if (cacheDoc.exists) {
+    //         const cacheData = cacheDoc.data();
+    //         if (cacheData && cacheData.timestamp) {
+    //             const cacheAgeDays = (Date.now() - cacheData.timestamp.toMillis()) / (1000 * 60 * 60 * 24);
+    //             if (cacheAgeDays < CACHE_DURATION_DAYS) {
+    //                 console.log(`CACHE HIT: Returning cached analysis for URL: ${url}`);
+    //                 return NextResponse.json({
+    //                     ...cacheData.analysisResult,
+    //                     is_cached: true,
+    //                     scanId: cacheKey,
+    //                     videoId,
+    //                 });
+    //             }
+    //         }
+    //     }
+    // }
     console.log(`CACHE MISS: Performing new analysis for URL: ${url}`);
     // --- End Cache Check ---
 
@@ -303,6 +307,7 @@ export async function POST(req: NextRequest) {
             timestamp: new Date(),
             original_url: url,
             video_id: videoId,
+            userId: userId,
         });
         console.log(`CACHE SET: Saved new analysis to cache for URL: ${url}`);
     }
@@ -314,6 +319,7 @@ export async function POST(req: NextRequest) {
       analysis_source: analysisSource,
       mode: 'enhanced',
       videoId: videoId,
+      scanId: cacheKey,
     });
 
   } catch (error: any) {
