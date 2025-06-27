@@ -422,9 +422,8 @@ export default function AllVideosClient() {
                   <p>{error}</p>
                 </div>
                 <div className="mt-4">
-                  <Button 
-                    variant="secondary" 
-                    size="sm"
+                  <Button
+                    variant="secondary"
                     onClick={() => fetchVideos()}
                   >
                     Try Again
@@ -571,7 +570,6 @@ function VideoCard({ video, viewType, onAnalyze, formatViewCount, analyzingVideo
         </div>
         <div className="flex-shrink-0">
           <Button 
-            size="sm"
             onClick={() => onAnalyze(video.id.videoId)}
             disabled={isAnalyzing}
           >
@@ -638,7 +636,6 @@ function VideoCard({ video, viewType, onAnalyze, formatViewCount, analyzingVideo
             {format(new Date(video.snippet.publishedAt), 'MMM d, yyyy')}
           </span>
           <Button 
-            size="sm"
             onClick={() => onAnalyze(video.id.videoId)}
             disabled={isAnalyzing}
           >
