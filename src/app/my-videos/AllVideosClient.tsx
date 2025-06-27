@@ -106,7 +106,8 @@ export default function AllVideosClient() {
       const ranges = {
         week: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
         month: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
-        year: new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+        year: new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000),
+        all: new Date(0),
       };
       
       filtered = filtered.filter(video => {
