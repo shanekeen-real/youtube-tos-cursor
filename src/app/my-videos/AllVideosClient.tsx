@@ -81,7 +81,7 @@ export default function AllVideosClient() {
   
   // Debounced search
   const [searchTerm, setSearchTerm] = useState('');
-  const searchTimeoutRef = useRef<NodeJS.Timeout>();
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [analyzingVideoId, setAnalyzingVideoId] = useState<string | null>(null);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
