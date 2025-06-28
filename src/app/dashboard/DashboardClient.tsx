@@ -376,7 +376,6 @@ export default function DashboardClient() {
                             const url = `https://www.youtube.com/watch?v=${videoId}`;
                             router.push(`/results?url=${encodeURIComponent(url)}`);
                           }}
-                          size="sm"
                           className="flex-1"
                         >
                           {riskData ? 'Re-analyze' : 'Analyze'}
@@ -384,7 +383,6 @@ export default function DashboardClient() {
                         {riskData && (
                           <Button 
                             variant="outlined" 
-                            size="sm"
                             onClick={() => handleViewReports(videoId, video.snippet.title)}
                           >
                             View Reports
