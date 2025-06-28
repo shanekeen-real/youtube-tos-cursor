@@ -692,7 +692,6 @@ function VideoCard({ video, viewType, onAnalyze, formatViewCount, analyzingVideo
             <Button 
               onClick={() => onAnalyze(video.id.videoId)}
               disabled={isAnalyzing}
-              size="sm"
             >
               {isAnalyzing ? (
                 <span className="flex items-center gap-2"><span className="animate-spin h-4 w-4 border-b-2 border-white rounded-full"></span>Analyzing...</span>
@@ -701,7 +700,6 @@ function VideoCard({ video, viewType, onAnalyze, formatViewCount, analyzingVideo
             {riskData && (
               <Button 
                 variant="outlined"
-                size="sm"
                 onClick={() => onViewReports(video.id.videoId, video.snippet.title)}
               >
                 View Reports

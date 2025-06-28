@@ -86,8 +86,8 @@ export default function ScanHistoryPage() {
     fetchScans();
   }, [session?.user?.id]);
 
-  const getRiskBadgeColor = (level: 'LOW' | 'MEDIUM' | 'HIGH') => {
-    switch (level) {
+  const getRiskBadgeColor = (level: string) => {
+    switch (level.toUpperCase()) {
       case 'LOW': return 'green';
       case 'MEDIUM': return 'yellow';
       case 'HIGH': return 'red';

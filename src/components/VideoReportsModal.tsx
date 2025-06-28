@@ -138,7 +138,6 @@ export default function VideoReportsModal({ isOpen, onClose, videoId, videoTitle
                     </div>
                     <div className="flex flex-col gap-2 ml-4">
                       <Button
-                        size="sm"
                         onClick={() => handleViewReport(scan.scanId)}
                         className="whitespace-nowrap"
                       >
