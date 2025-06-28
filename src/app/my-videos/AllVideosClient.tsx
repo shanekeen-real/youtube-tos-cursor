@@ -534,7 +534,7 @@ export default function AllVideosClient() {
                 formatViewCount={formatViewCount}
                 analyzingVideoId={analyzingVideoId}
                 analyzeError={analyzeError}
-                riskBadgeColor={getRiskBadgeColor(videoRiskLevels[video.id.videoId]?.riskLevel)}
+                riskBadgeColor={getRiskBadgeColor(videoRiskLevels[video.id.videoId]?.riskLevel || '')}
                 riskBadgeText={getRiskBadgeText(video.id.videoId)}
                 riskData={videoRiskLevels[video.id.videoId]}
                 onViewReports={handleViewReports}
