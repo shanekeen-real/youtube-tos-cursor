@@ -322,7 +322,7 @@ export default function DashboardClient() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold">Recent Videos</h2>
             <Link href="/my-videos">
-              <Button variant="outlined" size="sm">View All</Button>
+              <Button variant="outlined">View All</Button>
             </Link>
           </div>
           {videosLoading ? (
