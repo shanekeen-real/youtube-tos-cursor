@@ -1,7 +1,7 @@
 {
   "indexes": [
     {
-      "collectionGroup": "scans",
+      "collectionGroup": "analysis_cache",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -9,8 +9,22 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "createdAt",
+          "fieldPath": "timestamp",
           "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "analysis_cache",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "video_id",
+          "order": "ASCENDING"
         }
       ]
     }

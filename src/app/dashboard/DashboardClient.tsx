@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { app } from '@/lib/firebase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Card from '@/components/Card';
@@ -11,6 +11,8 @@ import { loadStripe } from '@stripe/stripe-js';
 import axios from 'axios';
 import ConnectYouTubeButton from '@/components/ConnectYouTubeButton';
 import { format } from 'date-fns';
+import { Calendar, TrendingUp, Users, Video, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import VideoReportsModal from '@/components/VideoReportsModal';
 
 // Define the structure of a user's profile data
 interface UserProfile {
@@ -38,6 +40,9 @@ export default function DashboardClient() {
   const [recentVideos, setRecentVideos] = useState<any[]>([]);
   const [videosLoading, setVideosLoading] = useState(false);
   const [videosError, setVideosError] = useState<string | null>(null);
+  const [videoRiskLevels, setVideoRiskLevels] = useState<{ [videoId: string]: { riskLevel: string; riskScore: number } | null }>({});
+  const [reportsModalOpen, setReportsModalOpen] = useState(false);
+  const [selectedVideoForReports, setSelectedVideoForReports] = useState<{ id: string; title: string } | null>(null);
 
   useEffect(() => {
     if (searchParams.get('payment_success') === 'true') {
@@ -181,6 +186,11 @@ export default function DashboardClient() {
           const data = await response.json();
           console.log('Successfully fetched videos:', data.items?.length || 0);
           setRecentVideos(data.items || []);
+          
+          // Fetch risk levels for these videos
+          if (data.items && data.items.length > 0) {
+            await fetchRiskLevels(data.items);
+          }
         }
       } catch (err: any) {
         console.error('Network error fetching videos:', err);
@@ -192,6 +202,56 @@ export default function DashboardClient() {
     };
     fetchRecentVideos();
   }, [ytChannel, session?.user?.id]);
+
+  // Fetch risk levels for videos
+  const fetchRiskLevels = async (videos: any[]) => {
+    try {
+      const videoIds = videos.map(video => video.id.videoId || video.id);
+      const response = await fetch('/api/get-risk-levels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoIds }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setVideoRiskLevels(data.riskLevels || {});
+      } else {
+        console.warn('Failed to fetch risk levels');
+      }
+    } catch (err) {
+      console.error('Error fetching risk levels:', err);
+    }
+  };
+
+  // Get risk badge color
+  const getRiskBadgeColor = (riskLevel: string) => {
+    switch (riskLevel?.toUpperCase()) {
+      case 'HIGH':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case 'MEDIUM':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'LOW':
+        return 'bg-green-100 text-green-800 border-green-200';
+      default:
+        return 'bg-gray-100 text-gray-600 border-gray-200';
+    }
+  };
+
+  // Get risk badge text
+  const getRiskBadgeText = (videoId: string) => {
+    const riskData = videoRiskLevels[videoId];
+    if (!riskData) {
+      return 'NO RISK SCORE';
+    }
+    return `${riskData.riskLevel} RISK`;
+  };
+
+  // Handle viewing reports for a video
+  const handleViewReports = (videoId: string, videoTitle: string) => {
+    setSelectedVideoForReports({ id: videoId, title: videoTitle });
+    setReportsModalOpen(true);
+  };
 
   if (status === 'loading' || loading) {
     return (
@@ -257,70 +317,90 @@ export default function DashboardClient() {
         )}
       </section>
       {/* Recent Videos Section */}
-      <section className="mb-8">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-2xl font-bold">Recent Videos</h2>
-          <Link href="/my-videos">
-            <Button variant="secondary">View All</Button>
-          </Link>
-        </div>
-        {videosLoading ? (
-          <div>Loading recent videos...</div>
-        ) : videosError ? (
-          <div className="text-red-500">{videosError}</div>
-        ) : recentVideos.length === 0 ? (
-          <div>No recent videos found.</div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {recentVideos.map((video) => (
-              <Card key={video.id.videoId || video.id} className="flex flex-col">
-                <div className="flex items-center gap-4">
-                  {video.snippet?.thumbnails?.medium?.url && (
-                    <img src={video.snippet.thumbnails.medium.url} alt={video.snippet.title} className="w-24 h-16 object-cover rounded" />
-                  )}
-                  <div className="flex-1">
-                    <div className="font-semibold text-base mb-1 truncate">{video.snippet?.title}</div>
-                    <div className="text-xs text-gray-500 mb-1">{video.snippet?.publishedAt ? format(new Date(video.snippet.publishedAt), 'PPP') : ''}</div>
-                    {/* Enhanced statistics display */}
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      {video.statistics?.viewCount && (
+      {ytChannel && (
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">Recent Videos</h2>
+            <Link href="/my-videos">
+              <Button variant="outlined" size="sm">View All</Button>
+            </Link>
+          </div>
+          {videosLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="bg-gray-200 h-32 rounded mb-2"></div>
+                  <div className="bg-gray-200 h-4 rounded mb-1"></div>
+                  <div className="bg-gray-200 h-3 rounded w-2/3"></div>
+                </div>
+              ))}
+            </div>
+          ) : recentVideos.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {recentVideos.slice(0, 5).map((video) => {
+                const videoId = video.id.videoId;
+                const riskData = videoRiskLevels[videoId];
+                const riskBadgeColor = riskData 
+                  ? riskData.riskLevel === 'HIGH' 
+                    ? 'bg-red-100 text-red-800 border-red-200' 
+                    : riskData.riskLevel === 'MEDIUM' 
+                      ? 'bg-yellow-100 text-yellow-800 border-yellow-200' 
+                      : 'bg-green-100 text-green-800 border-green-200'
+                  : 'bg-gray-100 text-gray-600 border-gray-200';
+                const riskBadgeText = riskData ? `${riskData.riskLevel} Risk` : 'NO RISK SCORE';
+
+                return (
+                  <div key={videoId} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                    <img 
+                      src={video.snippet.thumbnails.medium.url} 
+                      alt={video.snippet.title}
+                      className="w-full h-32 object-cover"
+                      loading="lazy"
+                    />
+                    <div className="p-3">
+                      <div className="font-semibold text-base mb-1 truncate">{video.snippet?.title}</div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${riskBadgeColor}`}>
+                          {riskBadgeText}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm text-gray-500 mb-2">
                         <span className="flex items-center gap-1">
-                          <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                            <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-                          </svg>
-                          {parseInt(video.statistics.viewCount).toLocaleString()}
+                          <Calendar className="h-3 w-3" />
+                          {new Date(video.snippet.publishedAt).toLocaleDateString()}
                         </span>
-                      )}
-                      {video.statistics?.likeCount && (
-                        <span className="flex items-center gap-1 text-green-600">
-                          <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z" />
-                          </svg>
-                          {parseInt(video.statistics.likeCount).toLocaleString()}
-                        </span>
-                      )}
-                      {video.statistics?.dislikeCount && (
-                        <span className="flex items-center gap-1 text-red-600">
-                          <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M18 9.5a1.5 1.5 0 11-3 0v-6a1.5 1.5 0 013 0v6zM14 9.667v-5.43a2 2 0 00-1.105-1.79l-.05-.025A4 4 0 0011.055 2H5.64a2 2 0 00-1.962 1.608l-1.2 6A2 2 0 004.44 12H8v4a2 2 0 002 2 1 1 0 001-1v-.667a4 4 0 01.8-2.4l1.4-1.866a4 4 0 00.8-2.4z" />
-                          </svg>
-                          {parseInt(video.statistics.dislikeCount).toLocaleString()}
-                        </span>
-                      )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button 
+                          onClick={() => { 
+                            const url = `https://www.youtube.com/watch?v=${videoId}`;
+                            router.push(`/results?url=${encodeURIComponent(url)}`);
+                          }}
+                          size="sm"
+                          className="flex-1"
+                        >
+                          {riskData ? 'Re-analyze' : 'Analyze'}
+                        </Button>
+                        {riskData && (
+                          <Button 
+                            variant="outlined" 
+                            size="sm"
+                            onClick={() => handleViewReports(videoId, video.snippet.title)}
+                          >
+                            View Reports
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="mt-2 flex justify-end">
-                  <Button onClick={() => { /* TODO: trigger analysis for video.id.videoId */ }}>
-                    Scan/Analyze
-                  </Button>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-      </section>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-4">No recent videos found.</p>
+          )}
+        </Card>
+      )}
       {userProfile && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
@@ -354,6 +434,18 @@ export default function DashboardClient() {
                  </Link>
             </Card>
         </div>
+      )}
+      {/* Video Reports Modal */}
+      {selectedVideoForReports && (
+        <VideoReportsModal
+          isOpen={reportsModalOpen}
+          onClose={() => {
+            setReportsModalOpen(false);
+            setSelectedVideoForReports(null);
+          }}
+          videoId={selectedVideoForReports.id}
+          videoTitle={selectedVideoForReports.title}
+        />
       )}
     </main>
   );

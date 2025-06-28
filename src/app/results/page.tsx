@@ -75,9 +75,10 @@ function ResultsPageContent() {
       setError(null);
       const scanId = params.get('scanId');
       const directData = params.get('data');
+      const url = params.get('url');
 
       // Debug: Log scanId and session user
-      console.log('[ResultsPage] scanId:', scanId, 'sessionUser:', session?.user);
+      console.log('[ResultsPage] scanId:', scanId, 'url:', url, 'sessionUser:', session?.user);
 
       if (scanId) {
         try {
@@ -117,6 +118,31 @@ function ResultsPageContent() {
           // Debug: Log parse error
           console.error('[ResultsPage] Error parsing directData:', err);
           setError('Failed to parse scan data.');
+        } finally {
+          setLoading(false);
+        }
+      } else if (url) {
+        // Handle URL parameter - trigger analysis
+        try {
+          console.log('[ResultsPage] Triggering analysis for URL:', url);
+          const response = await fetch('/api/analyze-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url }),
+          });
+          
+          if (response.ok) {
+            const analysisData = await response.json();
+            console.log('[ResultsPage] Analysis completed:', analysisData);
+            setData(analysisData);
+          } else {
+            const errorData = await response.json();
+            console.error('[ResultsPage] Analysis failed:', errorData);
+            setError(errorData.error || 'Failed to analyze content.');
+          }
+        } catch (err: any) {
+          console.error('[ResultsPage] Error during analysis:', err);
+          setError(err.message || 'Failed to analyze content.');
         } finally {
           setLoading(false);
         }

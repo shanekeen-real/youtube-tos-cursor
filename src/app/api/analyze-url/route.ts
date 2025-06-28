@@ -6,6 +6,8 @@ import { adminDb } from '@/lib/firebase-admin'; // Correctly import adminDb
 import { createHash } from 'crypto';
 import TranscriptClient from "youtube-transcript-api";
 import { auth } from '@/lib/auth';
+import { getFirestore, collection, addDoc } from 'firebase/firestore'; // <-- Add this import
+import { app } from '@/lib/firebase'; // <-- Add this import for client-side Firestore
 
 // Temporary module declaration for missing types
 // @ts-ignore
@@ -308,10 +310,27 @@ export async function POST(req: NextRequest) {
             original_url: url,
             video_id: videoId,
             userId: userId,
+            isCache: true,
         });
         console.log(`CACHE SET: Saved new analysis to cache for URL: ${url}`);
     }
     // --- End Save to Cache ---
+
+    // --- Always append to history for audit ---
+    try {
+      const db = getFirestore(app);
+      await addDoc(collection(db, 'analysis_cache'), {
+        analysisResult: safeResult,
+        timestamp: new Date(),
+        original_url: url,
+        video_id: videoId,
+        userId: userId,
+      });
+      console.log(`HISTORY: Appended new scan for video ${videoId}`);
+    } catch (historyError) {
+      console.error('Failed to append scan to history:', historyError);
+    }
+    // --- End append to history ---
 
     return NextResponse.json({
       ...safeResult,

@@ -129,7 +129,7 @@ export default function Home() {
       const scanData = {
         ...res.data,
         userId: auth.user.id,
-        createdAt: new Date().toISOString(),
+        timestamp: new Date(),
         originalText: isUrl ? inputValue : inputValue.substring(0, 500), // Store URL or text snippet
       };
       const scanRef = await addDoc(collection(db, 'analysis_cache'), scanData);
@@ -180,7 +180,7 @@ export default function Home() {
       const scanData = {
         ...res.data,
         userId: auth.user.id,
-        createdAt: new Date().toISOString(),
+        timestamp: new Date(),
         originalText: inputValue.substring(0, 500),
       };
       await addDoc(collection(db, 'analysis_cache'), scanData);

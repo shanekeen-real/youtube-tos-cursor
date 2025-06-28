@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 import Badge from '@/components/Badge';
+import * as Sentry from "@sentry/nextjs";
 
 interface Scan {
   id: string;
@@ -31,27 +32,55 @@ export default function ScanHistoryPage() {
         return;
       }
 
-      try {
-        const db = getFirestore(app);
-        const scansRef = collection(db, 'analysis_cache');
-        const q = query(
-          scansRef,
-          where('userId', '==', session.user.id),
-          orderBy('createdAt', 'desc')
-        );
-        
-        const querySnapshot = await getDocs(q);
-        const scansData = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Scan[];
-        
-        setScans(scansData);
-      } catch (err: any) {
-        setError(err.message || 'Failed to fetch scan history.');
-      } finally {
-        setLoading(false);
-      }
+      return Sentry.startSpan(
+        {
+          op: "ui.action",
+          name: "Fetch Scan History",
+        },
+        async (span) => {
+          try {
+            span.setAttribute("userId", session.user.id);
+            
+            const db = getFirestore(app);
+            const scansRef = collection(db, 'analysis_cache');
+            const q = query(
+              scansRef,
+              where('userId', '==', session.user.id),
+              orderBy('timestamp', 'desc')
+            );
+            
+            console.log('[ScanHistory] Fetching scans for user:', session.user.id);
+            const querySnapshot = await getDocs(q);
+            console.log('[ScanHistory] Found scans:', querySnapshot.docs.length);
+            
+            const scansData = querySnapshot.docs.map(doc => {
+              const data = doc.data();
+              // Handle both timestamp and createdAt fields for backward compatibility
+              const timestamp = data.timestamp?.toDate?.() || data.timestamp || data.createdAt || new Date();
+              return {
+                id: doc.id,
+                url: data.original_url || data.url || '',
+                title: data.analysisResult?.title || data.title || 'Untitled',
+                riskLevel: data.analysisResult?.riskLevel || data.analysisResult?.risk_level || data.riskLevel || 'Unknown',
+                createdAt: timestamp.toISOString ? timestamp.toISOString() : timestamp,
+                status: 'completed' // All cached analyses are completed
+              };
+            }) as Scan[];
+            
+            span.setAttribute("scansCount", scansData.length);
+            setScans(scansData);
+          } catch (err: any) {
+            console.error('[ScanHistory] Error fetching scans:', err);
+            Sentry.captureException(err, {
+              tags: { component: 'scan-history', action: 'fetch-scans' },
+              extra: { userId: session.user.id }
+            });
+            setError(err.message || 'Failed to fetch scan history.');
+          } finally {
+            setLoading(false);
+          }
+        }
+      );
     };
 
     fetchScans();

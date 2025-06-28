@@ -3,11 +3,14 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { Search, Filter, SortAsc, SortDesc, Calendar, Eye, Clock, Grid, List } from 'lucide-react';
+import { Search, Filter, SortAsc, SortDesc, Calendar, Eye, Clock, Grid, List, ChevronDown } from 'lucide-react';
 import Card from '@/components/Card';
 import Button from '@/components/Button';
 import { useInView } from 'react-intersection-observer';
 import * as Sentry from "@sentry/nextjs";
+import VideoReportsModal from '@/components/VideoReportsModal';
+import { getFirestore, collection, query, where, orderBy, getDocs, limit, startAfter, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
+import { app } from '@/lib/firebase';
 
 // Types
 interface Video {
@@ -85,6 +88,9 @@ export default function AllVideosClient() {
 
   const [analyzingVideoId, setAnalyzingVideoId] = useState<string | null>(null);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [videoRiskLevels, setVideoRiskLevels] = useState<{ [videoId: string]: { riskLevel: string; riskScore: number } | null }>({});
+  const [reportsModalOpen, setReportsModalOpen] = useState(false);
+  const [selectedVideoForReports, setSelectedVideoForReports] = useState<{ id: string; title: string } | null>(null);
 
   // Memoized filtered videos
   const filteredVideos = useMemo(() => {
@@ -221,12 +227,63 @@ export default function AllVideosClient() {
     }
   }, [inView, hasMore, isLoadingMore, loading, pagination.nextPageToken, fetchVideos]);
 
+  // Fetch risk levels for videos
+  const fetchRiskLevels = useCallback(async (videos: Video[]) => {
+    try {
+      const videoIds = videos.map(video => video.id.videoId);
+      const response = await fetch('/api/get-risk-levels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoIds }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setVideoRiskLevels(prev => ({ ...prev, ...data.riskLevels }));
+      } else {
+        console.warn('Failed to fetch risk levels');
+      }
+    } catch (err) {
+      console.error('Error fetching risk levels:', err);
+    }
+  }, []);
+
+  // Get risk badge color
+  const getRiskBadgeColor = (riskLevel: string) => {
+    switch (riskLevel?.toUpperCase()) {
+      case 'HIGH':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case 'MEDIUM':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'LOW':
+        return 'bg-green-100 text-green-800 border-green-200';
+      default:
+        return 'bg-gray-100 text-gray-600 border-gray-200';
+    }
+  };
+
+  // Get risk badge text
+  const getRiskBadgeText = (videoId: string) => {
+    const riskData = videoRiskLevels[videoId];
+    if (!riskData) {
+      return 'NO RISK SCORE';
+    }
+    return `${riskData.riskLevel} RISK`;
+  };
+
   // Initial load
   useEffect(() => {
     if (session?.user?.id) {
       fetchVideos();
     }
   }, [session?.user?.id, fetchVideos]);
+
+  // Fetch risk levels when videos change
+  useEffect(() => {
+    if (videos.length > 0) {
+      fetchRiskLevels(videos);
+    }
+  }, [videos, fetchRiskLevels]);
 
   // Debounced search
   useEffect(() => {
@@ -282,6 +339,12 @@ export default function AllVideosClient() {
       return `${(num / 1000).toFixed(1)}K`;
     }
     return num.toString();
+  };
+
+  // Handle viewing reports for a video
+  const handleViewReports = (videoId: string, videoTitle: string) => {
+    setSelectedVideoForReports({ id: videoId, title: videoTitle });
+    setReportsModalOpen(true);
   };
 
   // Loading states
@@ -471,6 +534,10 @@ export default function AllVideosClient() {
                 formatViewCount={formatViewCount}
                 analyzingVideoId={analyzingVideoId}
                 analyzeError={analyzeError}
+                riskBadgeColor={getRiskBadgeColor(videoRiskLevels[video.id.videoId]?.riskLevel)}
+                riskBadgeText={getRiskBadgeText(video.id.videoId)}
+                riskData={videoRiskLevels[video.id.videoId]}
+                onViewReports={handleViewReports}
               />
             ))}
           </div>
@@ -492,6 +559,19 @@ export default function AllVideosClient() {
           </div>
         )}
       </div>
+
+      {/* Video Reports Modal */}
+      {selectedVideoForReports && (
+        <VideoReportsModal
+          isOpen={reportsModalOpen}
+          onClose={() => {
+            setReportsModalOpen(false);
+            setSelectedVideoForReports(null);
+          }}
+          videoId={selectedVideoForReports.id}
+          videoTitle={selectedVideoForReports.title}
+        />
+      )}
     </div>
   );
 }
@@ -502,9 +582,13 @@ interface VideoCardProps {
   viewType: 'grid' | 'list';
   onAnalyze: (videoId: string) => void;
   formatViewCount: (count: string) => string;
+  riskBadgeColor: string;
+  riskBadgeText: string;
+  riskData: { riskLevel: string; riskScore: number } | null;
+  onViewReports: (videoId: string, title: string) => void;
 }
 
-function VideoCard({ video, viewType, onAnalyze, formatViewCount, analyzingVideoId, analyzeError }: VideoCardProps & { analyzingVideoId: string | null, analyzeError: string | null }) {
+function VideoCard({ video, viewType, onAnalyze, formatViewCount, analyzingVideoId, analyzeError, riskBadgeColor, riskBadgeText, riskData, onViewReports }: VideoCardProps & { analyzingVideoId: string | null, analyzeError: string | null }) {
   // Format statistics
   const formatStat = (stat: string | undefined) => {
     if (!stat) return '0';
@@ -544,39 +628,29 @@ function VideoCard({ video, viewType, onAnalyze, formatViewCount, analyzingVideo
               <Calendar className="h-4 w-4" />
               {format(new Date(video.snippet.publishedAt), 'MMM d, yyyy')}
             </span>
-            {video.statistics?.viewCount && (
-              <span className="flex items-center gap-1">
-                <Eye className="h-4 w-4" />
-                {formatStat(video.statistics.viewCount)} views
-              </span>
-            )}
-            {video.statistics?.likeCount && (
-              <span className="flex items-center gap-1">
-                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z" />
-                </svg>
-                {formatStat(video.statistics.likeCount)} likes
-              </span>
-            )}
-            {video.statistics?.dislikeCount && (
-              <span className="flex items-center gap-1">
-                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M18 9.5a1.5 1.5 0 11-3 0v-6a1.5 1.5 0 013 0v6zM14 9.667v-5.43a2 2 0 00-1.105-1.79l-.05-.025A4 4 0 0011.055 2H5.64a2 2 0 00-1.962 1.608l-1.2 6A2 2 0 004.44 12H8v4a2 2 0 002 2 1 1 0 001-1v-.667a4 4 0 01.8-2.4l1.4-1.866a4 4 0 00.8-2.4z" />
-                </svg>
-                {formatStat(video.statistics.dislikeCount)} dislikes
-              </span>
-            )}
+            {/* Risk Level Badge */}
+            <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${riskBadgeColor}`}>
+              {riskBadgeText}
+            </span>
           </div>
         </div>
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 flex gap-2">
           <Button 
             onClick={() => onAnalyze(video.id.videoId)}
             disabled={isAnalyzing}
           >
             {isAnalyzing ? (
               <span className="flex items-center gap-2"><span className="animate-spin h-4 w-4 border-b-2 border-white rounded-full"></span>Analyzing...</span>
-            ) : 'Analyze'}
+            ) : riskData ? 'Re-analyze' : 'Analyze'}
           </Button>
+          {riskData && (
+            <Button 
+              variant="outlined"
+              onClick={() => onViewReports(video.id.videoId, video.snippet.title)}
+            >
+              View Reports
+            </Button>
+          )}
         </div>
       </Card>
     );
@@ -602,49 +676,41 @@ function VideoCard({ video, viewType, onAnalyze, formatViewCount, analyzingVideo
         </div>
         {/* Spacer to push stats/buttons to bottom */}
         <div className="flex-1" />
-        {/* Statistics row */}
-        {video.statistics && (
-          <div className="flex items-center gap-3 mb-3 text-sm text-gray-500">
-            {video.statistics.viewCount && (
-              <span className="flex items-center gap-1">
-                <Eye className="h-4 w-4" />
-                {formatStat(video.statistics.viewCount)}
-              </span>
-            )}
-            {video.statistics.likeCount && (
-              <span className="flex items-center gap-1 text-green-600">
-                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z" />
-                </svg>
-                {formatStat(video.statistics.likeCount)}
-              </span>
-            )}
-            {video.statistics.dislikeCount && (
-              <span className="flex items-center gap-1 text-red-600">
-                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M18 9.5a1.5 1.5 0 11-3 0v-6a1.5 1.5 0 013 0v6zM14 9.667v-5.43a2 2 0 00-1.105-1.79l-.05-.025A4 4 0 0011.055 2H5.64a2 2 0 00-1.962 1.608l-1.2 6A2 2 0 004.44 12H8v4a2 2 0 002 2 1 1 0 001-1v-.667a4 4 0 01.8-2.4l1.4-1.866a4 4 0 00.8-2.4z" />
-                </svg>
-                {formatStat(video.statistics.dislikeCount)}
-              </span>
-            )}
-          </div>
-        )}
-        {/* Date and Analyze button row */}
-        <div className="flex items-center justify-between mt-auto">
+        {/* Risk Level Badge */}
+        <div className="flex items-center gap-2 mb-3">
+          <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${riskBadgeColor}`}>
+            {riskBadgeText}
+          </span>
+        </div>
+        {/* Date and buttons row */}
+        <div className="flex items-center justify-between">
           <span className="flex items-center gap-1 text-sm text-gray-500">
             <Calendar className="h-4 w-4" />
             {format(new Date(video.snippet.publishedAt), 'MMM d, yyyy')}
           </span>
-          <Button 
-            onClick={() => onAnalyze(video.id.videoId)}
-            disabled={isAnalyzing}
-          >
-            {isAnalyzing ? (
-              <span className="flex items-center gap-2"><span className="animate-spin h-4 w-4 border-b-2 border-white rounded-full"></span>Analyzing...</span>
-            ) : 'Analyze'}
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => onAnalyze(video.id.videoId)}
+              disabled={isAnalyzing}
+              size="sm"
+            >
+              {isAnalyzing ? (
+                <span className="flex items-center gap-2"><span className="animate-spin h-4 w-4 border-b-2 border-white rounded-full"></span>Analyzing...</span>
+              ) : riskData ? 'Re-analyze' : 'Analyze'}
+            </Button>
+            {riskData && (
+              <Button 
+                variant="outlined"
+                size="sm"
+                onClick={() => onViewReports(video.id.videoId, video.snippet.title)}
+              >
+                View Reports
+              </Button>
+            )}
+          </div>
         </div>
-        {analyzeError && isAnalyzing && (
+        
+        {analyzeError && analyzingVideoId === video.id.videoId && (
           <div className="mt-2 text-xs text-red-600">{analyzeError}</div>
         )}
       </div>
