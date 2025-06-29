@@ -128,14 +128,14 @@ export async function POST(req: NextRequest) {
 
           const addSectionHeader = (title: string, y: number): number => {
             pdf.setFontSize(16);
-            pdf.setFont(undefined, 'bold');
+            pdf.setFont('helvetica', 'bold');
             pdf.text(title, margin, y);
             return y + 8;
           };
 
           const addSubsection = (title: string, y: number): number => {
             pdf.setFontSize(14);
-            pdf.setFont(undefined, 'bold');
+            pdf.setFont('helvetica', 'bold');
             pdf.text(title, margin, y);
             return y + 6;
           };
