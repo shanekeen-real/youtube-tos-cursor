@@ -6,7 +6,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import * as Sentry from '@sentry/nextjs';
 
 export async function POST(req: NextRequest) {
-  let session;
+  let session: any;
   return Sentry.startSpan(
     {
       op: "http.server",
