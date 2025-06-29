@@ -6,6 +6,7 @@ import * as Sentry from "@sentry/nextjs";
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const scanId = searchParams.get('scanId');
+  let session: any;
   
   return Sentry.startSpan(
     {
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
     },
     async () => {
       try {
-        const session = await auth();
+        session = await auth();
         const userId = session?.user?.id;
 
         if (!userId) {
