@@ -493,7 +493,7 @@ const ContentClassificationSchema = z.object({
 });
 
 // Batch normalization utility for risk scores and confidence
-function normalizeBatchScores(scores) {
+function normalizeBatchScores(scores: number[]) {
   const maxScore = Math.max(...scores);
   if (maxScore <= 5) {
     console.warn('[AI-NORMALIZE] Detected 0-5 scale, normalizing all scores by 20x');
