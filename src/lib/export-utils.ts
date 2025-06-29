@@ -189,7 +189,7 @@ export async function generatePDF(data: AnalysisData, options: ExportOptions): P
   // Helper function to add section header
   const addSectionHeader = (title: string, y: number): number => {
     pdf.setFontSize(16);
-    pdf.setFont(undefined, 'bold');
+    pdf.setFont('helvetica', 'bold');
     pdf.text(title, margin, y);
     return y + 8;
   };
@@ -197,7 +197,7 @@ export async function generatePDF(data: AnalysisData, options: ExportOptions): P
   // Helper function to add subsection
   const addSubsection = (title: string, y: number): number => {
     pdf.setFontSize(14);
-    pdf.setFont(undefined, 'bold');
+    pdf.setFont('helvetica', 'bold');
     pdf.text(title, margin, y);
     return y + 6;
   };
@@ -205,18 +205,18 @@ export async function generatePDF(data: AnalysisData, options: ExportOptions): P
   // Helper function to add normal text
   const addText = (text: string, y: number): number => {
     pdf.setFontSize(10);
-    pdf.setFont(undefined, 'normal');
+    pdf.setFont('helvetica', 'normal');
     return addWrappedText(text, y, 10);
   };
 
   // Helper function to add key-value pair
   const addKeyValue = (key: string, value: string, y: number): number => {
     pdf.setFontSize(10);
-    pdf.setFont(undefined, 'bold');
+    pdf.setFont('helvetica', 'bold');
     pdf.text(`${key}:`, margin, y);
     
     const keyWidth = pdf.getTextWidth(`${key}:`);
-    pdf.setFont(undefined, 'normal');
+    pdf.setFont('helvetica', 'normal');
     const valueLines = pdf.splitTextToSize(value, contentWidth - keyWidth - 5);
     pdf.text(valueLines, margin + keyWidth + 5, y);
     
