@@ -11,8 +11,9 @@ export async function POST(req: NextRequest) {
       name: "POST /api/export-scans",
     },
     async () => {
+      let session: any = null;
       try {
-        const session = await auth();
+        session = await auth();
         const userId = session?.user?.id;
 
         if (!userId) {
