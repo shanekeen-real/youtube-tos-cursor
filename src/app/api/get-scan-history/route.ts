@@ -4,7 +4,7 @@ import { auth } from '@/lib/auth';
 import * as Sentry from "@sentry/nextjs";
 
 export async function GET(req: NextRequest) {
-  let session;
+  let session: any;
   return Sentry.startSpan(
     {
       op: "http.server",
