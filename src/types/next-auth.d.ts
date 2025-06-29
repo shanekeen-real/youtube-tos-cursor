@@ -1,5 +1,3 @@
-declare module 'youtube-transcript-api';
-
 import NextAuth from "next-auth"
 
 declare module "next-auth" {

@@ -172,10 +172,10 @@ const TARGET_AUDIENCES = [
   'Educational', 'Professional', 'Entertainment'
 ];
 
-// Rate limiting utility
+// Rate limiting utility - optimized for Claude's actual limits
 class RateLimiter {
   private requests: number[] = [];
-  private maxRequests = 10; // Conservative limit
+  private maxRequests = 80; // Increased to match Claude's 100/min limit with safety margin
   private windowMs = 60000; // 1 minute
 
   async waitIfNeeded(): Promise<void> {
@@ -262,13 +262,22 @@ export async function performEnhancedAnalysis(text: string): Promise<EnhancedAna
     
     const processingTime = Date.now() - startTime;
     
+    // Remove any accidental 'categories' key from policyAnalysis (artifact of fallback parsing)
+    delete policyAnalysis['categories'];
+    
     return {
       risk_score: overallRiskScore,
       risk_level: riskLevel,
       confidence_score: confidenceAnalysis.overall_confidence,
       flagged_section: riskAssessment.flagged_section,
       policy_categories: policyAnalysis,
-      context_analysis: contextAnalysis,
+      context_analysis: {
+        content_type: 'General',
+        target_audience: 'General Audience',
+        monetization_impact: 50,
+        content_length: text.split(' ').length,
+        language_detected: 'English'
+      },
       highlights: highlights,
       suggestions: suggestions,
       analysis_metadata: {
@@ -343,7 +352,7 @@ export async function performEnhancedAnalysis(text: string): Promise<EnhancedAna
         flagged_section: 'Content analysis unavailable due to service limits',
         policy_categories: {},
         context_analysis: {
-          content_type: 'Unknown',
+          content_type: 'General',
           target_audience: 'General Audience',
           monetization_impact: 50,
           content_length: wordCount,
@@ -475,6 +484,188 @@ const SuggestionsSchema = z.object({
   suggestions: z.array(SuggestionSchema)
 });
 
+const ContentClassificationSchema = z.object({
+  content_type: z.string(),
+  primary_themes: z.array(z.string()),
+  target_audience: z.string(),
+  content_quality: z.string(),
+  engagement_level: z.string(),
+});
+
+// Batch normalization utility for risk scores and confidence
+function normalizeBatchScores(scores) {
+  const maxScore = Math.max(...scores);
+  if (maxScore <= 5) {
+    console.warn('[AI-NORMALIZE] Detected 0-5 scale, normalizing all scores by 20x');
+    return scores.map(s => s * 20);
+  }
+  if (maxScore <= 10) {
+    console.warn('[AI-NORMALIZE] Detected 0-10 scale, normalizing all scores by 10x');
+    return scores.map(s => s * 10);
+  }
+  if (maxScore > 100) {
+    console.warn('[AI-NORMALIZE] Detected >100 score, capping all scores at 100');
+    return scores.map(s => Math.min(s, 100));
+  }
+  // Already 0-100
+  return scores;
+}
+
+// Robust JSON parsing utility with multiple fallback strategies
+function parseJSONSafely(jsonString: string): any {
+  // Strategy 1: Direct parsing (try this first for valid JSON)
+  try {
+    return JSON.parse(jsonString);
+  } catch (error) {
+    console.log('Direct JSON parsing failed, trying sanitization...');
+  }
+
+  // Strategy 2: Simple sanitization for common issues
+  try {
+    let sanitized = jsonString;
+    
+    // Only fix trailing commas before closing braces/brackets
+    sanitized = sanitized.replace(/,(\\s*[}\]])/g, '$1');
+    // Fix non-standard single quote escapes (\')
+    sanitized = sanitized.replace(/\\'/g, "'");
+    // Try parsing the sanitized JSON
+    return JSON.parse(sanitized);
+  } catch (error) {
+    console.log('Simple sanitization failed, trying regex extraction...');
+  }
+
+  // Strategy 3: Extract JSON using regex (only if no valid JSON found)
+  try {
+    const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+  } catch (error) {
+    console.log('Regex extraction failed');
+  }
+
+  // Strategy 4: Manual parsing as last resort
+  try {
+    const result: any = {};
+    
+    // Extract categories using regex
+    const categoryMatches = jsonString.match(/"([^"]+)"\s*:\s*\{[^}]+\}/g);
+    if (categoryMatches) {
+      result.categories = {};
+      
+      for (const match of categoryMatches) {
+        const keyMatch = match.match(/"([^"]+)"/);
+        if (keyMatch) {
+          const key = keyMatch[1];
+          
+          // Extract basic fields using regex
+          const riskScoreMatch = match.match(/"risk_score":\s*(\d+)/);
+          const confidenceMatch = match.match(/"confidence":\s*(\d+)/);
+          const severityMatch = match.match(/"severity":\s*"([^"]+)"/);
+          
+          result.categories[key] = {
+            risk_score: riskScoreMatch ? parseInt(riskScoreMatch[1]) : 0,
+            confidence: confidenceMatch ? parseInt(confidenceMatch[1]) : 0,
+            violations: [],
+            severity: severityMatch ? severityMatch[1] : 'LOW',
+            explanation: 'Parsed using fallback method'
+          };
+        }
+      }
+      
+      return result;
+    }
+  } catch (error) {
+    console.log('Manual parsing failed');
+  }
+
+  // Log the failure to Sentry for monitoring
+  Sentry.captureException(new Error('All JSON parsing strategies failed'), {
+    extra: {
+      jsonString: jsonString.substring(0, 500), // Truncate to avoid huge payloads
+      strategiesAttempted: ['direct', 'sanitized', 'regex', 'manual']
+    }
+  });
+
+  throw new Error('All JSON parsing strategies failed');
+}
+
+// Helper function to extract partial analysis from malformed JSON
+function extractPartialAnalysis(jsonString: string, batch: any[]): {[key: string]: PolicyCategoryAnalysis} {
+  const partialAnalysis: {[key: string]: PolicyCategoryAnalysis} = {};
+  
+  for (const category of batch) {
+    try {
+      // Try to find the category block in the JSON string
+      const categoryPattern = new RegExp(`"${category.key}"\\s*:\\s*\\{([^}]+)\\}`, 'i');
+      const match = jsonString.match(categoryPattern);
+      
+      if (match) {
+        const categoryBlock = match[1];
+        
+        // Extract individual fields using regex
+        const riskScoreMatch = categoryBlock.match(/"risk_score"\s*:\s*(\d+)/i);
+        const confidenceMatch = categoryBlock.match(/"confidence"\s*:\s*(\d+)/i);
+        const severityMatch = categoryBlock.match(/"severity"\s*:\s*"([^"]+)"/i);
+        const violationsMatch = categoryBlock.match(/"violations"\s*:\s*\[([^\]]*)\]/i);
+        const explanationMatch = categoryBlock.match(/"explanation"\s*:\s*"([^"]+)"/i);
+        
+        partialAnalysis[category.key] = {
+          risk_score: normalizeBatchScores([riskScoreMatch ? parseInt(riskScoreMatch[1]) : 0])[0],
+          confidence: normalizeBatchScores([confidenceMatch ? parseInt(confidenceMatch[1]) : 0])[0],
+          violations: violationsMatch ? 
+            violationsMatch[1].split(',').map(v => v.trim().replace(/"/g, '')).filter(v => v) : [],
+          severity: (severityMatch ? severityMatch[1].toUpperCase() : 'LOW') as 'LOW' | 'MEDIUM' | 'HIGH',
+          explanation: explanationMatch ? 
+            explanationMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\') : 
+            'Analysis partially extracted from malformed response'
+        };
+      } else {
+        // No match found for this category
+        partialAnalysis[category.key] = {
+          risk_score: 0,
+          confidence: 0,
+          violations: [],
+          severity: 'LOW',
+          explanation: 'Category not found in response'
+        };
+      }
+    } catch (error) {
+      console.error(`Failed to extract analysis for category ${category.key}:`, error);
+      partialAnalysis[category.key] = {
+        risk_score: 0,
+        confidence: 0,
+        violations: [],
+        severity: 'LOW',
+        explanation: 'Failed to extract analysis for this category'
+      };
+    }
+  }
+  
+  const keys = Object.keys(partialAnalysis);
+  const riskScores = keys.map(key => partialAnalysis[key].risk_score);
+  const confidenceScores = keys.map(key => partialAnalysis[key].confidence);
+  const normalizedRiskScores = normalizeBatchScores(riskScores);
+  const normalizedConfidenceScores = normalizeBatchScores(confidenceScores);
+  keys.forEach((key, idx) => {
+    partialAnalysis[key].risk_score = normalizedRiskScores[idx];
+    partialAnalysis[key].confidence = normalizedConfidenceScores[idx];
+  });
+  
+  return partialAnalysis;
+}
+
+// Helper: Flatten YOUTUBE_POLICY_CATEGORIES to a list of all category keys and names
+function getAllPolicyCategoryKeysAndNames() {
+  const keys = [];
+  for (const [categoryKey, categoryName] of Object.entries(YOUTUBE_POLICY_CATEGORIES)) {
+    for (const [subKey, subName] of Object.entries(categoryName)) {
+      keys.push({ key: `${categoryKey}_${subKey}`, name: subName });
+    }
+  }
+  return keys;
+}
+
 // Stage 1: Content Classification
 async function performContextAnalysis(text: string, model: AIModel): Promise<ContextAnalysis> {
   const prompt = `
@@ -519,9 +710,32 @@ async function performContextAnalysis(text: string, model: AIModel): Promise<Con
       language_detected: validatedData.language_detected || 'English'
     };
   } catch (parseError) {
-    console.error('Context analysis parse error:', parseError);
-    console.error('Raw JSON:', jsonMatch[0]);
-    throw new Error('Failed to validate context analysis response');
+    console.log('Regular JSON parsing failed, trying enhanced parsing...');
+    try {
+      const contextData = parseJSONSafely(jsonMatch[0]);
+      const validatedData = ContextAnalysisSchema.parse(contextData);
+      
+      return {
+        content_type: validatedData.content_type || 'General',
+        target_audience: validatedData.target_audience || 'General Audience',
+        monetization_impact: Math.min(100, Math.max(0, validatedData.monetization_impact || 50)),
+        content_length: validatedData.content_length || text.split(' ').length,
+        language_detected: validatedData.language_detected || 'English'
+      };
+    } catch (enhancedParseError) {
+      console.error('Context analysis parse error:', enhancedParseError);
+      console.error('Raw JSON:', jsonMatch[0]);
+      
+      // Track parsing errors in Sentry
+      Sentry.captureException(enhancedParseError, {
+        extra: {
+          rawJson: jsonMatch[0].substring(0, 500),
+          function: 'performContextAnalysis'
+        }
+      });
+      
+      throw new Error('Failed to validate context analysis response');
+    }
   }
 }
 
@@ -529,51 +743,37 @@ async function performContextAnalysis(text: string, model: AIModel): Promise<Con
 async function performPolicyCategoryAnalysisBatched(text: string, model: AIModel, context: ContextAnalysis): Promise<{[key: string]: PolicyCategoryAnalysis}> {
   const policyAnalysis: {[key: string]: PolicyCategoryAnalysis} = {};
   
-  // Create batches of categories to reduce API calls
-  const categoryBatches = [];
-  const allCategories = [];
-  
-  for (const [categoryKey, categoryName] of Object.entries(YOUTUBE_POLICY_CATEGORIES)) {
-    for (const [subKey, subName] of Object.entries(categoryName)) {
-      allCategories.push({
-        key: `${categoryKey}_${subKey}`,
-        name: subName
-      });
-    }
-  }
-  
-  // Split into batches of 5 categories each
-  for (let i = 0; i < allCategories.length; i += 5) {
-    categoryBatches.push(allCategories.slice(i, i + 5));
-  }
+  const allCategoriesList = getAllPolicyCategoryKeysAndNames();
+  const allCategoryKeys = allCategoriesList.map(cat => cat.key);
   
   // Process each batch
-  for (const batch of categoryBatches) {
+  for (const batch of allCategoriesList) {
     await rateLimiter.waitIfNeeded();
     
     const prompt = `
-      Analyze the following content for YouTube policy violations across multiple categories:
+      Analyze the following content for YouTube policy compliance. For each of the following category KEYS, provide a risk score, confidence, violations, severity, and explanation. You must return a result for every key, even if the risk is 0.
+
+      Categories (use these KEYS as JSON keys):
+      ${allCategoryKeys.map(key => `- ${key}`).join('\n  ')}
+
+      Return all risk scores and confidence values as integers between 0 and 100. Do NOT use a 0-5 or 0-10 scale. Each value must be on a 0-100 scale.
 
       Content: "${text}"
-      Content Type: ${context.content_type}
-      Target Audience: ${context.target_audience}
+      Context: ${JSON.stringify(context, null, 2)}
 
-      Analyze these categories: ${batch.map(cat => cat.name).join(', ')}
-
-      Provide analysis in JSON format:
+      Provide analysis in JSON format with this structure:
       {
         "categories": {
-          ${batch.map(cat => `"${cat.key}": {
-            "risk_score": "number (0-100)",
-            "confidence": "number (0-100)",
-            "violations": ["array of specific violations"],
+          "CATEGORY_KEY": {
+            "risk_score": 0-100,
+            "confidence": 0-100,
+            "violations": ["string", ...],
             "severity": "LOW|MEDIUM|HIGH",
-            "explanation": "detailed explanation"
-          }`).join(',\n          ')}
+            "explanation": "string"
+          },
+          ...
         }
       }
-
-      Be specific about policy violations and their impact on YouTube monetization.
     `;
 
     // Retry logic for batch processing
@@ -589,43 +789,120 @@ async function performPolicyCategoryAnalysisBatched(text: string, model: AIModel
         const jsonMatch = response.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           try {
+            // Try regular JSON parsing first
             const analysis = JSON.parse(jsonMatch[0]);
+            
+            // Add detailed logging to debug schema validation
+            console.log('Parsed JSON structure:', JSON.stringify(analysis, null, 2));
+            console.log('Expected schema structure:', JSON.stringify({
+              categories: {
+                "example_category": {
+                  risk_score: 0,
+                  confidence: 0,
+                  violations: [],
+                  severity: "LOW",
+                  explanation: "string"
+                }
+              }
+            }, null, 2));
             
             // Schema validation
             const validatedAnalysis = BatchAnalysisSchema.parse(analysis);
             
             if (validatedAnalysis.categories) {
-              for (const [categoryKey, categoryAnalysis] of Object.entries(validatedAnalysis.categories)) {
+              console.log(`Successfully parsed batch analysis for ${Object.keys(validatedAnalysis.categories).length} categories`);
+              const categoryKeys = Object.keys(validatedAnalysis.categories);
+              const riskScores = categoryKeys.map(key => validatedAnalysis.categories[key].risk_score);
+              const confidenceScores = categoryKeys.map(key => validatedAnalysis.categories[key].confidence);
+              const normalizedRiskScores = normalizeBatchScores(riskScores);
+              const normalizedConfidenceScores = normalizeBatchScores(confidenceScores);
+              categoryKeys.forEach((categoryKey, idx) => {
                 policyAnalysis[categoryKey] = {
-                  risk_score: Math.min(100, Math.max(0, categoryAnalysis.risk_score || 0)),
-                  confidence: Math.min(100, Math.max(0, categoryAnalysis.confidence || 0)),
-                  violations: categoryAnalysis.violations || [],
-                  severity: categoryAnalysis.severity || 'LOW',
-                  explanation: categoryAnalysis.explanation || ''
+                  risk_score: normalizedRiskScores[idx],
+                  confidence: normalizedConfidenceScores[idx],
+                  violations: validatedAnalysis.categories[categoryKey].violations || [],
+                  severity: validatedAnalysis.categories[categoryKey].severity || 'LOW',
+                  explanation: validatedAnalysis.categories[categoryKey].explanation || ''
                 };
-              }
+              });
               batchProcessed = true;
             }
           } catch (parseError) {
-            retryCount++;
-            console.error(`Batch parse attempt ${retryCount} failed:`, parseError);
-            console.error('Raw JSON:', jsonMatch[0]);
-            
-            if (retryCount > maxRetries) {
-              console.error('Max retries reached for batch, providing default analysis');
-              // Provide default analysis for failed batch
-              for (const category of batch) {
-                policyAnalysis[category.key] = {
-                  risk_score: 0,
-                  confidence: 0,
-                  violations: [],
-                  severity: 'LOW',
-                  explanation: 'Analysis failed for this category (JSON parse error)'
-                };
+            console.log('Regular JSON parsing failed, trying enhanced parsing...');
+            console.error('Parse error details:', parseError);
+            console.error('Raw JSON that failed parsing:', jsonMatch[0]);
+            try {
+              // Use the enhanced JSON parsing function as fallback
+              const analysis = parseJSONSafely(jsonMatch[0]);
+              
+              console.log('Enhanced parsing result:', JSON.stringify(analysis, null, 2));
+              
+              // Schema validation
+              const validatedAnalysis = BatchAnalysisSchema.parse(analysis);
+              
+              if (validatedAnalysis.categories) {
+                console.log(`Successfully parsed batch analysis using enhanced parsing for ${Object.keys(validatedAnalysis.categories).length} categories`);
+                const categoryKeys = Object.keys(validatedAnalysis.categories);
+                const riskScores = categoryKeys.map(key => validatedAnalysis.categories[key].risk_score);
+                const confidenceScores = categoryKeys.map(key => validatedAnalysis.categories[key].confidence);
+                const normalizedRiskScores = normalizeBatchScores(riskScores);
+                const normalizedConfidenceScores = normalizeBatchScores(confidenceScores);
+                categoryKeys.forEach((categoryKey, idx) => {
+                  policyAnalysis[categoryKey] = {
+                    risk_score: normalizedRiskScores[idx],
+                    confidence: normalizedConfidenceScores[idx],
+                    violations: validatedAnalysis.categories[categoryKey].violations || [],
+                    severity: validatedAnalysis.categories[categoryKey].severity || 'LOW',
+                    explanation: validatedAnalysis.categories[categoryKey].explanation || ''
+                  };
+                });
+                batchProcessed = true;
               }
-            } else {
-              console.log(`Retrying batch (attempt ${retryCount + 1}/${maxRetries + 1})`);
-              await new Promise(resolve => setTimeout(resolve, 1000)); // Brief delay before retry
+            } catch (enhancedParseError) {
+              console.error('Enhanced parsing also failed:', enhancedParseError);
+              console.error('Enhanced parsing error details:', enhancedParseError);
+              retryCount++;
+              console.error(`Batch parse attempt ${retryCount} failed:`, enhancedParseError);
+              console.error('Raw JSON:', jsonMatch[0]);
+              
+              // Track parsing errors in Sentry
+              Sentry.captureException(enhancedParseError, {
+                extra: {
+                  retryCount,
+                  maxRetries,
+                  rawJson: jsonMatch[0].substring(0, 500), // Truncate to avoid huge payloads
+                  batchSize: batch.length,
+                  batchCategories: batch.map(cat => cat.key)
+                }
+              });
+              
+              if (retryCount > maxRetries) {
+                console.error('Max retries reached for batch, providing default analysis');
+                
+                // Try to extract partial information from the malformed JSON
+                try {
+                  const partialAnalysis = extractPartialAnalysis(jsonMatch[0], batch);
+                  console.log(`Successfully extracted partial analysis for ${Object.keys(partialAnalysis).length} categories`);
+                  for (const [categoryKey, analysis] of Object.entries(partialAnalysis)) {
+                    policyAnalysis[categoryKey] = analysis;
+                  }
+                } catch (extractError) {
+                  console.error('Failed to extract partial analysis:', extractError);
+                  // Provide default analysis for failed batch
+                  for (const category of batch) {
+                    policyAnalysis[category.key] = {
+                      risk_score: 0,
+                      confidence: 0,
+                      violations: [],
+                      severity: 'LOW',
+                      explanation: 'Analysis failed for this category (JSON parse error)'
+                    };
+                  }
+                }
+              } else {
+                console.log(`Retrying batch (attempt ${retryCount + 1}/${maxRetries + 1})`);
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Brief delay before retry
+              }
             }
           }
         } else {
@@ -648,6 +925,17 @@ async function performPolicyCategoryAnalysisBatched(text: string, model: AIModel
         retryCount++;
         console.error(`Batch processing attempt ${retryCount} failed:`, error);
         
+        // Track batch processing errors in Sentry
+        Sentry.captureException(error, {
+          extra: {
+            retryCount,
+            maxRetries,
+            batchSize: batch.length,
+            batchCategories: batch.map(cat => cat.key),
+            errorType: error instanceof Error ? error.constructor.name : 'Unknown'
+          }
+        });
+        
         if (retryCount > maxRetries) {
           console.error('Max retries reached for batch processing');
           // Provide default analysis for failed batch
@@ -668,6 +956,19 @@ async function performPolicyCategoryAnalysisBatched(text: string, model: AIModel
     }
   }
   
+  // After filtering out non-canonical categories, fill in missing canonical keys
+  for (const catKey of allCategoryKeys) {
+    if (!policyAnalysis[catKey]) {
+      policyAnalysis[catKey] = {
+        risk_score: 0,
+        confidence: 0,
+        violations: [],
+        severity: 'LOW',
+        explanation: 'No issues detected for this category.'
+      };
+    }
+  }
+  
   return policyAnalysis;
 }
 
@@ -679,6 +980,8 @@ async function performRiskAssessment(text: string, model: AIModel, policyAnalysi
     Content: "${text}"
     Policy Analysis: ${JSON.stringify(policyAnalysis, null, 2)}
     Context: ${JSON.stringify(context, null, 2)}
+
+    Return the overall risk score as an integer between 0 and 100. Do NOT use a 0-5 or 0-10 scale. The value must be on a 0-100 scale.
 
     Provide risk assessment in JSON format:
     {
@@ -697,12 +1000,32 @@ async function performRiskAssessment(text: string, model: AIModel, policyAnalysi
       const response = result;
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error('No JSON found');
-      const parsed = JSON.parse(jsonMatch[0]);
-      const validated = RiskAssessmentSchema.parse(parsed);
-      return validated;
+      
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        const validated = RiskAssessmentSchema.parse(parsed);
+        validated.overall_risk_score = normalizeBatchScores([validated.overall_risk_score])[0];
+        return validated;
+      } catch (parseError) {
+        console.log('Regular JSON parsing failed, trying enhanced parsing...');
+        const parsed = parseJSONSafely(jsonMatch[0]);
+        const validated = RiskAssessmentSchema.parse(parsed);
+        validated.overall_risk_score = normalizeBatchScores([validated.overall_risk_score])[0];
+        return validated;
+      }
     } catch (err) {
       retryCount++;
       console.error(`Risk assessment parse attempt ${retryCount} failed:`, err);
+      
+      // Track parsing errors in Sentry
+      Sentry.captureException(err, {
+        extra: {
+          retryCount,
+          maxRetries,
+          function: 'performRiskAssessment'
+        }
+      });
+      
       if (retryCount > maxRetries) {
         return {
           flagged_section: 'Analysis incomplete',
@@ -749,12 +1072,30 @@ async function performConfidenceAnalysis(text: string, model: AIModel, policyAna
       const response = result;
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error('No JSON found');
-      const parsed = JSON.parse(jsonMatch[0]);
-      const validated = ConfidenceAnalysisSchema.parse(parsed);
-      return validated;
+      
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        const validated = ConfidenceAnalysisSchema.parse(parsed);
+        return validated;
+      } catch (parseError) {
+        console.log('Regular JSON parsing failed, trying enhanced parsing...');
+        const parsed = parseJSONSafely(jsonMatch[0]);
+        const validated = ConfidenceAnalysisSchema.parse(parsed);
+        return validated;
+      }
     } catch (err) {
       retryCount++;
       console.error(`Confidence analysis parse attempt ${retryCount} failed:`, err);
+      
+      // Track parsing errors in Sentry
+      Sentry.captureException(err, {
+        extra: {
+          retryCount,
+          maxRetries,
+          function: 'performConfidenceAnalysis'
+        }
+      });
+      
       if (retryCount > maxRetries) {
         return {
           overall_confidence: 50,
@@ -801,12 +1142,30 @@ async function generateActionableSuggestions(text: string, model: AIModel, polic
       const response = result;
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error('No JSON found');
-      const parsed = JSON.parse(jsonMatch[0]);
-      const validated = SuggestionsSchema.parse(parsed);
-      return validated.suggestions;
+      
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        const validated = SuggestionsSchema.parse(parsed);
+        return validated.suggestions;
+      } catch (parseError) {
+        console.log('Regular JSON parsing failed, trying enhanced parsing...');
+        const parsed = parseJSONSafely(jsonMatch[0]);
+        const validated = SuggestionsSchema.parse(parsed);
+        return validated.suggestions;
+      }
     } catch (err) {
       retryCount++;
       console.error(`Suggestions parse attempt ${retryCount} failed:`, err);
+      
+      // Track parsing errors in Sentry
+      Sentry.captureException(err, {
+        extra: {
+          retryCount,
+          maxRetries,
+          function: 'generateActionableSuggestions'
+        }
+      });
+      
       if (retryCount > maxRetries) {
         return [{
           title: 'Review Content',
@@ -866,22 +1225,559 @@ function generateHighlights(policyAnalysis: { [key: string]: PolicyCategoryAnaly
 }
 
 // Backward compatibility function
-export async function performAnalysis(text: string) {
-  const enhancedResult = await performEnhancedAnalysis(text);
-  
-  // Convert to old format for backward compatibility
-  return {
-    risk_score: enhancedResult.risk_score,
-    risk_level: enhancedResult.risk_level,
-    flagged_section: enhancedResult.flagged_section,
-    highlights: enhancedResult.highlights.map(h => ({
-      category: h.category,
-      risk: h.risk,
-      score: h.score
-    })),
-    suggestions: enhancedResult.suggestions.map(s => ({
-      title: s.title,
-      text: s.text
-    }))
+export async function performAnalysis(
+  transcript: string,
+  context: string,
+  user: any
+): Promise<EnhancedAnalysisResult> {
+  return Sentry.startSpan(
+    {
+      op: "ai.analysis",
+      name: "Perform Complete Analysis",
+    },
+    async () => {
+      const rateLimiter = new RateLimiter();
+      const maxRetries = 3;
+      let lastError: Error | null = null;
+
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`Starting analysis attempt ${attempt}...`);
+          
+          // Stage 1: Content Classification
+          await rateLimiter.waitIfNeeded();
+          const classification = await classifyContent(transcript, context, user);
+          console.log('Content classification completed');
+
+          // Stage 2: Policy Categories Analysis (using the new robust function)
+          const categories = await analyzePolicyCategories(transcript, context, user);
+          console.log('Policy categories analysis completed');
+
+          // Stage 3: Risk Assessment
+          await rateLimiter.waitIfNeeded();
+          const riskAssessment = await assessRisk(transcript, context, user);
+          console.log('Risk assessment completed');
+
+          // Stage 4: Confidence Analysis
+          await rateLimiter.waitIfNeeded();
+          const confidence = await analyzeConfidence(transcript, context, user);
+          console.log('Confidence analysis completed');
+
+          // Stage 5: Suggestions
+          await rateLimiter.waitIfNeeded();
+          const suggestions = await generateSuggestions(transcript, context, user);
+          console.log('Suggestions generation completed');
+
+          // Map legacy pipeline results to EnhancedAnalysisResult
+          const overallRiskScore = riskAssessment.overall_risk_score || 0;
+          const riskLevel = getRiskLevel(overallRiskScore);
+          const highlights = generateHighlights(categories.categories || {});
+          const now = new Date();
+
+          return {
+            risk_score: overallRiskScore,
+            risk_level: riskLevel,
+            confidence_score: confidence.overall_confidence || 50,
+            flagged_section: riskAssessment.flagged_section || '',
+            policy_categories: categories.categories || {},
+            context_analysis: {
+              ...classification,
+              monetization_impact: 50,
+              content_length: transcript.split(' ').length,
+              language_detected: 'English'
+            },
+            highlights,
+            suggestions,
+            analysis_metadata: {
+              model_used: 'claude-3-5-sonnet-20241022',
+              analysis_timestamp: now.toISOString(),
+              processing_time_ms: 0,
+              content_length: transcript.length,
+              analysis_mode: 'enhanced',
+            },
+          };
+
+        } catch (error) {
+          lastError = error as Error;
+          console.error(`Analysis attempt ${attempt} failed:`, error);
+          
+          if (attempt < maxRetries) {
+            const delay = Math.min(2000 * Math.pow(2, attempt - 1), 10000); // Exponential backoff, max 10s
+            console.log(`Retrying analysis in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        }
+      }
+
+      // If all retries failed, throw the last error
+      throw new Error(`Complete analysis failed after ${maxRetries} attempts: ${lastError?.message}`);
+    }
+  );
+}
+
+export async function analyzePolicyCategories(
+  transcript: string,
+  context: string,
+  user: any
+): Promise<BatchAnalysisResult> {
+  return Sentry.startSpan(
+    {
+      op: "ai.analysis",
+      name: "Analyze Policy Categories",
+    },
+    async () => {
+      const rateLimiter = new RateLimiter();
+      const maxRetries = 3;
+      let lastError: Error | null = null;
+
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          await rateLimiter.waitIfNeeded();
+          
+          console.log(`Attempt ${attempt}: Analyzing policy categories...`);
+          
+          const response = await anthropic.messages.create({
+            model: 'claude-3-5-sonnet-20241022',
+            max_tokens: 4000,
+            temperature: 0.1,
+            system: `You are an expert content analyst specializing in YouTube Terms of Service compliance. Analyze the provided transcript and context to identify potential policy violations across multiple categories.
+
+IMPORTANT: You must respond with ONLY valid JSON. No additional text, explanations, or markdown formatting. The JSON must be properly escaped and valid.
+
+Response Format:
+{
+  "categories": {
+    "Hate Speech": {
+      "risk_score": 0-100,
+      "confidence": 0-100,
+      "violations": ["specific violation details"],
+      "severity": "LOW|MEDIUM|HIGH|CRITICAL",
+      "explanation": "Detailed explanation of findings"
+    },
+    "Violence": {
+      "risk_score": 0-100,
+      "confidence": 0-100,
+      "violations": ["specific violation details"],
+      "severity": "LOW|MEDIUM|HIGH|CRITICAL", 
+      "explanation": "Detailed explanation of findings"
+    },
+    "Harassment": {
+      "risk_score": 0-100,
+      "confidence": 0-100,
+      "violations": ["specific violation details"],
+      "severity": "LOW|MEDIUM|HIGH|CRITICAL",
+      "explanation": "Detailed explanation of findings"
+    },
+    "Misinformation": {
+      "risk_score": 0-100,
+      "confidence": 0-100,
+      "violations": ["specific violation details"],
+      "severity": "LOW|MEDIUM|HIGH|CRITICAL",
+      "explanation": "Detailed explanation of findings"
+    },
+    "Copyright": {
+      "risk_score": 0-100,
+      "confidence": 0-100,
+      "violations": ["specific violation details"],
+      "severity": "LOW|MEDIUM|HIGH|CRITICAL",
+      "explanation": "Detailed explanation of findings"
+    }
+  }
+}
+
+CRITICAL: Ensure all quotes in explanations are properly escaped. Use \\" for quotes within explanations.`,
+            messages: [
+              {
+                role: 'user',
+                content: `Analyze this YouTube video transcript for policy violations:
+
+Context: ${context}
+
+Transcript: ${transcript}
+
+Provide a detailed analysis across all policy categories. Focus on identifying specific violations and providing clear explanations.`
+              }
+            ]
+          });
+
+          const content = response.content[0];
+          if (content.type !== 'text') {
+            throw new Error('Unexpected response type from Claude API');
+          }
+
+          console.log('Raw Claude response received, attempting JSON parsing...');
+          
+          // Use the robust JSON parsing utility
+          const parsedResult = parseJSONSafely(content.text);
+          
+          // Validate the parsed result
+          const validationResult = BatchAnalysisSchema.safeParse(parsedResult);
+          if (!validationResult.success) {
+            console.error('Validation failed:', validationResult.error);
+            throw new Error(`Invalid response structure: ${validationResult.error.message}`);
+          }
+
+          console.log('Policy categories analysis completed successfully');
+          return validationResult.data;
+
+        } catch (error) {
+          lastError = error as Error;
+          console.error(`Attempt ${attempt} failed:`, error);
+          
+          if (attempt < maxRetries) {
+            const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // Exponential backoff, max 5s
+            console.log(`Retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        }
+      }
+
+      // If all retries failed, throw the last error
+      throw new Error(`Policy categories analysis failed after ${maxRetries} attempts: ${lastError?.message}`);
+    }
+  );
+}
+
+// Stage 1: Content Classification
+async function classifyContent(transcript: string, context: string, user: any): Promise<ContentClassification> {
+  return Sentry.startSpan(
+    {
+      op: "ai.analysis",
+      name: "Classify Content",
+    },
+    async () => {
+      const rateLimiter = new RateLimiter();
+      const maxRetries = 3;
+      let lastError: Error | null = null;
+
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          await rateLimiter.waitIfNeeded();
+          
+          const response = await anthropic.messages.create({
+            model: 'claude-3-5-sonnet-20241022',
+            max_tokens: 2000,
+            temperature: 0.1,
+            system: `You are an expert content classifier. Analyze the provided transcript and context to classify the content type and identify key themes.
+
+IMPORTANT: Respond with ONLY valid JSON. No additional text or formatting.
+
+Response Format:
+{
+  "content_type": "educational|entertainment|news|tutorial|review|other",
+  "primary_themes": ["theme1", "theme2", "theme3"],
+  "target_audience": "general|children|teens|adults|professional",
+  "content_quality": "high|medium|low",
+  "engagement_level": "high|medium|low"
+}`,
+            messages: [
+              {
+                role: 'user',
+                content: `Classify this YouTube video content:
+
+Context: ${context}
+
+Transcript: ${transcript}
+
+Provide a detailed classification of the content type, themes, and audience.`
+              }
+            ]
+          });
+
+          const content = response.content[0];
+          if (content.type !== 'text') {
+            throw new Error('Unexpected response type from Claude API');
+          }
+
+          const parsedResult = parseJSONSafely(content.text);
+          const validationResult = ContentClassificationSchema.safeParse(parsedResult);
+          
+          if (!validationResult.success) {
+            throw new Error(`Invalid classification response: ${validationResult.error.message}`);
+          }
+
+          return validationResult.data;
+
+        } catch (error) {
+          lastError = error as Error;
+          console.error(`Classification attempt ${attempt} failed:`, error);
+          
+          if (attempt < maxRetries) {
+            const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        }
+      }
+
+      throw new Error(`Content classification failed after ${maxRetries} attempts: ${lastError?.message}`);
+    }
+  );
+}
+
+// Stage 3: Risk Assessment
+async function assessRisk(transcript: string, context: string, user: any): Promise<RiskAssessment> {
+  return Sentry.startSpan(
+    {
+      op: "ai.analysis",
+      name: "Assess Risk",
+    },
+    async () => {
+      const rateLimiter = new RateLimiter();
+      const maxRetries = 3;
+      let lastError: Error | null = null;
+
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          await rateLimiter.waitIfNeeded();
+          
+          const response = await anthropic.messages.create({
+            model: 'claude-3-5-sonnet-20241022',
+            max_tokens: 2000,
+            temperature: 0.1,
+            system: `You are an expert risk assessor specializing in YouTube content compliance. Analyze the provided transcript and context to assess overall risk level.
+
+IMPORTANT: Respond with ONLY valid JSON. No additional text or formatting.
+
+Response Format:
+{
+  "overall_risk_score": 0-100,
+  "risk_level": "LOW|MEDIUM|HIGH|CRITICAL",
+  "primary_concerns": ["concern1", "concern2", "concern3"],
+  "compliance_status": "compliant|warning|violation",
+  "recommended_actions": ["action1", "action2", "action3"]
+}`,
+            messages: [
+              {
+                role: 'user',
+                content: `Assess the risk level of this YouTube video:
+
+Context: ${context}
+
+Transcript: ${transcript}
+
+Provide a comprehensive risk assessment with specific concerns and recommended actions.`
+              }
+            ]
+          });
+
+          const content = response.content[0];
+          if (content.type !== 'text') {
+            throw new Error('Unexpected response type from Claude API');
+          }
+
+          const parsedResult = parseJSONSafely(content.text);
+          const validationResult = RiskAssessmentSchema.safeParse(parsedResult);
+          
+          if (!validationResult.success) {
+            throw new Error(`Invalid risk assessment response: ${validationResult.error.message}`);
+          }
+
+          return validationResult.data;
+
+        } catch (error) {
+          lastError = error as Error;
+          console.error(`Risk assessment attempt ${attempt} failed:`, error);
+          
+          if (attempt < maxRetries) {
+            const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        }
+      }
+
+      throw new Error(`Risk assessment failed after ${maxRetries} attempts: ${lastError?.message}`);
+    }
+  );
+}
+
+// Stage 4: Confidence Analysis
+async function analyzeConfidence(transcript: string, context: string, user: any): Promise<ConfidenceAnalysis> {
+  return Sentry.startSpan(
+    {
+      op: "ai.analysis",
+      name: "Analyze Confidence",
+    },
+    async () => {
+      const rateLimiter = new RateLimiter();
+      const maxRetries = 3;
+      let lastError: Error | null = null;
+
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          await rateLimiter.waitIfNeeded();
+          
+          const response = await anthropic.messages.create({
+            model: 'claude-3-5-sonnet-20241022',
+            max_tokens: 1500,
+            temperature: 0.1,
+            system: `You are an expert confidence analyzer. Assess the confidence level of the analysis based on the quality and clarity of the provided transcript and context.
+
+IMPORTANT: Respond with ONLY valid JSON. No additional text or formatting.
+
+Response Format:
+{
+  "overall_confidence": 0-100,
+  "transcript_quality": "excellent|good|fair|poor",
+  "context_clarity": "excellent|good|fair|poor",
+  "analysis_reliability": "high|medium|low",
+  "limitations": ["limitation1", "limitation2", "limitation3"]
+}`,
+            messages: [
+              {
+                role: 'user',
+                content: `Analyze the confidence level of this analysis:
+
+Context: ${context}
+
+Transcript: ${transcript}
+
+Assess the quality of the input data and the reliability of the analysis.`
+              }
+            ]
+          });
+
+          const content = response.content[0];
+          if (content.type !== 'text') {
+            throw new Error('Unexpected response type from Claude API');
+          }
+
+          const parsedResult = parseJSONSafely(content.text);
+          const validationResult = ConfidenceAnalysisSchema.safeParse(parsedResult);
+          
+          if (!validationResult.success) {
+            throw new Error(`Invalid confidence analysis response: ${validationResult.error.message}`);
+          }
+
+          return validationResult.data;
+
+        } catch (error) {
+          lastError = error as Error;
+          console.error(`Confidence analysis attempt ${attempt} failed:`, error);
+          
+          if (attempt < maxRetries) {
+            const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        }
+      }
+
+      throw new Error(`Confidence analysis failed after ${maxRetries} attempts: ${lastError?.message}`);
+    }
+  );
+}
+
+// Stage 5: Suggestions Generation
+async function generateSuggestions(transcript: string, context: string, user: any): Promise<Suggestion[]> {
+  return Sentry.startSpan(
+    {
+      op: "ai.analysis",
+      name: "Generate Suggestions",
+    },
+    async () => {
+      const rateLimiter = new RateLimiter();
+      const maxRetries = 2;
+      let lastError: Error | null = null;
+
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          await rateLimiter.waitIfNeeded();
+          
+          const response = await anthropic.messages.create({
+            model: 'claude-3-5-sonnet-20241022',
+            max_tokens: 2000,
+            temperature: 0.1,
+            system: `You are an expert content advisor specializing in YouTube compliance. Generate actionable suggestions to improve content compliance and reduce risk.
+
+IMPORTANT: Respond with ONLY valid JSON. No additional text or formatting.
+
+Response Format:
+{
+  "suggestions": [
+    {
+      "title": "Suggestion Title",
+      "description": "Detailed description of the suggestion",
+      "priority": "high|medium|low",
+      "category": "content|technical|legal|engagement",
+      "implementation_difficulty": "easy|medium|hard"
+    }
+  ]
+}`,
+            messages: [
+              {
+                role: 'user',
+                content: `Generate suggestions for improving this YouTube video's compliance:
+
+Context: ${context}
+
+Transcript: ${transcript}
+
+Provide actionable, specific suggestions to improve content compliance and reduce risk.`
+              }
+            ]
+          });
+
+          const content = response.content[0];
+          if (content.type !== 'text') {
+            throw new Error('Unexpected response type from Claude API');
+          }
+
+          const parsedResult = parseJSONSafely(content.text);
+          const validationResult = SuggestionsSchema.safeParse(parsedResult);
+          
+          if (!validationResult.success) {
+            throw new Error(`Invalid suggestions response: ${validationResult.error.message}`);
+          }
+
+          return validationResult.data.suggestions;
+
+        } catch (error) {
+          lastError = error as Error;
+          console.error(`Suggestions generation attempt ${attempt} failed:`, error);
+          
+          if (attempt < maxRetries) {
+            const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        }
+      }
+
+      throw new Error(`Suggestions generation failed after ${maxRetries} attempts: ${lastError?.message}`);
+    }
+  );
+}
+
+export interface BatchAnalysisResult {
+  categories: {
+    [category: string]: PolicyCategoryAnalysis;
   };
+}
+
+export interface ContentClassification {
+  content_type: string;
+  primary_themes: string[];
+  target_audience: string;
+  content_quality: string;
+  engagement_level: string;
+}
+
+export interface RiskAssessment {
+  overall_risk_score: number;
+  flagged_section: string;
+  risk_factors: string[];
+  severity_level: 'LOW' | 'MEDIUM' | 'HIGH';
+}
+
+export interface ConfidenceAnalysis {
+  overall_confidence: number;
+  text_clarity: number;
+  policy_specificity: number;
+  context_availability: number;
+  confidence_factors: string[];
+}
+
+export interface Suggestion {
+  title: string;
+  text: string;
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  impact_score: number;
 } 

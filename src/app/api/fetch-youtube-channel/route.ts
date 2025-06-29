@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        if (!session.accessToken) {
+        if (!(session as any).accessToken) {
           return NextResponse.json({ error: 'No access token available' }, { status: 400 });
         }
 
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
           'https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&mine=true',
           {
             headers: {
-              'Authorization': `Bearer ${session.accessToken}`,
+              'Authorization': `Bearer ${(session as any).accessToken}`,
               'Accept': 'application/json',
             },
           }

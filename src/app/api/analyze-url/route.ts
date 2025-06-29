@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { performAnalysis, performEnhancedAnalysis } from '@/lib/ai-analysis';
-import { YoutubeTranscript } from 'youtube-transcript';
 import axios from 'axios';
 import { adminDb } from '@/lib/firebase-admin'; // Correctly import adminDb
 import { createHash } from 'crypto';
-import TranscriptClient from "youtube-transcript-api";
+import { YoutubeTranscript } from '@danielxceron/youtube-transcript';
 import { auth } from '@/lib/auth';
 import * as Sentry from "@sentry/nextjs";
 import { FieldValue } from 'firebase-admin/firestore';
@@ -45,26 +44,23 @@ function isValidYouTubeUrl(url: string): boolean {
   return videoId !== null && videoId.length === 11;
 }
 
-// Replace the old getTranscriptViaLibrary with the new Node.js library implementation
+// Get transcript using the working @danielxceron/youtube-transcript library
 async function getTranscriptViaNodeLibrary(videoId: string): Promise<string | null> {
   try {
-    console.log(`Trying youtube-transcript-api Node.js library for video ${videoId}...`);
-    const client = new TranscriptClient();
-    await client.ready;
-    const transcriptObj = await client.getTranscript(videoId);
-    if (transcriptObj && transcriptObj.tracks && transcriptObj.tracks.length > 0) {
-      // Concatenate all text segments from all tracks
-      const transcriptText = transcriptObj.tracks
-        .map((track: any) => (track.transcript as Array<{ text: string }> | undefined)?.map((seg: { text: string }) => seg.text).join(' ') || '')
+    console.log(`Trying @danielxceron/youtube-transcript library for video ${videoId}...`);
+    const transcript = await YoutubeTranscript.fetchTranscript(videoId);
+    if (transcript && transcript.length > 0) {
+      const transcriptText = transcript
+        .map((segment: any) => segment.text)
         .join(' ');
       if (transcriptText && transcriptText.length > 0) {
-        console.log(`Successfully fetched transcript via Node.js library: ${transcriptText.length} characters`);
+        console.log(`Successfully fetched transcript via @danielxceron/youtube-transcript: ${transcriptText.length} characters`);
         return transcriptText;
       }
     }
     return null;
   } catch (error: any) {
-    console.error(`youtube-transcript-api Node.js library failed:`, error.message);
+    console.error(`@danielxceron/youtube-transcript library failed:`, error.message);
     return null;
   }
 }

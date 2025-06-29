@@ -7,6 +7,8 @@ import Button from '@/components/Button';
 import Badge from '@/components/Badge';
 import Link from 'next/link';
 import { Suspense } from "react";
+import ExportModal from '@/components/ExportModal';
+import { Download } from 'lucide-react';
 
 interface ScanData {
   id?: string;
@@ -66,6 +68,7 @@ function ResultsPageContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'details' | 'suggestions'>('overview');
+  const [exportModalOpen, setExportModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -447,10 +450,26 @@ function ResultsPageContent() {
         <Link href="/">
           <Button variant="outlined">New Scan</Button>
         </Link>
+        <Button 
+          onClick={() => setExportModalOpen(true)}
+          className="flex items-center gap-2"
+        >
+          <Download className="w-4 h-4" />
+          Export Report
+        </Button>
         <Link href="/scan-history">
           <Button>View History</Button>
         </Link>
       </div>
+
+      {/* Export Modal */}
+      {data && (
+        <ExportModal
+          open={exportModalOpen}
+          onClose={() => setExportModalOpen(false)}
+          data={data}
+        />
+      )}
     </div>
   );
 }

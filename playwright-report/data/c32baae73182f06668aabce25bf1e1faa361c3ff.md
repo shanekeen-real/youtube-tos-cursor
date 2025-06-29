@@ -1,0 +1,49 @@
+# Page snapshot
+
+```yaml
+- banner:
+  - link "YT TOS Analyzer":
+    - /url: /
+  - navigation:
+    - button "Sign in"
+    - button "Get started"
+- main:
+  - heading "Protect Your YouTube Channel from Demonetization" [level=1]
+  - paragraph: Paste YouTube's policies or a video URL to discover risks instantly. Get fix advice with AI.
+  - button "Analyze by Text"
+  - button "Analyze by URL"
+  - text: Content to analyze
+  - textbox "Content to analyze": This is a sample text content for testing free scan.
+  - button "Free Scan"
+  - button "Full Report"
+  - text: Free Scan
+  - list:
+    - listitem: ✓Basic risk detection
+    - listitem: ✓Policy highlighting
+    - listitem: ✓Risk score overview
+    - listitem: ×Detailed suggestions
+    - listitem: ×Revenue impact
+  - text: Full Report ($5) Recommended
+  - list:
+    - listitem: ✓Advanced AI analysis
+    - listitem: ✓Detailed risk breakdown
+    - listitem: ✓Actionable fix suggestions
+    - listitem: ✓Revenue impact estimate
+    - listitem: ✓Export & share results
+  - text: Enterprise
+  - list:
+    - listitem: ✓Bulk analysis
+    - listitem: ✓Team collaboration
+    - listitem: ✓Priority support
+    - listitem: ✓Custom integrations
+    - listitem:
+      - link "Contact Sales":
+        - /url: "#"
+- alert
+- button "Open Next.js Dev Tools":
+  - img
+- button "Close": ×
+- heading "Sign in / Create account" [level=2]
+- button "Sign in with Google"
+- paragraph: By signing in, you agree to our Terms of Service and Privacy Policy.
+```
