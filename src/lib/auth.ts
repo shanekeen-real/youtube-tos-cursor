@@ -26,6 +26,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.accessToken = account.access_token
         token.refreshToken = account.refresh_token
         token.expiresAt = account.expires_at
+        // Use Google account ID for consistent user identification
+        token.userId = account.providerAccountId
       }
       return token
     },
@@ -34,14 +36,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.accessToken = token.accessToken as string | undefined
       session.refreshToken = token.refreshToken as string | undefined
       session.expiresAt = token.expiresAt as number | undefined
-      session.user.id = token.sub || ''
+      // Use the consistent user ID from the JWT token
+      session.user.id = (token.userId as string) || token.sub || ''
       return session
     },
     async signIn({ user, account, profile }) {
       if (account?.provider === "google") {
         try {
-          // Store user profile in Firestore
-          const userId = typeof user.id === 'string' ? user.id : '';
+          // Store user profile in Firestore using the Google account ID for consistency
+          const userId = account.providerAccountId || user.id || '';
           const userRef = adminDb.collection('users').doc(userId);
           await userRef.set({
             email: user.email,
@@ -52,6 +55,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             scanLimit: 3,
             subscriptionTier: 'free',
             lastSignIn: new Date().toISOString(),
+            googleAccountId: account.providerAccountId, // Store for reference
           }, { merge: true })
         } catch (error) {
           console.error('Error storing user profile:', error)

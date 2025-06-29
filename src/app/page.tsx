@@ -1,13 +1,13 @@
 "use client";
-import React, { useContext, useState, useRef, useEffect } from 'react';
-import Card from '../components/Card';
-import Button from '../components/Button';
-import FeatureGrid, { FeatureSet } from '../components/FeatureGrid';
-import { AuthContext } from '../components/ClientLayout';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { getFirestore, collection, addDoc, doc, getDoc, updateDoc, increment } from 'firebase/firestore';
-import { app } from '../lib/firebase';
+import { AuthContext } from '@/components/ClientLayout';
+import Button from '@/components/Button';
+import Card from '@/components/Card';
+import Badge from '@/components/Badge';
+import ProgressMeter from '@/components/ProgressMeter';
+import FeatureGrid, { FeatureSet } from '../components/FeatureGrid';
 
 const featureSets: FeatureSet[] = [
   {
@@ -107,38 +107,16 @@ export default function Home() {
     }
     setLoadingFull(true);
     try {
-      const db = getFirestore(app);
-      const userRef = doc(db, 'users', auth.user.id);
-      const userDoc = await getDoc(userRef);
-
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        if (userData.scanCount >= userData.scanLimit) {
-          alert("You have reached your free scan limit. Please upgrade for unlimited scans.");
-          setLoadingFull(false);
-          return;
-        }
-      }
-
       const isUrl = analysisType === 'url';
       const endpoint = isUrl ? '/api/analyze-url' : '/api/analyze-policy';
       const payload = isUrl ? { url: inputValue } : { text: inputValue };
       
       const res = await axios.post(endpoint, payload);
       
-      const scanData = {
-        ...res.data,
-        userId: auth.user.id,
-        timestamp: new Date(),
-        originalText: isUrl ? inputValue : inputValue.substring(0, 500), // Store URL or text snippet
-      };
-      const scanRef = await addDoc(collection(db, 'analysis_cache'), scanData);
+      // The scan is now automatically saved by the server-side API
+      // No need to manually save to Firestore here
       
-      await updateDoc(userRef, {
-        scanCount: increment(1)
-      });
-      
-      router.push(`/results?scanId=${scanRef.id}`);
+      router.push(`/results?scanId=${res.data.scanId}`);
     } catch (e: any) {
        if (e.response && e.response.status === 400) {
         alert(e.response.data.error); // Show specific error from backend
@@ -160,35 +138,10 @@ export default function Home() {
     }
     setLoadingFree(true);
     try {
-      // --- Check Scan Limit ---
-      const db = getFirestore(app);
-      const userRef = doc(db, 'users', auth.user.id);
-      const userDoc = await getDoc(userRef);
-
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        if (userData.scanCount >= userData.scanLimit) {
-          alert("You have reached your free scan limit. Please upgrade for unlimited scans.");
-          setLoadingFree(false);
-          return;
-        }
-      }
-      
       const res = await axios.post('/api/analyze-policy', { text: inputValue });
       
-      // Save to Firestore on client side
-      const scanData = {
-        ...res.data,
-        userId: auth.user.id,
-        timestamp: new Date(),
-        originalText: inputValue.substring(0, 500),
-      };
-      await addDoc(collection(db, 'analysis_cache'), scanData);
-      
-      // --- Increment User's Scan Count ---
-      await updateDoc(userRef, {
-        scanCount: increment(1)
-      });
+      // The scan is now automatically saved by the server-side API
+      // No need to manually save to Firestore here
       
       setFreeScanResult({
         risk_score: res.data.risk_score,

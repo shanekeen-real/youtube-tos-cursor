@@ -6,8 +6,8 @@ import { adminDb } from '@/lib/firebase-admin'; // Correctly import adminDb
 import { createHash } from 'crypto';
 import TranscriptClient from "youtube-transcript-api";
 import { auth } from '@/lib/auth';
-import { getFirestore, collection, addDoc } from 'firebase/firestore'; // <-- Add this import
-import { app } from '@/lib/firebase'; // <-- Add this import for client-side Firestore
+import * as Sentry from "@sentry/nextjs";
+import { FieldValue } from 'firebase-admin/firestore';
 
 // Temporary module declaration for missing types
 // @ts-ignore
@@ -220,8 +220,31 @@ export async function POST(req: NextRequest) {
     const session = await auth();
     const userId = session?.user?.id || null;
 
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     if (!url || !isValidYouTubeUrl(url)) {
       return NextResponse.json({ error: 'A valid YouTube URL is required' }, { status: 400 });
+    }
+
+    // Check user's scan limit
+    let userRef;
+    try {
+      userRef = adminDb.collection('users').doc(userId);
+      const userDoc = await userRef.get();
+      
+      if (userDoc.exists) {
+        const userData = userDoc.data();
+        if (userData?.scanCount >= userData?.scanLimit) {
+          return NextResponse.json({ 
+            error: 'You have reached your free scan limit. Please upgrade for unlimited scans.' 
+          }, { status: 429 });
+        }
+      }
+    } catch (limitError) {
+      console.error('Error checking scan limit:', limitError);
+      // Continue with analysis even if limit check fails
     }
     
     const videoId = extractVideoId(url);
@@ -310,27 +333,41 @@ export async function POST(req: NextRequest) {
             original_url: url,
             video_id: videoId,
             userId: userId,
+            userEmail: session?.user?.email,
             isCache: true,
         });
         console.log(`CACHE SET: Saved new analysis to cache for URL: ${url}`);
     }
     // --- End Save to Cache ---
 
-    // --- Always append to history for audit ---
+    // --- Always save to history using server-side Firebase Admin ---
     try {
-      const db = getFirestore(app);
-      await addDoc(collection(db, 'analysis_cache'), {
+      const historyRef = await adminDb.collection('analysis_cache').add({
         analysisResult: safeResult,
         timestamp: new Date(),
         original_url: url,
         video_id: videoId,
         userId: userId,
+        userEmail: session?.user?.email,
+        isCache: false, // Mark as history scan, not cache
       });
-      console.log(`HISTORY: Appended new scan for video ${videoId}`);
+
+      // Increment user's scan count if userRef exists
+      if (userRef) {
+        await userRef.update({
+          scanCount: FieldValue.increment(1)
+        });
+      }
+
+      console.log(`HISTORY: Saved new scan to history for video ${videoId}`);
     } catch (historyError) {
-      console.error('Failed to append scan to history:', historyError);
+      console.error('Failed to save scan to history:', historyError);
+      Sentry.captureException(historyError, {
+        tags: { component: 'analyze-url', action: 'save-history' },
+        extra: { videoId, userId }
+      });
     }
-    // --- End append to history ---
+    // --- End save to history ---
 
     return NextResponse.json({
       ...safeResult,

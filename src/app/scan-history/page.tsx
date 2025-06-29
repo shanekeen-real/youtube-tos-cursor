@@ -1,8 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { getFirestore, collection, query, where, orderBy, getDocs } from 'firebase/firestore';
-import { app } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
@@ -14,8 +12,11 @@ interface Scan {
   url: string;
   title: string;
   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  riskScore: number;
   createdAt: string;
   status: 'completed' | 'processing' | 'failed';
+  videoId?: string | null;
+  userEmail?: string | null;
 }
 
 export default function ScanHistoryPage() {
@@ -41,34 +42,19 @@ export default function ScanHistoryPage() {
           try {
             span.setAttribute("userId", session.user.id);
             
-            const db = getFirestore(app);
-            const scansRef = collection(db, 'analysis_cache');
-            const q = query(
-              scansRef,
-              where('userId', '==', session.user.id),
-              orderBy('timestamp', 'desc')
-            );
-            
             console.log('[ScanHistory] Fetching scans for user:', session.user.id);
-            const querySnapshot = await getDocs(q);
-            console.log('[ScanHistory] Found scans:', querySnapshot.docs.length);
+            const response = await fetch('/api/get-scan-history');
             
-            const scansData = querySnapshot.docs.map(doc => {
-              const data = doc.data();
-              // Handle both timestamp and createdAt fields for backward compatibility
-              const timestamp = data.timestamp?.toDate?.() || data.timestamp || data.createdAt || new Date();
-              return {
-                id: doc.id,
-                url: data.original_url || data.url || '',
-                title: data.analysisResult?.title || data.title || 'Untitled',
-                riskLevel: data.analysisResult?.riskLevel || data.analysisResult?.risk_level || data.riskLevel || 'Unknown',
-                createdAt: timestamp.toISOString ? timestamp.toISOString() : timestamp,
-                status: 'completed' // All cached analyses are completed
-              };
-            }) as Scan[];
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || 'Failed to fetch scan history');
+            }
             
-            span.setAttribute("scansCount", scansData.length);
-            setScans(scansData);
+            const data = await response.json();
+            console.log('[ScanHistory] Found scans:', data.totalCount);
+            
+            span.setAttribute("scansCount", data.totalCount);
+            setScans(data.scans);
           } catch (err: any) {
             console.error('[ScanHistory] Error fetching scans:', err);
             Sentry.captureException(err, {

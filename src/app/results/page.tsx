@@ -1,8 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
-import { app } from '@/lib/firebase';
 import { useSearchParams } from 'next/navigation';
 import Card from '@/components/Card';
 import Button from '@/components/Button';
@@ -82,24 +80,26 @@ function ResultsPageContent() {
 
       if (scanId) {
         try {
-          const db = getFirestore(app);
-          const scanDoc = await getDoc(doc(db, 'analysis_cache', scanId));
-          // Debug: Log Firestore fetch result
-          console.log('[ResultsPage] Firestore scanDoc.exists:', scanDoc.exists());
-          if (!scanDoc.exists()) {
-            setError('Scan not found.');
-            setLoading(false);
-            return;
+          // Use server-side API to fetch scan data
+          const response = await fetch(`/api/get-scan-details?scanId=${scanId}`);
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to fetch scan details');
           }
-          const scanData = scanDoc.data();
+          
+          const scanData = await response.json();
+          
           // Debug: Log scanData and session userId
           console.log('[ResultsPage] scanData:', scanData, 'sessionUserId:', session?.user?.id);
+          
           // Security check: ensure the user owns this scan
           if (scanData.userId && scanData.userId !== session?.user?.id) {
             setError('Unauthorized access to scan.');
             setLoading(false);
             return;
           }
+          
           setData((scanData.analysisResult || scanData) as ScanData);
         } catch (err: any) {
           // Debug: Log error
