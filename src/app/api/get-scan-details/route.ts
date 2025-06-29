@@ -4,6 +4,9 @@ import { auth } from '@/lib/auth';
 import * as Sentry from "@sentry/nextjs";
 
 export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const scanId = searchParams.get('scanId');
+  
   return Sentry.startSpan(
     {
       op: "http.server",
@@ -11,8 +14,6 @@ export async function GET(req: NextRequest) {
     },
     async () => {
       try {
-        const { searchParams } = new URL(req.url);
-        const scanId = searchParams.get('scanId');
         const session = await auth();
         const userId = session?.user?.id;
 
@@ -45,7 +46,7 @@ export async function GET(req: NextRequest) {
         console.error('Error fetching scan details:', error);
         Sentry.captureException(error, {
           tags: { component: 'get-scan-details', action: 'fetch-scan' },
-          extra: { scanId: searchParams?.get('scanId'), userId: session?.user?.id }
+          extra: { scanId: scanId, userId: session?.user?.id }
         });
         
         return NextResponse.json({ 
