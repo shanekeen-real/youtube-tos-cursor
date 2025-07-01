@@ -43,6 +43,14 @@ export default function DashboardClient() {
   const [videoRiskLevels, setVideoRiskLevels] = useState<{ [videoId: string]: { riskLevel: string; riskScore: number } | null }>({});
   const [reportsModalOpen, setReportsModalOpen] = useState(false);
   const [selectedVideoForReports, setSelectedVideoForReports] = useState<{ id: string; title: string } | null>(null);
+  const [revenueData, setRevenueData] = useState<null | {
+    atRisk: number;
+    secured: number;
+    total: number;
+    details: { videoId: string; title: string; earnings: number; riskLevel: string; cpm: number; timestamp: string }[];
+  }>(null);
+  const [revenueLoading, setRevenueLoading] = useState(true);
+  const [revenueError, setRevenueError] = useState<string | null>(null);
 
   useEffect(() => {
     if (searchParams.get('payment_success') === 'true') {
@@ -253,6 +261,25 @@ export default function DashboardClient() {
     setReportsModalOpen(true);
   };
 
+  // Fetch revenue at risk data
+  useEffect(() => {
+    const fetchRevenue = async () => {
+      setRevenueLoading(true);
+      setRevenueError(null);
+      try {
+        const res = await fetch('/api/revenue-at-risk');
+        if (!res.ok) throw new Error('Failed to fetch revenue at risk');
+        const data = await res.json();
+        setRevenueData(data);
+      } catch (err: any) {
+        setRevenueError(err.message || 'Failed to fetch revenue at risk');
+      } finally {
+        setRevenueLoading(false);
+      }
+    };
+    fetchRevenue();
+  }, []);
+
   if (status === 'loading' || loading) {
     return (
       <div className="text-center py-10">
@@ -286,6 +313,61 @@ export default function DashboardClient() {
         </div>
       )}
       <h1 className="text-3xl font-bold text-[#212121] mb-6">My Dashboard</h1>
+      {/* Revenue at Risk Card */}
+      <Card className="mb-8">
+        <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">
+          <span>Revenue at Risk</span>
+        </h2>
+        {revenueLoading ? (
+          <div>Loading revenue data...</div>
+        ) : revenueError ? (
+          <div className="text-red-500">{revenueError}</div>
+        ) : revenueData ? (
+          <>
+            <div className="flex flex-wrap gap-8 mb-4">
+              <div>
+                <div className="text-lg text-gray-600">At Risk</div>
+                <div className="text-2xl font-bold text-red-600">${revenueData.atRisk.toLocaleString()}</div>
+              </div>
+              <div>
+                <div className="text-lg text-gray-600">Secured</div>
+                <div className="text-2xl font-bold text-green-600">${revenueData.secured.toLocaleString()}</div>
+              </div>
+              <div>
+                <div className="text-lg text-gray-600">Total</div>
+                <div className="text-2xl font-bold">${revenueData.total.toLocaleString()}</div>
+              </div>
+            </div>
+            <div className="w-full h-4 bg-gray-200 rounded-full mb-4 overflow-hidden">
+              <div
+                className="h-full bg-green-500 transition-all"
+                style={{ width: `${revenueData.total > 0 ? (revenueData.secured / revenueData.total) * 100 : 0}%` }}
+              />
+            </div>
+            <div className="text-right text-sm text-gray-500 mb-2">
+              {revenueData.total > 0 ? Math.round((revenueData.secured / revenueData.total) * 100) : 0}% Secured
+            </div>
+            <div className="mt-2">
+              <div className="font-semibold mb-1">Top 5 Videos</div>
+              <div className="divide-y divide-gray-200">
+                {revenueData.details.slice(0, 5).map((video) => (
+                  <div key={video.videoId} className="flex items-center justify-between py-2">
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900 truncate">{video.title}</div>
+                      <div className="text-xs text-gray-500">${video.earnings.toLocaleString()} | CPM: ${video.cpm}</div>
+                    </div>
+                    <span
+                      className={`ml-4 px-2 py-1 rounded text-xs font-bold ${video.riskLevel === 'LOW' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {video.riskLevel === 'LOW' ? 'Secured' : 'At Risk'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        ) : null}
+      </Card>
       {/* YouTube Channel Integration Section */}
       <section className="mb-8">
         <h2 className="text-2xl font-bold mb-2">YouTube Channel Integration</h2>
