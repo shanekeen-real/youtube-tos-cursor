@@ -333,269 +333,217 @@ export default function DashboardClient() {
   }
 
   return (
-    <main className="min-h-screen w-full max-w-4xl mx-auto px-4 py-8 relative">
-      {showCelebration && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{background: 'linear-gradient(90deg, #ff0080, #7928ca, #007cf0, #00dfd8, #ff0080)', opacity: 0.95}}>
-          <div className="bg-white rounded-xl shadow-lg p-10 flex flex-col items-center animate-bounceIn">
-            <h2 className="text-4xl font-extrabold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500">Welcome to Pro!</h2>
-            <p className="text-lg font-semibold mb-4 text-gray-800">You have unlocked unlimited scans and all Pro features.</p>
-            <Button variant="primary" onClick={() => setShowCelebration(false)}>Awesome!</Button>
+    <main className="w-full px-[60px] py-4 max-w-none flex flex-col items-stretch justify-start">
+      <h1 className="text-2xl font-bold text-[#212121] mb-4">My Dashboard</h1>
+      {/* Quick Actions Row */}
+      <div className="flex flex-wrap gap-3 mb-4 items-center">
+        <Button className="py-2 px-4 text-sm" onClick={() => router.push('/scan-history')}>
+          Scan Results
+        </Button>
+        <Button className="py-2 px-4 text-sm" onClick={/* TODO: Implement batch scan handler */() => {}}>
+          Scan All Videos
+        </Button>
+        {!ytChannel ? (
+          <Button className="py-2 px-4 text-sm" onClick={() => setYtFetching(true)}>
+            Connect YouTube
+          </Button>
+        ) : (
+          <span className="flex items-center gap-2 text-green-600 font-medium text-sm">
+            <svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2C5.58 2 2 5.58 2 10s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm0 14.5c-3.59 0-6.5-2.91-6.5-6.5S6.41 3.5 10 3.5 16.5 6.41 16.5 10 13.59 16.5 10 16.5zm-1-4.5l5-5-1.41-1.41L9 9.67 7.41 8.09 6 9.5l3 3z"/></svg>
+            YouTube Connected
+          </span>
+        )}
+      </div>
+      <div className="w-full border-b border-gray-200 mb-8" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 mt-4">
+        {/* Revenue at Risk Card */}
+        <Card className="relative p-4 h-[624px]">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-2xl font-bold flex items-center gap-2">
+              <span>Revenue at Risk</span>
+            </h2>
+            <button
+              onClick={() => setCpmSetupModalOpen(true)}
+              className="p-2 rounded hover:bg-gray-100 transition"
+              aria-label="Edit CPM Settings"
+              title="Edit CPM Settings"
+            >
+              <Settings className="h-5 w-5 text-gray-500" />
+            </button>
           </div>
-        </div>
-      )}
-      <h1 className="text-3xl font-bold text-[#212121] mb-6">My Dashboard</h1>
-      {/* Revenue at Risk Card */}
-      <Card className="mb-8 relative">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <span>Revenue at Risk</span>
-          </h2>
-          <button
-            onClick={() => setCpmSetupModalOpen(true)}
-            className="p-2 rounded hover:bg-gray-100 transition"
-            aria-label="Edit CPM Settings"
-            title="Edit CPM Settings"
-          >
-            <Settings className="h-5 w-5 text-gray-500" />
-          </button>
-        </div>
-        {revenueLoading ? (
-          <div>Loading revenue data...</div>
-        ) : revenueError ? (
-          <div className="text-red-500">{revenueError}</div>
-        ) : revenueData?.setupRequired ? (
-          <div className="text-center py-8">
-            <div className="mb-4">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Calculator className="h-8 w-8 text-blue-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Setup Revenue Calculator</h3>
-              <p className="text-gray-600 mb-4 max-w-md mx-auto">
-                Configure your CPM to get accurate revenue estimates and see exactly how much of your earnings are at risk from TOS violations.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 max-w-2xl mx-auto">
-              <div className="text-center">
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <DollarSign className="h-6 w-6 text-green-600" />
+          {revenueLoading ? (
+            <div>Loading revenue data...</div>
+          ) : revenueError ? (
+            <div className="text-red-500">{revenueError}</div>
+          ) : revenueData?.setupRequired ? (
+            <div className="text-center py-8">
+              <div className="mb-4">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Calculator className="h-8 w-8 text-blue-600" />
                 </div>
-                <h4 className="font-medium text-gray-900 text-sm">Accurate Revenue</h4>
-                <p className="text-xs text-gray-600">Based on your actual CPM</p>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Setup Revenue Calculator</h3>
+                <p className="text-gray-600 mb-4 max-w-md mx-auto">
+                  Configure your CPM to get accurate revenue estimates and see exactly how much of your earnings are at risk from TOS violations.
+                </p>
               </div>
-              <div className="text-center">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <TrendingUp className="h-6 w-6 text-blue-600" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 max-w-2xl mx-auto">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                    <DollarSign className="h-6 w-6 text-green-600" />
+                  </div>
+                  <h4 className="font-medium text-gray-900 text-sm">Accurate Revenue</h4>
+                  <p className="text-xs text-gray-600">Based on your actual CPM</p>
                 </div>
-                <h4 className="font-medium text-gray-900 text-sm">Risk Assessment</h4>
-                <p className="text-xs text-gray-600">See revenue at risk</p>
-              </div>
-              <div className="text-center">
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <Shield className="h-6 w-6 text-purple-600" />
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                    <TrendingUp className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <h4 className="font-medium text-gray-900 text-sm">Risk Assessment</h4>
+                  <p className="text-xs text-gray-600">See revenue at risk</p>
                 </div>
-                <h4 className="font-medium text-gray-900 text-sm">Protect Earnings</h4>
-                <p className="text-xs text-gray-600">Fix issues early</p>
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                    <Shield className="h-6 w-6 text-purple-600" />
+                  </div>
+                  <h4 className="font-medium text-gray-900 text-sm">Protect Earnings</h4>
+                  <p className="text-xs text-gray-600">Fix issues early</p>
+                </div>
               </div>
+              <Button onClick={() => setCpmSetupModalOpen(true)}>
+                Setup Revenue Calculator
+              </Button>
             </div>
-            <Button onClick={() => setCpmSetupModalOpen(true)}>
-              Setup Revenue Calculator
-            </Button>
-          </div>
-        ) : revenueData ? (
-          <>
-            <div className="flex flex-wrap gap-8 mb-4">
-              <div>
-                <div className="text-lg text-gray-600">At Risk</div>
-                <div className="text-2xl font-bold text-red-600">${revenueData.atRisk.toLocaleString()}</div>
+          ) : revenueData ? (
+            <>
+              <div className="flex flex-wrap gap-8 mb-4">
+                <div>
+                  <div className="text-lg text-gray-600">At Risk</div>
+                  <div className="text-2xl font-bold text-red-600">${revenueData.atRisk.toLocaleString()}</div>
+                </div>
+                <div>
+                  <div className="text-lg text-gray-600">Secured</div>
+                  <div className="text-2xl font-bold text-green-600">${revenueData.secured.toLocaleString()}</div>
+                </div>
+                <div>
+                  <div className="text-lg text-gray-600">Total</div>
+                  <div className="text-2xl font-bold">${revenueData.total.toLocaleString()}</div>
+                </div>
               </div>
-              <div>
-                <div className="text-lg text-gray-600">Secured</div>
-                <div className="text-2xl font-bold text-green-600">${revenueData.secured.toLocaleString()}</div>
+              <div className="w-full h-4 bg-gray-200 rounded-full mb-4 overflow-hidden">
+                <div
+                  className="h-full bg-green-500 transition-all"
+                  style={{ width: `${revenueData.total > 0 ? (revenueData.secured / revenueData.total) * 100 : 0}%` }}
+                />
               </div>
-              <div>
-                <div className="text-lg text-gray-600">Total</div>
-                <div className="text-2xl font-bold">${revenueData.total.toLocaleString()}</div>
+              <div className="text-right text-sm text-gray-500 mb-2">
+                {revenueData.total > 0 ? Math.round((revenueData.secured / revenueData.total) * 100) : 0}% Secured
               </div>
-            </div>
-            <div className="w-full h-4 bg-gray-200 rounded-full mb-4 overflow-hidden">
-              <div
-                className="h-full bg-green-500 transition-all"
-                style={{ width: `${revenueData.total > 0 ? (revenueData.secured / revenueData.total) * 100 : 0}%` }}
-              />
-            </div>
-            <div className="text-right text-sm text-gray-500 mb-2">
-              {revenueData.total > 0 ? Math.round((revenueData.secured / revenueData.total) * 100) : 0}% Secured
-            </div>
-            <div className="mt-2">
-              <div className="font-semibold mb-1">Top 5 Videos</div>
-              <div className="divide-y divide-gray-200">
-                {revenueData.details.slice(0, 5).map((video) => (
-                  <div key={video.videoId} className="flex items-center justify-between py-2">
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900 truncate">{video.title}</div>
-                      <div className="text-xs text-gray-500">
-                        ${video.earnings.toLocaleString()} | {video.viewCount.toLocaleString()} views | CPM: ${video.cpm}
+              <div className="mt-2">
+                <div className="font-semibold mb-1">Top 5 Videos</div>
+                <div className="divide-y divide-gray-200">
+                  {revenueData.details.slice(0, 5).map((video) => (
+                    <div key={video.videoId} className="flex items-center justify-between py-2">
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900 truncate">{video.title}</div>
+                        <div className="text-xs text-gray-500">
+                          ${video.earnings.toLocaleString()} | {video.viewCount.toLocaleString()} views | CPM: ${video.cpm}
+                        </div>
                       </div>
+                      <span
+                        className={`ml-4 px-2 py-1 rounded text-xs font-bold ${video.riskLevel === 'LOW' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
+                      >
+                        {video.riskLevel === 'LOW' ? 'Secured' : 'At Risk'}
+                      </span>
                     </div>
-                    <span
-                      className={`ml-4 px-2 py-1 rounded text-xs font-bold ${video.riskLevel === 'LOW' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
-                    >
-                      {video.riskLevel === 'LOW' ? 'Secured' : 'At Risk'}
-                    </span>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : null}
+        </Card>
+        {/* Recent Videos Card */}
+        {ytChannel && (
+          <Card className="p-4 h-[624px]">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold">Recent Videos</h2>
+              <Link href="/my-videos">
+                <Button variant="outlined">View All</Button>
+              </Link>
+            </div>
+            {videosLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="animate-pulse">
+                    <div className="bg-gray-200 h-32 rounded mb-2"></div>
+                    <div className="bg-gray-200 h-4 rounded mb-1"></div>
+                    <div className="bg-gray-200 h-3 rounded w-2/3"></div>
                   </div>
                 ))}
               </div>
-            </div>
-          </>
-        ) : null}
-      </Card>
-      {/* YouTube Channel Integration Section */}
-      <section className="mb-8">
-        <h2 className="text-2xl font-bold mb-2">YouTube Channel Integration</h2>
-        {ytLoading ? (
-          <div>Loading channel info...</div>
-        ) : ytFetching ? (
-          <div>Connecting to YouTube...</div>
-        ) : ytChannel ? (
-          <div className="mt-4 p-4 bg-gray-50 border rounded">
-            <h3 className="text-xl font-semibold mb-2">Connected Channel:</h3>
-            <div className="flex items-center gap-4">
-              {ytChannel.snippet?.thumbnails?.default?.url && (
-                <img src={ytChannel.snippet.thumbnails.default.url} alt="Channel" className="w-16 h-16 rounded-full" />
-              )}
-              <div>
-                <div className="font-bold text-lg">{ytChannel.snippet?.title}</div>
-                <div className="text-gray-600">{ytChannel.snippet?.customUrl}</div>
-                <div className="text-gray-600">Subscribers: {ytChannel.statistics?.subscriberCount}</div>
-                <div className="text-gray-600">Total Views: {ytChannel.statistics?.viewCount}</div>
-                <div className="text-gray-600">Videos: {ytChannel.statistics?.videoCount}</div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="mt-4">
-            <p className="text-gray-600 mb-4">Connect your YouTube channel to analyze your own videos for TOS compliance.</p>
-            <ConnectYouTubeButton />
-          </div>
-        )}
-      </section>
-      {/* Recent Videos Section */}
-      {ytChannel && (
-        <Card>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">Recent Videos</h2>
-            <Link href="/my-videos">
-              <Button variant="outlined">View All</Button>
-            </Link>
-          </div>
-          {videosLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="animate-pulse">
-                  <div className="bg-gray-200 h-32 rounded mb-2"></div>
-                  <div className="bg-gray-200 h-4 rounded mb-1"></div>
-                  <div className="bg-gray-200 h-3 rounded w-2/3"></div>
-                </div>
-              ))}
-            </div>
-          ) : recentVideos.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {recentVideos.slice(0, 5).map((video) => {
-                const videoId = video.id.videoId;
-                const riskData = videoRiskLevels[videoId];
-                const riskBadgeColor = riskData 
-                  ? riskData.riskLevel === 'HIGH' 
-                    ? 'bg-red-100 text-red-800 border-red-200' 
-                    : riskData.riskLevel === 'MEDIUM' 
-                      ? 'bg-yellow-100 text-yellow-800 border-yellow-200' 
-                      : 'bg-green-100 text-green-800 border-green-200'
-                  : 'bg-gray-100 text-gray-600 border-gray-200';
-                const riskBadgeText = riskData ? `${riskData.riskLevel} Risk` : 'NO RISK SCORE';
+            ) : recentVideos.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {recentVideos.slice(0, 5).map((video) => {
+                  const videoId = video.id.videoId;
+                  const riskData = videoRiskLevels[videoId];
+                  const riskBadgeColor = riskData 
+                    ? riskData.riskLevel === 'HIGH' 
+                      ? 'bg-red-100 text-red-800 border-red-200' 
+                      : riskData.riskLevel === 'MEDIUM' 
+                        ? 'bg-yellow-100 text-yellow-800 border-yellow-200' 
+                        : 'bg-green-100 text-green-800 border-green-200'
+                    : 'bg-gray-100 text-gray-600 border-gray-200';
+                  const riskBadgeText = riskData ? `${riskData.riskLevel} Risk` : 'NO RISK SCORE';
 
-                return (
-                  <div key={videoId} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                    <img 
-                      src={video.snippet.thumbnails.medium.url} 
-                      alt={video.snippet.title}
-                      className="w-full h-32 object-cover"
-                      loading="lazy"
-                    />
-                    <div className="p-3">
-                      <div className="font-semibold text-base mb-1 truncate">{video.snippet?.title}</div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${riskBadgeColor}`}>
-                          {riskBadgeText}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm text-gray-500 mb-2">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {new Date(video.snippet.publishedAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button 
-                          onClick={() => { 
-                            const url = `https://www.youtube.com/watch?v=${videoId}`;
-                            router.push(`/results?url=${encodeURIComponent(url)}`);
-                          }}
-                          className="flex-1"
-                        >
-                          {riskData ? 'Re-analyze' : 'Analyze'}
-                        </Button>
-                        {riskData && (
+                  return (
+                    <div key={videoId} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                      <img 
+                        src={video.snippet.thumbnails.medium.url} 
+                        alt={video.snippet.title}
+                        className="w-full h-24 object-cover mb-2 rounded"
+                        loading="lazy"
+                      />
+                      <div className="p-2 flex flex-col gap-3">
+                        <div className="font-semibold text-sm truncate mb-0">{video.snippet?.title}</div>
+                        <div className="flex items-center gap-2 mb-0">
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${riskBadgeColor}`}>{riskBadgeText}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-gray-500 mb-0">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {new Date(video.snippet.publishedAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div className="flex gap-2">
                           <Button 
-                            variant="outlined" 
-                            onClick={() => handleViewReports(videoId, video.snippet.title)}
+                            onClick={() => { 
+                              const url = `https://www.youtube.com/watch?v=${videoId}`;
+                              router.push(`/results?url=${encodeURIComponent(url)}`);
+                            }}
+                            className="flex-1 py-1 px-2 text-xs"
                           >
-                            View Reports
+                            {riskData ? 'Re-analyze' : 'Analyze'}
                           </Button>
-                        )}
+                          {riskData && (
+                            <Button 
+                              variant="outlined" 
+                              onClick={() => handleViewReports(videoId, video.snippet.title)}
+                              className="py-1 px-2 text-xs"
+                            >
+                              View Reports
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-center py-4">No recent videos found.</p>
-          )}
-        </Card>
-      )}
-      {userProfile && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-                <h2 className="text-xl font-semibold mb-2">My Subscription</h2>
-                <p className="capitalize text-4xl font-bold mb-4" style={userProfile.subscriptionTier === 'pro' ? {background: 'linear-gradient(90deg, #ff0080, #7928ca, #007cf0, #00dfd8, #ff0080)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'} : {color: '#2563eb'}}>{userProfile.subscriptionTier}</p>
-                {userProfile.subscriptionTier === 'free' ? (
-                    <Button variant="primary" onClick={handleUpgradeClick}>Upgrade to Pro</Button>
-                ) : (
-                    <p className="text-gray-500 font-semibold">You have unlimited scans.</p>
-                )}
-            </Card>
-            <Card>
-                 <h2 className="text-xl font-semibold mb-2">Usage</h2>
-                 <p className="text-gray-600">
-                    You have used <span className="font-bold text-black">{userProfile.scanCount}</span> of your <span className="font-bold text-black">{userProfile.scanLimit}</span> {userProfile.subscriptionTier === 'pro' ? 'scans (unlimited)' : 'free scans'} this month.
-                 </p>
-                 <div className="w-full h-4 bg-gray-200 rounded-full mt-4 overflow-hidden">
-                    <div
-                        className="h-full bg-blue-600 transition-all"
-                        style={{ width: `${progress}%` }}
-                    />
-                 </div>
-                 <div className="text-right text-sm text-gray-500 mt-1">{Math.round(progress)}%</div>
-            </Card>
-            <Card>
-                <h2 className="text-xl font-semibold mb-2">Account Details</h2>
-                <p><strong>Email:</strong> {userProfile.email}</p>
-                <p><strong>Member Since:</strong> {new Date(userProfile.createdAt).toLocaleDateString()}</p>
-                 <Link href="/scan-history">
-                    <Button variant="secondary" className="mt-4">View Scan History</Button>
-                 </Link>
-            </Card>
-        </div>
-      )}
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-center py-4">No recent videos found.</p>
+            )}
+          </Card>
+        )}
+      </div>
       {/* Video Reports Modal */}
       {selectedVideoForReports && (
         <VideoReportsModal
