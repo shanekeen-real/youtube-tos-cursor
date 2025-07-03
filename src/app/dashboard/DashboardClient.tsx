@@ -11,8 +11,9 @@ import { loadStripe } from '@stripe/stripe-js';
 import axios from 'axios';
 import ConnectYouTubeButton from '@/components/ConnectYouTubeButton';
 import { format } from 'date-fns';
-import { Calendar, TrendingUp, Users, Video, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { Calendar, TrendingUp, Users, Video, AlertTriangle, CheckCircle, Clock, Calculator, DollarSign, Shield, Settings } from 'lucide-react';
 import VideoReportsModal from '@/components/VideoReportsModal';
+import CPMSetupModal from '@/components/CPMSetupModal';
 
 // Define the structure of a user's profile data
 interface UserProfile {
@@ -47,10 +48,21 @@ export default function DashboardClient() {
     atRisk: number;
     secured: number;
     total: number;
-    details: { videoId: string; title: string; earnings: number; riskLevel: string; cpm: number; timestamp: string }[];
+    details: { videoId: string; title: string; earnings: number; riskLevel: string; cpm: number; viewCount: number; timestamp: string }[];
+    setupRequired?: boolean;
   }>(null);
   const [revenueLoading, setRevenueLoading] = useState(true);
   const [revenueError, setRevenueError] = useState<string | null>(null);
+  const [cpmSetupModalOpen, setCpmSetupModalOpen] = useState(false);
+
+  // Log user ID to browser console for testing
+  useEffect(() => {
+    if (session?.user?.id) {
+      console.log('User ID:', session.user.id);
+    } else {
+      console.log('No user ID found in session');
+    }
+  }, [session?.user?.id]);
 
   useEffect(() => {
     if (searchParams.get('payment_success') === 'true') {
@@ -280,6 +292,25 @@ export default function DashboardClient() {
     fetchRevenue();
   }, []);
 
+  const handleCPMSetupComplete = () => {
+    // Refresh revenue data after CPM setup
+    const fetchRevenue = async () => {
+      setRevenueLoading(true);
+      setRevenueError(null);
+      try {
+        const res = await fetch('/api/revenue-at-risk');
+        if (!res.ok) throw new Error('Failed to fetch revenue at risk');
+        const data = await res.json();
+        setRevenueData(data);
+      } catch (err: any) {
+        setRevenueError(err.message || 'Failed to fetch revenue at risk');
+      } finally {
+        setRevenueLoading(false);
+      }
+    };
+    fetchRevenue();
+  };
+
   if (status === 'loading' || loading) {
     return (
       <div className="text-center py-10">
@@ -314,14 +345,62 @@ export default function DashboardClient() {
       )}
       <h1 className="text-3xl font-bold text-[#212121] mb-6">My Dashboard</h1>
       {/* Revenue at Risk Card */}
-      <Card className="mb-8">
-        <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">
-          <span>Revenue at Risk</span>
-        </h2>
+      <Card className="mb-8 relative">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <span>Revenue at Risk</span>
+          </h2>
+          <button
+            onClick={() => setCpmSetupModalOpen(true)}
+            className="p-2 rounded hover:bg-gray-100 transition"
+            aria-label="Edit CPM Settings"
+            title="Edit CPM Settings"
+          >
+            <Settings className="h-5 w-5 text-gray-500" />
+          </button>
+        </div>
         {revenueLoading ? (
           <div>Loading revenue data...</div>
         ) : revenueError ? (
           <div className="text-red-500">{revenueError}</div>
+        ) : revenueData?.setupRequired ? (
+          <div className="text-center py-8">
+            <div className="mb-4">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Calculator className="h-8 w-8 text-blue-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Setup Revenue Calculator</h3>
+              <p className="text-gray-600 mb-4 max-w-md mx-auto">
+                Configure your CPM to get accurate revenue estimates and see exactly how much of your earnings are at risk from TOS violations.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 max-w-2xl mx-auto">
+              <div className="text-center">
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <DollarSign className="h-6 w-6 text-green-600" />
+                </div>
+                <h4 className="font-medium text-gray-900 text-sm">Accurate Revenue</h4>
+                <p className="text-xs text-gray-600">Based on your actual CPM</p>
+              </div>
+              <div className="text-center">
+                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <TrendingUp className="h-6 w-6 text-blue-600" />
+                </div>
+                <h4 className="font-medium text-gray-900 text-sm">Risk Assessment</h4>
+                <p className="text-xs text-gray-600">See revenue at risk</p>
+              </div>
+              <div className="text-center">
+                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <Shield className="h-6 w-6 text-purple-600" />
+                </div>
+                <h4 className="font-medium text-gray-900 text-sm">Protect Earnings</h4>
+                <p className="text-xs text-gray-600">Fix issues early</p>
+              </div>
+            </div>
+            <Button onClick={() => setCpmSetupModalOpen(true)}>
+              Setup Revenue Calculator
+            </Button>
+          </div>
         ) : revenueData ? (
           <>
             <div className="flex flex-wrap gap-8 mb-4">
@@ -354,7 +433,9 @@ export default function DashboardClient() {
                   <div key={video.videoId} className="flex items-center justify-between py-2">
                     <div className="flex-1">
                       <div className="font-medium text-gray-900 truncate">{video.title}</div>
-                      <div className="text-xs text-gray-500">${video.earnings.toLocaleString()} | CPM: ${video.cpm}</div>
+                      <div className="text-xs text-gray-500">
+                        ${video.earnings.toLocaleString()} | {video.viewCount.toLocaleString()} views | CPM: ${video.cpm}
+                      </div>
                     </div>
                     <span
                       className={`ml-4 px-2 py-1 rounded text-xs font-bold ${video.riskLevel === 'LOW' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
@@ -527,6 +608,12 @@ export default function DashboardClient() {
           videoTitle={selectedVideoForReports.title}
         />
       )}
+      {/* CPM Setup Modal */}
+      <CPMSetupModal
+        isOpen={cpmSetupModalOpen}
+        onClose={() => setCpmSetupModalOpen(false)}
+        onSetupComplete={handleCPMSetupComplete}
+      />
     </main>
   );
 } 

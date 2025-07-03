@@ -275,6 +275,8 @@ export async function POST(req: NextRequest) {
     let contentToAnalyze = '';
     let analyzedContent = '';
     let analysisSource = '';
+    let metadata: { title: string; description: string } | null = null;
+    metadata = await getVideoMetadata(videoId); // Always fetch metadata first
 
     // 1. Try Node.js youtube-transcript-api library first (most reliable)
     const nodeLibraryTranscript = await getTranscriptViaNodeLibrary(videoId);
@@ -292,8 +294,6 @@ export async function POST(req: NextRequest) {
         analysisSource = 'transcript (web scraping)';
       } else {
         // 3. Fallback to video metadata
-        console.log(`All transcript methods failed, falling back to video metadata for video ${videoId}`);
-        const metadata = await getVideoMetadata(videoId);
         if (metadata) {
           analyzedContent = `Title: ${metadata.title}\n\nDescription:\n${metadata.description}`;
           contentToAnalyze = `Analyze the following YouTube video title and description: \n\n---${analyzedContent}---`;
@@ -311,11 +311,15 @@ export async function POST(req: NextRequest) {
 
     // Normalize output for frontend compatibility
     const result: any = analysisResult;
+    // Always set the title from metadata if AI did not provide it
+    if (!result.title && metadata?.title) {
+      result.title = metadata.title;
+    }
     const safeResult = {
       ...result,
       riskLevel: result.riskLevel || result.risk_level || 'Unknown',
       riskScore: result.riskScore || result.risk_score || 0,
-      title: result.title || '',
+      title: result.title || metadata?.title || '',
       flaggedSections: result.flaggedSections || result.flagged_section || [],
       suggestions: result.suggestions || [],
     };
