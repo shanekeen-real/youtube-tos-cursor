@@ -158,6 +158,23 @@ class UsageTracker {
   reset(): void {
     this.usage.clear();
   }
+
+  // Synchronous, lightweight usage increment (does not persist to DB)
+  recordCall(service: 'gemini' | 'claude' | 'youtube') {
+    const today = new Date().toISOString().split('T')[0];
+    if (!this.usage.has(today)) {
+      this.usage.set(today, {
+        date: today,
+        gemini: 0,
+        claude: 0,
+        youtube: 0,
+        lastReset: new Date().toISOString()
+      });
+    }
+    const usage = this.usage.get(today)!;
+    usage[service]++;
+    this.usage.set(today, usage);
+  }
 }
 
 export const usageTracker = UsageTracker.getInstance(); 
