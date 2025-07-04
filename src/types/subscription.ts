@@ -15,6 +15,7 @@ export interface SubscriptionLimits {
   whiteLabel: boolean;
   sla: boolean;
   aiPolicyAnalysis: boolean;
+  exportFormats?: string[];
 }
 
 export interface PricingTier {

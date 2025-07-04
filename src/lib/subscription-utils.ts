@@ -93,7 +93,7 @@ export const getTierBenefits = (tier: SubscriptionTier): string[] => {
     benefits.push('Revenue impact calculator');
   }
   
-  if (limits.exportFormats.length > 0) {
+  if (limits.exportFormats?.length) {
     benefits.push(`Export formats: ${limits.exportFormats.join(', ')}`);
   }
   
