@@ -83,7 +83,7 @@ export const getTierBenefits = (tier: SubscriptionTier): string[] => {
   const limits = getTierLimits(tier);
   const benefits: string[] = [];
   
-  if (limits.scanLimit >= 99999) {
+  if (typeof limits.scanLimit === 'number' && limits.scanLimit >= 99999) {
     benefits.push('Unlimited scans');
   } else {
     benefits.push(`${limits.scanLimit} scans per month`);
