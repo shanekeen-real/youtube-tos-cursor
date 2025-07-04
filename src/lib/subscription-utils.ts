@@ -109,8 +109,12 @@ export const getTierBenefits = (tier: SubscriptionTier): string[] => {
     benefits.push('API access');
   }
   
-  if (limits.teamMembers && limits.teamMembers > 1) {
-    benefits.push(`Team collaboration (${limits.teamMembers} members)`);
+  if (limits.teamSeats && (limits.teamSeats === 'unlimited' || limits.teamSeats > 1)) {
+    if (limits.teamSeats === 'unlimited') {
+      benefits.push('Team collaboration (unlimited seats)');
+    } else {
+      benefits.push(`Team collaboration (${limits.teamSeats} seats)`);
+    }
   }
   
   if (limits.customIntegrations) {
