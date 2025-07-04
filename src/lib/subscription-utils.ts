@@ -101,8 +101,8 @@ export const getTierBenefits = (tier: SubscriptionTier): string[] => {
     benefits.push('Priority support');
   }
   
-  if (limits.bulkAnalysis) {
-    benefits.push('Bulk analysis');
+  if (limits.bulkScan) {
+    benefits.push('Bulk video scan');
   }
   
   if (limits.apiAccess) {
