@@ -7,6 +7,7 @@ import PricingCard from '@/components/PricingCard';
 import { SUBSCRIPTION_TIERS } from '@/types/subscription';
 import { loadStripe } from '@stripe/stripe-js';
 import axios from 'axios';
+import type { SubscriptionTier } from '@/types/subscription';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
@@ -67,7 +68,7 @@ export default function PricingPage() {
     fetchUserProfile();
   }, [session?.user?.id]);
 
-  const handleUpgrade = async (tier) => {
+  const handleUpgrade = async (tier: SubscriptionTier) => {
     if (!session?.user?.id) {
       window.location.href = '/api/auth/signin';
       return;
