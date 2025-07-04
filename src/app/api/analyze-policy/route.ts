@@ -9,6 +9,7 @@ import { getTierLimits } from '@/types/subscription';
 
 export async function POST(req: NextRequest) {
   let session: any;
+  let text: string | undefined = undefined;
   return Sentry.startSpan(
     {
       op: "http.server",
@@ -23,7 +24,8 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { text } = await req.json();
+        const body = await req.json();
+        text = body.text;
 
         if (!text) {
           return NextResponse.json({ error: 'No text provided' }, { status: 400 });
