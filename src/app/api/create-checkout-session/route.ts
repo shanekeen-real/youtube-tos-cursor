@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
               name: `TOS Analyzer - ${selectedTier.name} ${selectedTier.billingCycle === 'monthly' ? 'Subscription' : 'Plan'}`,
               description: selectedTier.description,
             },
-            unit_amount: selectedTier.price * 100, // Convert to cents
+            unit_amount: Number(selectedTier.price) * 100, // Convert to cents
             ...(selectedTier.billingCycle === 'monthly' && {
               recurring: {
                 interval: 'month',
