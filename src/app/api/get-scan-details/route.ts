@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { auth } from '@/lib/auth';
 import * as Sentry from "@sentry/nextjs";
+import type { SubscriptionTier } from '@/types/subscription';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
