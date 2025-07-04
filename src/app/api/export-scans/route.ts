@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { adminDb } from '@/lib/firebase-admin';
 import { generateCSV, generatePDF, downloadFile, generateFilename, type AnalysisData } from '@/lib/export-utils';
+import { checkUserCanExport } from '@/lib/subscription-utils';
 import * as Sentry from '@sentry/nextjs';
 
 export async function POST(req: NextRequest) {
@@ -18,6 +19,30 @@ export async function POST(req: NextRequest) {
 
         if (!userId) {
           return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Check user's subscription tier for export permissions
+        try {
+          const userRef = adminDb.collection('users').doc(userId);
+          const userDoc = await userRef.get();
+          
+          if (userDoc.exists) {
+            const userData = userDoc.data();
+            if (userData) {
+              const exportCheck = checkUserCanExport(userData);
+              
+              if (!exportCheck.canExport) {
+                return NextResponse.json({ 
+                  error: exportCheck.reason || 'Export functionality is not available on your current plan.' 
+                }, { status: 403 });
+              }
+            }
+          }
+        } catch (exportCheckError) {
+          console.error('Error checking export permissions:', exportCheckError);
+          return NextResponse.json({ 
+            error: 'Unable to verify export permissions. Please contact support.' 
+          }, { status: 500 });
         }
 
         const { scanIds, format, options } = await req.json();

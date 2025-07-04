@@ -8,7 +8,11 @@ import Badge from '@/components/Badge';
 import Link from 'next/link';
 import { Suspense } from "react";
 import ExportModal from '@/components/ExportModal';
-import { Download } from 'lucide-react';
+import { Download, Lock } from 'lucide-react';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { app } from '@/lib/firebase';
+import { checkUserCanExport } from '@/lib/subscription-utils';
+import * as Tooltip from '@radix-ui/react-tooltip';
 
 interface ScanData {
   id?: string;
@@ -52,6 +56,7 @@ interface ScanData {
   };
   analyzed_content?: string;
   analysis_source?: string;
+  allSuggestionsCount?: number;
 }
 
 function toArray(val: any): any[] {
@@ -62,21 +67,48 @@ function toArray(val: any): any[] {
 }
 
 function ResultsPageContent() {
-  const params = useSearchParams();
   const { data: session, status } = useSession();
+  const searchParams = useSearchParams();
   const [data, setData] = useState<ScanData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'details' | 'suggestions'>('overview');
   const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [canExport, setCanExport] = useState(false);
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!session?.user?.id) return;
+      
+      try {
+        const db = getFirestore(app);
+        const userRef = doc(db, 'users', session.user.id);
+        const userDoc = await getDoc(userRef);
+        
+        if (userDoc.exists()) {
+          const profile = userDoc.data();
+          setUserProfile(profile);
+          
+          // Check export permissions
+          const exportCheck = checkUserCanExport(profile);
+          setCanExport(exportCheck.canExport);
+        }
+      } catch (err) {
+        console.error('Failed to fetch user profile:', err);
+      }
+    };
+
+    fetchUserProfile();
+  }, [session?.user?.id]);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       setError(null);
-      const scanId = params.get('scanId');
-      const directData = params.get('data');
-      const url = params.get('url');
+      const scanId = searchParams.get('scanId');
+      const directData = searchParams.get('data');
+      const url = searchParams.get('url');
 
       // Debug: Log scanId and session user
       console.log('[ResultsPage] scanId:', scanId, 'url:', url, 'sessionUser:', session?.user);
@@ -156,7 +188,7 @@ function ResultsPageContent() {
     };
 
     fetchData();
-  }, [params, session?.user?.id]);
+  }, [searchParams, session?.user?.id]);
 
   const getRiskColor = (level: 'LOW' | 'MEDIUM' | 'HIGH') => {
     switch (level) {
@@ -270,7 +302,14 @@ function ResultsPageContent() {
                   <li>Risk Level: {data.riskLevel}</li>
                   <li>Risk Score: {data.riskScore}/100</li>
                   <li>Flagged Sections: {toArray(data.flaggedSections).length}</li>
-                  <li>Suggestions Provided: {toArray(data.suggestions).length}</li>
+                  <li>
+                    Suggestions Provided: {toArray(data.suggestions).length}
+                    {typeof data.allSuggestionsCount === 'number' && data.allSuggestionsCount > toArray(data.suggestions).length && (
+                      <>
+                        {' '}of {data.allSuggestionsCount} (<a href="/pricing" className="text-blue-600 underline">Upgrade to Pro Tier to view all suggestions</a>)
+                      </>
+                    )}
+                  </li>
                 </ul>
               </div>
             </div>
@@ -450,20 +489,45 @@ function ResultsPageContent() {
         <Link href="/">
           <Button variant="outlined">New Scan</Button>
         </Link>
-        <Button 
-          onClick={() => setExportModalOpen(true)}
-          className="flex items-center gap-2"
-        >
-          <Download className="w-4 h-4" />
-          Export Report
-        </Button>
+        
+        <Tooltip.Provider>
+          <Tooltip.Root>
+            <Tooltip.Trigger asChild>
+              <div>
+                <Button 
+                  onClick={canExport ? () => setExportModalOpen(true) : undefined}
+                  className={`flex items-center gap-2 ${!canExport ? 'opacity-50 cursor-not-allowed bg-gray-300 hover:bg-gray-300 text-gray-600' : ''}`}
+                  disabled={!canExport}
+                >
+                  {!canExport ? <Lock className="w-4 h-4" /> : <Download className="w-4 h-4" />}
+                  Export Report
+                </Button>
+              </div>
+            </Tooltip.Trigger>
+            {!canExport && (
+              <Tooltip.Portal>
+                <Tooltip.Content
+                  className="bg-gray-900 text-white px-3 py-2 rounded-lg text-sm max-w-xs z-50"
+                  sideOffset={5}
+                >
+                  <div className="flex flex-col gap-1">
+                    <span>Feature is only available for Pro Members.</span>
+                    <span>Please visit <Link href="/pricing" className="text-blue-300 hover:text-blue-200 underline">Pricing</Link> page to upgrade your plan.</span>
+                  </div>
+                  <Tooltip.Arrow className="fill-gray-900" />
+                </Tooltip.Content>
+              </Tooltip.Portal>
+            )}
+          </Tooltip.Root>
+        </Tooltip.Provider>
+        
         <Link href="/scan-history">
           <Button>View History</Button>
         </Link>
       </div>
 
       {/* Export Modal */}
-      {data && (
+      {data && canExport && (
         <ExportModal
           open={exportModalOpen}
           onClose={() => setExportModalOpen(false)}

@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { getFirestore, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { app } from '@/lib/firebase';
 import Link from 'next/link';
+import { getTierLimits } from '@/types/subscription';
 
 // Define the structure of a user's profile data
 interface UserProfile {
@@ -13,7 +14,10 @@ interface UserProfile {
   createdAt: string;
   scanCount: number;
   scanLimit: number;
-  subscriptionTier: 'free' | 'pro';
+  subscriptionTier: 'free' | 'pro' | 'advanced' | 'enterprise';
+  subscriptionData?: {
+    renewalDate?: string;
+  };
 }
 
 interface YouTubeChannel {
@@ -135,9 +139,15 @@ export default function SettingsPage() {
         {userProfile && (
           <Card>
             <h2 className="text-xl font-semibold mb-2">Usage</h2>
-            <p className="text-gray-600">
-              You have used <span className="font-bold text-black">{userProfile.scanCount}</span> of your <span className="font-bold text-black">{userProfile.scanLimit}</span> {userProfile.subscriptionTier === 'pro' ? 'scans (unlimited)' : 'free scans'} this month.
-            </p>
+            {(() => {
+              const tierLimits = getTierLimits(userProfile.subscriptionTier);
+              const displayLimit = tierLimits.scanLimit === 'unlimited' ? 'unlimited' : tierLimits.scanLimit;
+              return (
+                <p className="text-gray-600">
+                  You have used <span className="font-bold text-black">{userProfile.scanCount}</span> of your <span className="font-bold text-black">{displayLimit}</span> scans this month.
+                </p>
+              );
+            })()}
             <div className="w-full h-4 bg-gray-200 rounded-full mt-4 overflow-hidden">
               <div
                 className="h-full bg-blue-600 transition-all"
@@ -159,12 +169,24 @@ export default function SettingsPage() {
         {userProfile && (
           <Card>
             <h2 className="text-xl font-semibold mb-2">My Subscription</h2>
-            <p className="capitalize text-4xl font-bold mb-4" style={userProfile.subscriptionTier === 'pro' ? {background: 'linear-gradient(90deg, #ff0080, #7928ca, #007cf0, #00dfd8, #ff0080)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'} : {color: '#2563eb'}}>{userProfile.subscriptionTier}</p>
-            {userProfile.subscriptionTier === 'free' ? (
-              <Button variant="primary">Upgrade to Pro</Button>
-            ) : (
-              <p className="text-gray-500 font-semibold">You have unlimited scans.</p>
-            )}
+            <p className="capitalize text-4xl font-bold mb-4" style={
+              userProfile.subscriptionTier === 'pro' || userProfile.subscriptionTier === 'advanced' || userProfile.subscriptionTier === 'enterprise' 
+                ? {background: 'linear-gradient(90deg, #ff0080, #7928ca, #007cf0, #00dfd8, #ff0080)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'} 
+                : {color: '#2563eb'}
+            }>{userProfile.subscriptionTier}</p>
+            <div className="space-y-2">
+              {userProfile.subscriptionData?.renewalDate && (
+                <p className="text-gray-500 font-semibold">
+                  Your plan will auto-renew on {new Date(userProfile.subscriptionData.renewalDate).toLocaleDateString()}.
+                </p>
+              )}
+              <button
+                className="w-full py-2 px-4 rounded font-semibold bg-blue-600 text-white hover:bg-blue-700"
+                onClick={() => window.location.href = '/pricing'}
+              >
+                Upgrade Plan
+              </button>
+            </div>
           </Card>
         )}
         {/* YouTube Channel Integration Card */}

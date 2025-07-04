@@ -31,6 +31,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             <UserMenu user={session.user} />
           ) : (
             <>
+              <Link href="/pricing" className="text-gray-600 hover:text-gray-900 px-3 py-2">Pricing</Link>
               <Button variant="outlined" className="h-9 px-4" onClick={() => setAuthOpen(true)}>Sign in</Button>
               <Button variant="blue" className="h-9 px-4" onClick={() => setAuthOpen(true)}>Get started</Button>
             </>

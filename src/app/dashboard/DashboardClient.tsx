@@ -11,9 +11,10 @@ import { loadStripe } from '@stripe/stripe-js';
 import axios from 'axios';
 import ConnectYouTubeButton from '@/components/ConnectYouTubeButton';
 import { format } from 'date-fns';
-import { Calendar, TrendingUp, Users, Video, AlertTriangle, CheckCircle, Clock, Calculator, DollarSign, Shield, Settings } from 'lucide-react';
+import { Calendar, TrendingUp, Users, Video, AlertTriangle, CheckCircle, Clock, Calculator, DollarSign, Shield, Settings, Lock } from 'lucide-react';
 import VideoReportsModal from '@/components/VideoReportsModal';
 import CPMSetupModal from '@/components/CPMSetupModal';
+import * as Tooltip from '@radix-ui/react-tooltip';
 
 // Define the structure of a user's profile data
 interface UserProfile {
@@ -21,7 +22,7 @@ interface UserProfile {
   createdAt: string;
   scanCount: number;
   scanLimit: number;
-  subscriptionTier: 'free' | 'pro';
+  subscriptionTier: 'free' | 'pro' | 'advanced' | 'enterprise';
 }
 
 // Load the Stripe.js library with your publishable key
@@ -65,6 +66,7 @@ export default function DashboardClient() {
   const [revenueLoading, setRevenueLoading] = useState(true);
   const [revenueError, setRevenueError] = useState<string | null>(null);
   const [cpmSetupModalOpen, setCpmSetupModalOpen] = useState(false);
+  const [canBatchScan, setCanBatchScan] = useState(false);
 
   // Log user ID to browser console for testing
   useEffect(() => {
@@ -99,18 +101,14 @@ export default function DashboardClient() {
 
         if (userDoc.exists()) {
           setUserProfile(userDoc.data() as UserProfile);
+          setCanBatchScan(userDoc.data().subscriptionTier === 'advanced' || userDoc.data().subscriptionTier === 'enterprise');
         } else {
-          // User exists in Auth, but not in Firestore. Let's create their profile.
-          console.log("User profile not found, creating one on the fly...");
-          const newUserProfile: UserProfile = {
-            email: session.user.email!,
-            createdAt: new Date().toISOString(),
-            scanCount: 0,
-            scanLimit: 3,
-            subscriptionTier: 'free',
-          };
-          await setDoc(userRef, newUserProfile);
-          setUserProfile(newUserProfile);
+          // User doc missing: do NOT auto-create. Block dashboard and show error.
+          setError('Your account data is missing. Please contact support.');
+          setUserProfile(null);
+          setCanBatchScan(false);
+          setLoading(false);
+          return;
         }
       } catch (err: any) {
         setError(err.message || 'Failed to fetch user profile.');
@@ -363,9 +361,36 @@ export default function DashboardClient() {
         <Button className="py-2 px-4 text-sm" onClick={() => router.push('/scan-history')}>
           Scan Results
         </Button>
-        <Button className="py-2 px-4 text-sm" onClick={/* TODO: Implement batch scan handler */() => {}}>
+        <Tooltip.Provider>
+          <Tooltip.Root>
+            <Tooltip.Trigger asChild>
+              <div>
+                <Button
+                  className={`py-2 px-4 text-sm flex items-center gap-2 ${!canBatchScan ? 'opacity-50 cursor-not-allowed bg-gray-300 hover:bg-gray-300 text-gray-600' : ''}`}
+                  onClick={canBatchScan ? () => {/* TODO: Implement batch scan handler */} : undefined}
+                  disabled={!canBatchScan}
+                >
+                  {!canBatchScan ? <Lock className="w-4 h-4" /> : <Video className="w-4 h-4" />}
           Scan All Videos
         </Button>
+              </div>
+            </Tooltip.Trigger>
+            {!canBatchScan && (
+              <Tooltip.Portal>
+                <Tooltip.Content
+                  className="bg-gray-900 text-white px-3 py-2 rounded-lg text-sm max-w-xs z-50"
+                  sideOffset={5}
+                >
+                  <div className="flex flex-col gap-1">
+                    <span>Batch analysis is only available for Advanced Members.</span>
+                    <span>Please visit <Link href="/pricing" className="text-blue-300 hover:text-blue-200 underline">Pricing</Link> page to upgrade your plan.</span>
+                  </div>
+                  <Tooltip.Arrow className="fill-gray-900" />
+                </Tooltip.Content>
+              </Tooltip.Portal>
+            )}
+          </Tooltip.Root>
+        </Tooltip.Provider>
         {!ytChannel ? (
           <Button className="py-2 px-4 text-sm" disabled={ytFetching} onClick={async () => {
             setYtFetching(true);

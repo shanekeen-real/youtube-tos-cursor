@@ -46,17 +46,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           // Store user profile in Firestore using the Google account ID for consistency
           const userId = account.providerAccountId || user.id || '';
           const userRef = adminDb.collection('users').doc(userId);
-          await userRef.set({
-            email: user.email,
-            displayName: user.name,
-            photoURL: user.image,
-            createdAt: new Date().toISOString(),
-            scanCount: 0,
-            scanLimit: 3,
-            subscriptionTier: 'free',
-            lastSignIn: new Date().toISOString(),
-            googleAccountId: account.providerAccountId, // Store for reference
-          }, { merge: true })
+          const userDoc = await userRef.get();
+          if (!userDoc.exists) {
+            await userRef.set({
+              email: user.email,
+              displayName: user.name,
+              photoURL: user.image,
+              createdAt: new Date().toISOString(),
+              scanCount: 0,
+              scanLimit: 3,
+              subscriptionTier: 'free',
+              lastSignIn: new Date().toISOString(),
+              googleAccountId: account.providerAccountId, // Store for reference
+            });
+          } else {
+            // Only update non-usage fields if doc exists
+            await userRef.set({
+              email: user.email,
+              displayName: user.name,
+              photoURL: user.image,
+              lastSignIn: new Date().toISOString(),
+              googleAccountId: account.providerAccountId,
+            }, { merge: true });
+          }
         } catch (error) {
           console.error('Error storing user profile:', error)
         }

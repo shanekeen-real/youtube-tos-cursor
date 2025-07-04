@@ -1,5 +1,9 @@
 "use client";
 import React, { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { app } from '@/lib/firebase';
+import { checkUserCanExport } from '@/lib/subscription-utils';
 import Button from './Button';
 import { 
   generateCSV, 
@@ -9,7 +13,9 @@ import {
   type AnalysisData,
   type ExportOptions 
 } from '@/lib/export-utils';
-import { Download, FileText, FileSpreadsheet, Settings, Check } from 'lucide-react';
+import { Download, FileText, FileSpreadsheet, Settings, Check, Lock } from 'lucide-react';
+import * as Tooltip from '@radix-ui/react-tooltip';
+import Link from 'next/link';
 
 interface ExportModalProps {
   open: boolean;
@@ -18,12 +24,50 @@ interface ExportModalProps {
 }
 
 export default function ExportModal({ open, onClose, data }: ExportModalProps) {
+  const { data: session } = useSession();
   const [format, setFormat] = useState<'pdf' | 'csv'>('pdf');
   const [includeMetadata, setIncludeMetadata] = useState(true);
   const [includeContent, setIncludeContent] = useState(false);
   const [includeSuggestions, setIncludeSuggestions] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState<string>('');
+  const [canExport, setCanExport] = useState(false);
+  const [exportError, setExportError] = useState<string>('');
+
+  // Check export permissions when modal opens
+  useEffect(() => {
+    const checkExportPermissions = async () => {
+      if (!session?.user?.id) {
+        setCanExport(false);
+        setExportError('Please sign in to export reports.');
+        return;
+      }
+
+      try {
+        const db = getFirestore(app);
+        const userRef = doc(db, 'users', session.user.id);
+        const userDoc = await getDoc(userRef);
+        
+        if (userDoc.exists()) {
+          const profile = userDoc.data();
+          const exportCheck = checkUserCanExport(profile);
+          setCanExport(exportCheck.canExport);
+          setExportError(exportCheck.reason || '');
+        } else {
+          setCanExport(false);
+          setExportError('User profile not found.');
+        }
+      } catch (err) {
+        console.error('Failed to check export permissions:', err);
+        setCanExport(false);
+        setExportError('Failed to verify export permissions.');
+      }
+    };
+
+    if (open) {
+      checkExportPermissions();
+    }
+  }, [open, session?.user?.id]);
 
   // Handle escape key to close modal
   useEffect(() => {
@@ -46,6 +90,11 @@ export default function ExportModal({ open, onClose, data }: ExportModalProps) {
   }, [open, onClose]);
 
   const handleExport = async () => {
+    if (!canExport) {
+      setExportError('Export functionality is not available on your current plan.');
+      return;
+    }
+
     setIsExporting(true);
     setExportProgress('Preparing export...');
 
@@ -138,6 +187,41 @@ export default function ExportModal({ open, onClose, data }: ExportModalProps) {
   // Don't render anything if modal is not open
   if (!open) {
     return null;
+  }
+
+  // Show error state if export is not allowed
+  if (!canExport) {
+    return (
+      <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div className="flex items-center gap-3">
+              <Lock className="w-5 h-5 text-red-600" />
+              <h2 className="text-lg font-semibold text-gray-900">Export Not Available</h2>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="p-6">
+            <p className="text-gray-600 mb-4">{exportError}</p>
+            <div className="flex gap-3">
+              <Button onClick={onClose} variant="outlined" className="flex-1">
+                Close
+              </Button>
+              <Button onClick={() => window.location.href = '/pricing'} className="flex-1">
+                Upgrade Plan
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

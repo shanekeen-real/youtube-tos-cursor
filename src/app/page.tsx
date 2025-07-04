@@ -8,40 +8,31 @@ import Card from '@/components/Card';
 import Badge from '@/components/Badge';
 import ProgressMeter from '@/components/ProgressMeter';
 import FeatureGrid, { FeatureSet } from '../components/FeatureGrid';
+import { SUBSCRIPTION_TIERS } from '@/types/subscription';
 
-const featureSets: FeatureSet[] = [
+const featureSets = [
   {
-    title: 'Free Scan',
-    features: [
-      { label: 'Basic risk detection', checked: true },
-      { label: 'Policy highlighting', checked: true },
-      { label: 'Risk score overview', checked: true },
-      { label: 'Detailed suggestions', muted: true },
-      { label: 'Revenue impact', muted: true },
-    ],
+    title: 'Free',
+    price: '$0',
+    features: SUBSCRIPTION_TIERS.free.features.map(label => ({ label })),
   },
   {
-    title: 'Full Report ($5)',
-    features: [
-      { label: 'Advanced AI analysis', checked: true },
-      { label: 'Detailed risk breakdown', checked: true },
-      { label: 'Actionable fix suggestions', checked: true },
-      { label: 'Revenue impact estimate', checked: true },
-      { label: 'Export & share results', checked: true },
-    ],
+    title: 'Pro',
+    price: '$14.99/mo',
+    features: SUBSCRIPTION_TIERS.pro.features.map(label => ({ label })),
     recommended: true,
-    badgeText: 'Recommended',
-    badgeColor: 'blue',
+    badgeText: 'Most Popular',
+    badgeColor: 'blue' as const,
+  },
+  {
+    title: 'Advanced',
+    price: '$48.99/mo',
+    features: SUBSCRIPTION_TIERS.advanced.features.map(label => ({ label })),
   },
   {
     title: 'Enterprise',
-    features: [
-      { label: 'Bulk analysis', checked: true },
-      { label: 'Team collaboration', checked: true },
-      { label: 'Priority support', checked: true },
-      { label: 'Custom integrations', checked: true },
-      { label: 'Contact Sales', link: '#' },
-    ],
+    price: 'Contact',
+    features: SUBSCRIPTION_TIERS.enterprise.features.map(label => ({ label })),
   },
 ];
 
@@ -121,7 +112,9 @@ export default function Home() {
        if (e.response && e.response.status === 400) {
         alert(e.response.data.error); // Show specific error from backend
       } else if (e.response && e.response.status === 429) {
-        alert('AI analysis service is temporarily unavailable due to high usage. Please try again in a few minutes.');
+        // Display the actual error message from the backend instead of generic message
+        const errorMessage = e.response.data.error || 'Rate limit exceeded. Please try again later.';
+        alert(errorMessage);
       } else {
         alert('Error analyzing content. Please try again.');
       }
@@ -149,8 +142,16 @@ export default function Home() {
         risk_level: res.data.risk_level,
         highlights: res.data.highlights
       });
-    } catch (e) {
-      alert('Error analyzing policy. Please try again.');
+    } catch (e: any) {
+      if (e.response && e.response.status === 400) {
+        alert(e.response.data.error); // Show specific error from backend
+      } else if (e.response && e.response.status === 429) {
+        // Display the actual error message from the backend instead of generic message
+        const errorMessage = e.response.data.error || 'Rate limit exceeded. Please try again later.';
+        alert(errorMessage);
+      } else {
+        alert('Error analyzing policy. Please try again.');
+      }
     } finally {
       setLoadingFree(false);
     }

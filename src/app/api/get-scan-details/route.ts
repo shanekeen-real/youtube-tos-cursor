@@ -41,6 +41,33 @@ export async function GET(req: NextRequest) {
           return NextResponse.json({ error: 'Unauthorized access to scan' }, { status: 403 });
         }
 
+        // Enforce suggestion limit based on user tier
+        let userTier = 'free';
+        let allSuggestionsCount = undefined;
+        try {
+          const userRef = adminDb.collection('users').doc(userId);
+          const userDoc = await userRef.get();
+          if (userDoc.exists) {
+            const userData = userDoc.data();
+            userTier = userData?.subscriptionTier || 'free';
+          }
+        } catch (tierError) {
+          console.error('Error fetching user tier:', tierError);
+        }
+        // Import getTierLimits dynamically to avoid circular deps if needed
+        const { getTierLimits } = await import('@/types/subscription');
+        const limits = getTierLimits(userTier);
+        if (scanData?.analysisResult?.suggestions) {
+          allSuggestionsCount = scanData.analysisResult.suggestions.length;
+          if (limits.suggestionsPerScan !== 'all') {
+            const maxSuggestions = limits.suggestionsPerScan;
+            if (scanData.analysisResult.suggestions.length > maxSuggestions) {
+              scanData.analysisResult.suggestions = scanData.analysisResult.suggestions.slice(0, maxSuggestions);
+            }
+          }
+          scanData.analysisResult.allSuggestionsCount = allSuggestionsCount;
+        }
+
         return NextResponse.json(scanData);
 
       } catch (error: any) {

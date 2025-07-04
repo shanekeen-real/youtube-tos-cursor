@@ -7,6 +7,7 @@ import { YoutubeTranscript } from '@danielxceron/youtube-transcript';
 import { auth } from '@/lib/auth';
 import * as Sentry from "@sentry/nextjs";
 import { FieldValue } from 'firebase-admin/firestore';
+import { checkUserCanScan } from '@/lib/subscription-utils';
 
 // Temporary module declaration for missing types
 // @ts-ignore
@@ -232,10 +233,14 @@ export async function POST(req: NextRequest) {
       
       if (userDoc.exists) {
         const userData = userDoc.data();
-        if (userData?.scanCount >= userData?.scanLimit) {
-          return NextResponse.json({ 
-            error: 'You have reached your free scan limit. Please upgrade for unlimited scans.' 
-          }, { status: 429 });
+        if (userData) {
+          const canScan = checkUserCanScan(userData);
+          
+          if (!canScan.canScan) {
+            return NextResponse.json({ 
+              error: canScan.reason || 'You have reached your scan limit. Please upgrade for unlimited scans.' 
+            }, { status: 429 });
+          }
         }
       }
     } catch (limitError) {

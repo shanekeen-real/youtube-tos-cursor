@@ -4,6 +4,8 @@ import { auth } from '@/lib/auth';
 import { adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import * as Sentry from '@sentry/nextjs';
+import { checkUserCanScan, checkSuggestionsPerScan } from '@/lib/subscription-utils';
+import { getTierLimits } from '@/types/subscription';
 
 export async function POST(req: NextRequest) {
   let session: any;
@@ -27,18 +29,23 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: 'No text provided' }, { status: 400 });
         }
 
-        // Check user's scan limit
+        // Check user's scan limit and get subscription data
         let userRef;
+        let userData: any = null;
         try {
           userRef = adminDb.collection('users').doc(userId);
           const userDoc = await userRef.get();
           
           if (userDoc.exists) {
-            const userData = userDoc.data();
-            if (userData?.scanCount >= userData?.scanLimit) {
-              return NextResponse.json({ 
-                error: 'You have reached your free scan limit. Please upgrade for unlimited scans.' 
-              }, { status: 429 });
+            userData = userDoc.data();
+            if (userData) {
+              const canScan = checkUserCanScan(userData);
+              
+              if (!canScan.canScan) {
+                return NextResponse.json({ 
+                  error: canScan.reason || 'You have reached your scan limit. Please upgrade for unlimited scans.' 
+                }, { status: 429 });
+              }
             }
           }
         } catch (limitError) {
@@ -48,63 +55,53 @@ export async function POST(req: NextRequest) {
         
         const analysisResult = await performEnhancedAnalysis(text);
 
-        // Save scan to history using server-side Firebase Admin
-        try {
-          const scanRef = await adminDb.collection('analysis_cache').add({
-            analysisResult: analysisResult,
-            timestamp: new Date(),
-            original_text: text.substring(0, 500), // Store text snippet
-            userId: userId,
-            userEmail: session?.user?.email,
-            isCache: false, // Mark as history scan, not cache
-          });
-
-          // Increment user's scan count if userRef exists
-          if (userRef) {
-            await userRef.update({
-              scanCount: FieldValue.increment(1)
-            });
-          }
-
-          console.log(`HISTORY: Saved new policy scan to history for user ${userId}`);
-
-          return NextResponse.json({
-            ...analysisResult,
-            mode: 'enhanced',
-            source: 'gemini-1.5-flash-latest',
-            scanId: scanRef.id
-          });
-        } catch (saveError) {
-          console.error('Failed to save scan to history:', saveError);
-          Sentry.captureException(saveError, {
-            tags: { component: 'analyze-policy', action: 'save-history' },
-            extra: { userId }
-          });
+        // Apply subscription tier limitations
+        let userTier = userData?.subscriptionTier || 'free'; // Default to free if not set
+        const limits = getTierLimits(userTier);
+        
+        console.log(`[DEBUG] User tier: ${userTier}, suggestions limit: ${limits.suggestionsPerScan}`);
+        console.log(`[DEBUG] Original suggestions count: ${analysisResult.suggestions?.length || 0}`);
+        
+        // Limit suggestions based on subscription tier
+        if (limits.suggestionsPerScan !== 'all' && analysisResult.suggestions) {
+          const maxSuggestions = limits.suggestionsPerScan;
+          console.log(`[DEBUG] Max suggestions allowed: ${maxSuggestions}`);
           
-          // Return analysis result even if save fails
-          return NextResponse.json({
-            ...analysisResult,
-            mode: 'enhanced',
-            source: 'gemini-1.5-flash-latest'
-          });
+          if (analysisResult.suggestions.length > maxSuggestions) {
+            console.log(`[DEBUG] Limiting suggestions from ${analysisResult.suggestions.length} to ${maxSuggestions}`);
+            analysisResult.suggestions = analysisResult.suggestions.slice(0, maxSuggestions);
+          }
+        }
+        
+        console.log(`[DEBUG] Final suggestions count: ${analysisResult.suggestions?.length || 0}`);
+
+        // Increment scan count
+        if (userRef && userData) {
+          try {
+            await userRef.update({
+              scanCount: FieldValue.increment(1),
+              lastScanAt: new Date()
+            });
+          } catch (updateError) {
+            console.error('Error updating scan count:', updateError);
+            // Continue even if scan count update fails
+          }
         }
 
+        return NextResponse.json(analysisResult);
       } catch (error: any) {
-        console.error('Enhanced Analysis API error:', error);
+        console.error('Analysis error:', error);
         
-        // Track API errors with Sentry
         Sentry.captureException(error, {
-          tags: { component: 'api', endpoint: 'analyze-policy' },
+          tags: { component: 'analyze-policy-api' },
           extra: { 
-            hasText: !!req.body,
-            userAgent: req.headers.get('user-agent'),
-            userId: session?.user?.id
+            userId: session?.user?.id,
+            textLength: text?.length 
           }
         });
-        
-        return NextResponse.json({
-          error: 'AI analysis failed',
-          details: error instanceof Error ? error.message : 'An unknown error occurred.'
+
+        return NextResponse.json({ 
+          error: 'Analysis failed. Please try again.' 
         }, { status: 500 });
       }
     }

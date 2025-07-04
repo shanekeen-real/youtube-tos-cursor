@@ -402,7 +402,7 @@ async function performBasicAnalysis(text: string, model: AIModel) {
 
     4.  **Create Risk Highlights:** Identify up to 4 specific policy areas that are at risk. For each highlight, provide the category (e.g., "Hate Speech," "Graphic Violence," "Misinformation"), a risk level ("high", "medium", or "low"), and a confidence score (0-100).
 
-    5.  **Generate Actionable Suggestions:** Provide at least 2-3 specific, actionable suggestions for how the user can improve their content to reduce the identified risks. Each suggestion should have a title and a descriptive text.
+    5.  **Generate Actionable Suggestions:** Provide exactly 3 specific, actionable suggestions for how the user can improve their content to reduce the identified risks. Each suggestion should have a title and a descriptive text.
 
     Please return your analysis **only** as a valid JSON object, with no other text or explanation. The JSON object must follow this exact structure:
     {
@@ -432,7 +432,15 @@ async function performBasicAnalysis(text: string, model: AIModel) {
   const lastBrace = response.lastIndexOf('}');
   if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
     const jsonString = response.substring(firstBrace, lastBrace + 1);
-    return JSON.parse(jsonString);
+    const parsedResult = JSON.parse(jsonString);
+    
+    // Ensure suggestions are limited to 3 for free tier compatibility
+    if (parsedResult.suggestions && parsedResult.suggestions.length > 3) {
+      console.log(`[DEBUG] Basic analysis returned ${parsedResult.suggestions.length} suggestions, limiting to 3`);
+      parsedResult.suggestions = parsedResult.suggestions.slice(0, 3);
+    }
+    
+    return parsedResult;
   } else {
     throw new Error("No valid JSON object found in the AI's response.");
   }
