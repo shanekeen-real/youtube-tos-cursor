@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
         }
         // Import getTierLimits dynamically to avoid circular deps if needed
         const { getTierLimits } = await import('@/types/subscription');
-        const limits = getTierLimits(userTier);
+        const limits = getTierLimits(userTier as SubscriptionTier);
         if (scanData?.analysisResult?.suggestions) {
           allSuggestionsCount = scanData.analysisResult.suggestions.length;
           if (limits.suggestionsPerScan !== 'all') {
