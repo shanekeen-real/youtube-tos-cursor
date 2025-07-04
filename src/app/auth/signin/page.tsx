@@ -46,7 +46,10 @@ export default function SignInPage() {
         </Button>
         
         <p className="text-sm text-gray-600 text-center">
-          By signing in, you agree to our Terms of Service and Privacy Policy.
+          By signing in, you agree to our
+          <a href="/terms-of-service.html" target="_blank" rel="noopener noreferrer" className="mx-1 text-blue-600 hover:underline">Terms of Service</a>
+          and
+          <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer" className="mx-1 text-blue-600 hover:underline">Privacy Policy</a>.
         </p>
       </div>
     </div>

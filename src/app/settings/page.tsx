@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
 import { useSession } from 'next-auth/react';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { app } from '@/lib/firebase';
 import Link from 'next/link';
 
@@ -34,6 +34,7 @@ export default function SettingsPage() {
   const { data: session } = useSession();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [ytChannel, setYtChannel] = useState<YouTubeChannel | null>(null);
+  const [ytConnecting, setYtConnecting] = useState(false);
   useEffect(() => {
     if (dark) {
       document.body.classList.add('dark');
@@ -59,11 +60,65 @@ export default function SettingsPage() {
       const userDoc = await getDoc(userRef);
       if (userDoc.exists() && userDoc.data().youtube?.channel) {
         setYtChannel(userDoc.data().youtube.channel as YouTubeChannel);
+      } else {
+        setYtChannel(null);
       }
     };
     fetchYouTube();
+
+    // Refresh YouTube data when user returns to the tab
+    const handleFocus = () => {
+      if (session?.user?.id) {
+        fetchYouTube();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, [session?.user?.id]);
   const progress = userProfile ? (userProfile.scanCount / userProfile.scanLimit) * 100 : 0;
+  const handleUnlinkYouTube = async () => {
+    if (!session?.user?.id) return;
+    if (!window.confirm('Are you sure you want to unlink your YouTube channel?')) return;
+    const db = getFirestore(app);
+    const userRef = doc(db, 'users', session.user.id);
+    try {
+      await updateDoc(userRef, {
+        youtube: null
+      });
+      setYtChannel(null);
+    } catch (err) {
+      alert('Failed to unlink YouTube channel. Please try again.');
+    }
+  };
+
+  const handleConnectYouTube = async () => {
+    if (!session?.user?.id) return;
+    setYtConnecting(true);
+    try {
+      const response = await fetch('/api/fetch-youtube-channel', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setYtChannel(data.channel);
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to connect YouTube:', errorData.error);
+        alert('Failed to connect YouTube channel. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error connecting YouTube:', error);
+      alert('Failed to connect YouTube channel. Please try again.');
+    } finally {
+      setYtConnecting(false);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-white flex flex-col items-center px-4 py-8 font-sans">
       <div className="w-full max-w-md bg-white flex flex-col gap-6">
@@ -130,11 +185,16 @@ export default function SettingsPage() {
                   <div className="text-gray-600">Videos: {ytChannel.statistics?.videoCount}</div>
                 </div>
               </div>
+              <Button variant="primary" className="mt-6 bg-red-600 hover:bg-red-700 text-white" onClick={handleUnlinkYouTube}>
+                Unlink YouTube
+              </Button>
             </div>
           ) : (
             <div className="mt-4">
               <p className="text-gray-600 mb-4">Connect your YouTube channel to analyze your own videos for TOS compliance.</p>
-              <Button>Connect YouTube</Button>
+              <Button disabled={ytConnecting} onClick={handleConnectYouTube}>
+                {ytConnecting ? 'Connecting...' : 'Connect YouTube'}
+              </Button>
             </div>
           )}
         </Card>

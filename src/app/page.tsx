@@ -157,95 +157,105 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-white flex flex-col items-center px-4 py-8 font-sans">
-      {/* Hero */}
-      <section className="flex flex-col items-center text-center mb-10 bg-white">
-        <h1 className="text-4xl sm:text-5xl font-bold text-[#212121] mb-2">
-          Protect Your YouTube Channel from <span className="text-red-600">Demonetization</span>
-        </h1>
-        <p className="text-lg text-[#212121] max-w-2xl mb-8">
-          Paste YouTube's policies or a video URL to discover risks instantly. Get fix advice with AI.
-        </p>
-        <Card className="w-full max-w-xl flex flex-col items-center border border-gray-200">
-          <div className="w-full flex mb-3">
-             <button 
-              onClick={() => { setAnalysisType('text'); setInputValue(''); }}
-              className={`flex-1 py-2 px-4 rounded-l-lg text-sm font-semibold focus:outline-none ${analysisType === 'text' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-            >
-              Analyze by Text
-            </button>
-            <button 
-              onClick={() => { setAnalysisType('url'); setInputValue(''); }}
-              className={`flex-1 py-2 px-4 rounded-r-lg text-sm font-semibold focus:outline-none ${analysisType === 'url' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-            >
-              Analyze by URL
-            </button>
-          </div>
+    <div>
+      <main className="min-h-screen bg-white flex flex-col items-center px-4 py-8 font-sans">
+        {/* Hero */}
+        <section className="flex flex-col items-center text-center mb-10 bg-white">
+          <h1 className="text-4xl sm:text-5xl font-bold text-[#212121] mb-2">
+            Protect Your YouTube Channel from <span className="text-red-600">Demonetization</span>
+          </h1>
+          <p className="text-lg text-[#212121] max-w-2xl mb-8">
+            Paste YouTube's policies or a video URL to discover risks instantly. Get fix advice with AI.
+          </p>
+          <Card className="w-full max-w-xl flex flex-col items-center border border-gray-200">
+            <div className="w-full flex mb-3">
+               <button 
+                onClick={() => { setAnalysisType('text'); setInputValue(''); }}
+                className={`flex-1 py-2 px-4 rounded-l-lg text-sm font-semibold focus:outline-none ${analysisType === 'text' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+              >
+                Analyze by Text
+              </button>
+              <button 
+                onClick={() => { setAnalysisType('url'); setInputValue(''); }}
+                className={`flex-1 py-2 px-4 rounded-r-lg text-sm font-semibold focus:outline-none ${analysisType === 'url' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+              >
+                Analyze by URL
+              </button>
+            </div>
 
-          <label htmlFor="tos-input" className="font-semibold mb-2 w-full text-left text-[#212121]">Content to analyze</label>
-          {analysisType === 'text' ? (
-            <textarea
-              id="tos-input"
-              placeholder="Paste YouTube Terms or Policy text here..."
-              className="w-full h-32 border border-gray-300 rounded-lg p-3 mb-4 resize-none focus:outline-none focus:ring-2 focus:ring-red-500 bg-[#FAFAFA] text-[#212121]"
-              value={inputValue}
-              onChange={e => setInputValue(e.target.value)}
-              disabled={loadingFree || loadingFull}
-            />
-          ) : (
-            <input
-              id="url-input"
-              type="url"
-              placeholder="Enter YouTube video URL..."
-              className="w-full h-12 border border-gray-300 rounded-lg p-3 mb-4 focus:outline-none focus:ring-2 focus:ring-red-500 bg-[#FAFAFA] text-[#212121]"
-              value={inputValue}
-              onChange={e => setInputValue(e.target.value)}
-              disabled={loadingFree || loadingFull}
-            />
-          )}
-
-          {(loadingFree || loadingFull) && (
-            <ProgressBar progress={progress} rainbow={loadingFull} />
-          )}
-          <div className="flex w-full gap-4">
-            <Button 
-              variant="secondary" 
-              className="flex-1 flex items-center justify-center" 
-              onClick={handleFreeScan} 
-              disabled={loadingFree || loadingFull || !inputValue.trim() || analysisType === 'url'}
-              title={analysisType === 'url' ? "Free scan not available for URLs" : ""}
-            >
-              {loadingFree ? 'Scanning...' : 'Free Scan'}
-            </Button>
-            <Button 
-              variant="blue" 
-              className="flex-1 flex items-center justify-center" 
-              onClick={handleFullReport} 
-              disabled={loadingFull || loadingFree || !inputValue.trim()}
-            >
-              {loadingFull ? 'Analyzing...' : 'Full Report'}
-            </Button>
-          </div>
-        </Card>
-        {freeScanResult && (
-          <div className="w-full max-w-xl mt-8 flex flex-col gap-6">
-            <Card className="flex flex-col items-center border border-gray-200">
-              <div className="text-5xl font-bold text-red-600 mb-2">{freeScanResult.risk_score}%</div>
-              <div className="text-sm text-[#606060] mb-2">{freeScanResult.flagged_section}</div>
-            </Card>
-            <Card className="border border-gray-200">
-              <div className="font-semibold mb-2">Policy Analysis</div>
+            <label htmlFor="tos-input" className="font-semibold mb-2 w-full text-left text-[#212121]">Content to analyze</label>
+            {analysisType === 'text' ? (
               <textarea
-                className="w-full h-20 border border-gray-300 rounded-lg p-3 mb-2 resize-none bg-[#FAFAFA] text-[#212121]"
+                id="tos-input"
+                placeholder="Paste YouTube Terms or Policy text here..."
+                className="w-full h-32 border border-gray-300 rounded-lg p-3 mb-4 resize-none focus:outline-none focus:ring-2 focus:ring-red-500 bg-[#FAFAFA] text-[#212121]"
                 value={inputValue}
-                readOnly
+                onChange={e => setInputValue(e.target.value)}
+                disabled={loadingFree || loadingFull}
               />
-            </Card>
-          </div>
-        )}
-      </section>
-      {/* Feature Grid */}
-      <FeatureGrid sets={featureSets} />
-    </main>
+            ) : (
+              <input
+                id="url-input"
+                type="url"
+                placeholder="Enter YouTube video URL..."
+                className="w-full h-12 border border-gray-300 rounded-lg p-3 mb-4 focus:outline-none focus:ring-2 focus:ring-red-500 bg-[#FAFAFA] text-[#212121]"
+                value={inputValue}
+                onChange={e => setInputValue(e.target.value)}
+                disabled={loadingFree || loadingFull}
+              />
+            )}
+
+            {(loadingFree || loadingFull) && (
+              <ProgressBar progress={progress} rainbow={loadingFull} />
+            )}
+            <div className="flex w-full gap-4">
+              <Button 
+                variant="secondary" 
+                className="flex-1 flex items-center justify-center" 
+                onClick={handleFreeScan} 
+                disabled={loadingFree || loadingFull || !inputValue.trim() || analysisType === 'url'}
+                title={analysisType === 'url' ? "Free scan not available for URLs" : ""}
+              >
+                {loadingFree ? 'Scanning...' : 'Free Scan'}
+              </Button>
+              <Button 
+                variant="blue" 
+                className="flex-1 flex items-center justify-center" 
+                onClick={handleFullReport} 
+                disabled={loadingFull || loadingFree || !inputValue.trim()}
+              >
+                {loadingFull ? 'Analyzing...' : 'Full Report'}
+              </Button>
+            </div>
+          </Card>
+          {freeScanResult && (
+            <div className="w-full max-w-xl mt-8 flex flex-col gap-6">
+              <Card className="flex flex-col items-center border border-gray-200">
+                <div className="text-5xl font-bold text-red-600 mb-2">{freeScanResult.risk_score}%</div>
+                <div className="text-sm text-[#606060] mb-2">{freeScanResult.flagged_section}</div>
+              </Card>
+              <Card className="border border-gray-200">
+                <div className="font-semibold mb-2">Policy Analysis</div>
+                <textarea
+                  className="w-full h-20 border border-gray-300 rounded-lg p-3 mb-2 resize-none bg-[#FAFAFA] text-[#212121]"
+                  value={inputValue}
+                  readOnly
+                />
+              </Card>
+            </div>
+          )}
+        </section>
+        {/* Feature Grid */}
+        <FeatureGrid sets={featureSets} />
+      </main>
+      <footer className="w-full flex flex-col items-center mt-12 mb-2 text-sm text-gray-500">
+        <div className="flex gap-4">
+          <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer" className="hover:underline">Privacy Policy</a>
+          <span>|</span>
+          <a href="/terms-of-service.html" target="_blank" rel="noopener noreferrer" className="hover:underline">Terms of Service</a>
+        </div>
+        <div className="mt-2">&copy; {new Date().getFullYear()} YouTube TOS Analyzer. Effective July 3rd, 2025.</div>
+      </footer>
+    </div>
   );
 }
