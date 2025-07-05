@@ -15,6 +15,7 @@ interface UserProfile {
   scanCount: number;
   scanLimit: number;
   subscriptionTier: 'free' | 'pro' | 'advanced' | 'enterprise';
+  stripeCustomerId?: string;
   subscriptionData?: {
     renewalDate?: string;
   };
@@ -39,6 +40,7 @@ export default function SettingsPage() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [ytChannel, setYtChannel] = useState<YouTubeChannel | null>(null);
   const [ytConnecting, setYtConnecting] = useState(false);
+  const [managingSubscription, setManagingSubscription] = useState(false);
   useEffect(() => {
     if (dark) {
       document.body.classList.add('dark');
@@ -123,6 +125,33 @@ export default function SettingsPage() {
     }
   };
 
+  const handleManageSubscription = async () => {
+    if (!session?.user?.id) return;
+    setManagingSubscription(true);
+    try {
+      const response = await fetch('/api/create-customer-portal-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        window.location.href = data.url;
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to create customer portal session:', errorData.error);
+        alert('Failed to open subscription management. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error creating customer portal session:', error);
+      alert('Failed to open subscription management. Please try again.');
+    } finally {
+      setManagingSubscription(false);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-white flex flex-col items-center px-4 py-8 font-sans">
       <div className="w-full max-w-md bg-white flex flex-col gap-6">
@@ -186,6 +215,15 @@ export default function SettingsPage() {
               >
                 Upgrade Plan
               </button>
+              {userProfile.subscriptionTier !== 'free' && userProfile.stripeCustomerId && (
+                <button
+                  className="w-full py-2 px-4 rounded font-semibold bg-gray-600 text-white hover:bg-gray-700"
+                  onClick={handleManageSubscription}
+                  disabled={managingSubscription}
+                >
+                  {managingSubscription ? 'Opening...' : 'Manage Subscription'}
+                </button>
+              )}
             </div>
           </Card>
         )}

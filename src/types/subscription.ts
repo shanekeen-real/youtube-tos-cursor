@@ -95,6 +95,7 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTier, PricingTier> = {
       aiPolicyAnalysis: true,
     },
     recommended: true,
+    stripePriceId: 'price_1RhMBAPkKFhdAA8L8Zu8ljE1',
   },
   advanced: {
     id: 'advanced',
@@ -131,6 +132,7 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTier, PricingTier> = {
       sla: false,
       aiPolicyAnalysis: true,
     },
+    stripePriceId: 'price_1RhMCEPkKFhdAA8Lzc1N3Uog',
   },
   enterprise: {
     id: 'enterprise',

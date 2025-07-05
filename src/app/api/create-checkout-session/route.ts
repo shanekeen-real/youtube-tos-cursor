@@ -30,19 +30,7 @@ export async function POST(req: NextRequest) {
       payment_method_types: ['card'],
       line_items: [
         {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: `TOS Analyzer - ${selectedTier.name} ${selectedTier.billingCycle === 'monthly' ? 'Subscription' : 'Plan'}`,
-              description: selectedTier.description,
-            },
-            unit_amount: Number(selectedTier.price) * 100, // Convert to cents
-            ...(selectedTier.billingCycle === 'monthly' && {
-              recurring: {
-                interval: 'month',
-              },
-            }),
-          },
+          price: selectedTier.stripePriceId,
           quantity: 1,
         },
       ],

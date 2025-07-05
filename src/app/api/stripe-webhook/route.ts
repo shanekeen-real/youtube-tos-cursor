@@ -51,6 +51,9 @@ export async function POST(req: NextRequest) {
       try {
         // Update user's profile in Firestore using the Admin SDK
         const userRef = adminDb.collection('users').doc(userId);
+        // Get current user data to preserve existing fields
+        const userDoc = await userRef.get();
+        const userData = userDoc.exists ? userDoc.data() : {};
         const tierLimits = SUBSCRIPTION_TIERS[tier].limits;
         
         // Try to get renewal date from session.subscription if available
@@ -70,9 +73,15 @@ export async function POST(req: NextRequest) {
           }
           console.log('Computed renewalDate:', renewalDate);
         }
+        // Always set Stripe customer ID
+        let stripeCustomerId = userData?.stripeCustomerId;
+        if (session.customer) {
+          stripeCustomerId = session.customer as string;
+        }
         const updatePayload = {
           subscriptionTier: tier,
           scanLimit: tierLimits.scanLimit,
+          ...(stripeCustomerId && { stripeCustomerId }),
           subscriptionData: {
             tier: tier,
             limits: tierLimits,
@@ -113,12 +122,18 @@ export async function POST(req: NextRequest) {
           if (subscription.current_period_end) {
             renewalDate = new Date(subscription.current_period_end * 1000).toISOString();
           }
-
+          // Always set Stripe customer ID
+          let userDataSafe: any = (userDoc && userDoc.exists && userDoc.data()) ? userDoc.data() : undefined;
+          let stripeCustomerId = userDataSafe ? userDataSafe.stripeCustomerId : undefined;
+          if (subscription.customer) {
+            stripeCustomerId = subscription.customer as string;
+          }
           if (event.type === 'customer.subscription.deleted') {
             // Downgrade to free tier if subscription is cancelled
             const updatePayload = {
               subscriptionTier: 'free',
-              scanLimit: 3,
+              scanLimit: SUBSCRIPTION_TIERS.free.limits.scanLimit,
+              ...(stripeCustomerId && { stripeCustomerId }),
               subscriptionData: {
                 ...prevData,
                 tier: 'free',
@@ -131,9 +146,20 @@ export async function POST(req: NextRequest) {
             await userRef.update(updatePayload);
             console.log(`User ${subscriptionUserId} subscription cancelled, downgraded to free.`);
           } else {
+            // Handle subscription updates (downgrades/upgrades through customer portal)
+            // Try to determine the new tier from the subscription
+            let userDataSafe2: any = (userDoc && userDoc.exists && userDoc.data()) ? userDoc.data() : undefined;
+            let newTier: SubscriptionTier = userDataSafe2 ? userDataSafe2.subscriptionTier : 'free';
+            let newScanLimit = SUBSCRIPTION_TIERS.free.limits.scanLimit;
+            if (newTier && SUBSCRIPTION_TIERS[newTier]) {
+              newScanLimit = SUBSCRIPTION_TIERS[newTier].limits.scanLimit;
+            }
             // Update renewal date for active subscription
             console.log('Updating renewal date for user:', subscriptionUserId, 'renewalDate:', renewalDate);
             const updatePayload = {
+              ...(stripeCustomerId && { stripeCustomerId }),
+              subscriptionTier: newTier,
+              scanLimit: newScanLimit,
               subscriptionData: {
                 ...prevData,
                 renewalDate,

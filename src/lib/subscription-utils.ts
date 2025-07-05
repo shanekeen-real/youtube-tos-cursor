@@ -64,6 +64,36 @@ export const getUpgradeSuggestion = (currentTier: SubscriptionTier): { nextTier:
   };
 };
 
+export const getDowngradeOptions = (currentTier: SubscriptionTier): { tier: SubscriptionTier; name: string; price: string; savings: string }[] => {
+  const tiers: SubscriptionTier[] = ['free', 'pro', 'advanced', 'enterprise'];
+  const currentIndex = tiers.indexOf(currentTier);
+  
+  if (currentIndex <= 0) {
+    return []; // No downgrade options for free tier
+  }
+  
+  const options = [];
+  const currentTierData = SUBSCRIPTION_TIERS[currentTier];
+  const currentPrice = typeof currentTierData.price === 'number' ? currentTierData.price : 0;
+  
+  // Get all lower tiers
+  for (let i = currentIndex - 1; i >= 0; i--) {
+    const lowerTier = tiers[i];
+    const lowerTierData = SUBSCRIPTION_TIERS[lowerTier];
+    const lowerPrice = typeof lowerTierData.price === 'number' ? lowerTierData.price : 0;
+    const savings = currentPrice - lowerPrice;
+    
+    options.push({
+      tier: lowerTier,
+      name: lowerTierData.name,
+      price: lowerTierData.billingCycle === 'monthly' ? `$${lowerTierData.price}/mo` : `$${lowerTierData.price}`,
+      savings: savings > 0 ? `Save $${savings}/mo` : 'Free'
+    });
+  }
+  
+  return options;
+};
+
 export const formatTierDisplay = (tier: SubscriptionTier): { name: string; color: string; gradient?: boolean } => {
   switch (tier) {
     case 'free':
