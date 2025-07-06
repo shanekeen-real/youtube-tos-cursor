@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
     }
 
-    const { tier } = await req.json();
+    const { tier, billingCycle } = await req.json();
     
     if (!tier || !SUBSCRIPTION_TIERS[tier as SubscriptionTier]) {
       return NextResponse.json({ error: 'Invalid subscription tier' }, { status: 400 });
@@ -25,12 +25,18 @@ export async function POST(req: NextRequest) {
     const selectedTier = SUBSCRIPTION_TIERS[tier as SubscriptionTier];
     const YOUR_DOMAIN = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
+    // Determine the correct price ID
+    let priceId = selectedTier.stripePriceId;
+    if (billingCycle === 'annual' && selectedTier.stripePriceIdAnnual) {
+      priceId = selectedTier.stripePriceIdAnnual;
+    }
+
     // Create a Checkout Session
     const checkoutSession = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
         {
-          price: selectedTier.stripePriceId,
+          price: priceId,
           quantity: 1,
         },
       ],
@@ -40,6 +46,7 @@ export async function POST(req: NextRequest) {
       metadata: {
         userId: session.user.id,
         tier: tier,
+        billingCycle: billingCycle || 'monthly',
       },
     });
 

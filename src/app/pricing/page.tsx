@@ -42,6 +42,7 @@ export default function PricingPage() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingTier, setLoadingTier] = useState('');
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -79,7 +80,10 @@ export default function PricingPage() {
     }
     setLoadingTier(tier);
     try {
-      const { data } = await axios.post('/api/create-checkout-session', { tier });
+      const { data } = await axios.post('/api/create-checkout-session', { 
+        tier, 
+        billingCycle 
+      });
       const stripe = await stripePromise;
       if (stripe) {
         await stripe.redirectToCheckout({ sessionId: data.sessionId });
@@ -108,6 +112,20 @@ export default function PricingPage() {
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Choose Your Plan</h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">Select the perfect plan for your YouTube channel. Start free and upgrade as you grow.</p>
         </div>
+        <div className="flex justify-center mb-8">
+          <button
+            className={`px-4 py-2 rounded-l border ${billingCycle === 'monthly' ? 'bg-blue-600 text-white' : 'bg-white text-blue-600 border-blue-600'}`}
+            onClick={() => setBillingCycle('monthly')}
+          >
+            Monthly
+          </button>
+          <button
+            className={`px-4 py-2 rounded-r border-t border-b border-r ${billingCycle === 'annual' ? 'bg-blue-600 text-white' : 'bg-white text-blue-600 border-blue-600'}`}
+            onClick={() => setBillingCycle('annual')}
+          >
+            Annual <span className="ml-1 text-xs">(2 months free!)</span>
+          </button>
+        </div>
         <div className="overflow-x-auto">
           <table className="min-w-full border border-gray-200 rounded-lg bg-white mb-8">
             <thead>
@@ -117,7 +135,7 @@ export default function PricingPage() {
                   <th key={tier} className="p-4 text-center font-bold text-lg capitalize">
                     {SUBSCRIPTION_TIERS[tier].name}<br/>
                     <span className="text-base font-normal">
-                      {SUBSCRIPTION_TIERS[tier].price === 0 ? '$0' : SUBSCRIPTION_TIERS[tier].price === 'contact' ? 'Contact' : `$${SUBSCRIPTION_TIERS[tier].price}${SUBSCRIPTION_TIERS[tier].billingCycle === 'monthly' ? '/mo' : ''}`}
+                      {SUBSCRIPTION_TIERS[tier].price === 0 ? '$0' : SUBSCRIPTION_TIERS[tier].price === 'contact' ? 'Contact' : billingCycle === 'monthly' ? `$${SUBSCRIPTION_TIERS[tier].price}/mo` : SUBSCRIPTION_TIERS[tier].stripePriceIdAnnual ? `$${(tier === 'pro' ? 149.99 : tier === 'advanced' ? 489.99 : SUBSCRIPTION_TIERS[tier].price)}/yr` : `$${SUBSCRIPTION_TIERS[tier].price}/mo`}
                     </span>
                   </th>
                 ))}
@@ -153,7 +171,7 @@ export default function PricingPage() {
               <div key={tier} className="flex flex-col items-center border border-gray-200 rounded-lg p-6 bg-white">
                 <div className="text-2xl font-bold mb-2">{SUBSCRIPTION_TIERS[tier].name}</div>
                 <div className="text-xl mb-4 text-gray-700">
-                  {SUBSCRIPTION_TIERS[tier].price === 0 ? '$0' : SUBSCRIPTION_TIERS[tier].price === 'contact' ? 'Contact' : `$${SUBSCRIPTION_TIERS[tier].price}${SUBSCRIPTION_TIERS[tier].billingCycle === 'monthly' ? '/mo' : ''}`}
+                  {SUBSCRIPTION_TIERS[tier].price === 0 ? '$0' : SUBSCRIPTION_TIERS[tier].price === 'contact' ? 'Contact' : billingCycle === 'monthly' ? `$${SUBSCRIPTION_TIERS[tier].price}/mo` : SUBSCRIPTION_TIERS[tier].stripePriceIdAnnual ? `$${(tier === 'pro' ? 149.99 : tier === 'advanced' ? 489.99 : SUBSCRIPTION_TIERS[tier].price)}/yr` : `$${SUBSCRIPTION_TIERS[tier].price}/mo`}
                 </div>
                 <button
                   className={`w-full py-2 px-4 rounded font-semibold ${isCurrent ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'} mb-2`}

@@ -18,6 +18,8 @@ interface UserProfile {
   stripeCustomerId?: string;
   subscriptionData?: {
     renewalDate?: string;
+    cancelledAt?: string;
+    expiresAt?: string;
   };
 }
 
@@ -204,9 +206,17 @@ export default function SettingsPage() {
                 : {color: '#2563eb'}
             }>{userProfile.subscriptionTier}</p>
             <div className="space-y-2">
-              {userProfile.subscriptionData?.renewalDate && (
+              {userProfile.subscriptionData?.cancelledAt && userProfile.subscriptionData?.expiresAt ? (
+                <p className="text-red-500 font-semibold">
+                  Your {(userProfile.subscriptionData as any)?.tier || userProfile.subscriptionTier} plan will expire on {new Date(userProfile.subscriptionData.expiresAt).toLocaleDateString()}.
+                </p>
+              ) : userProfile.subscriptionData?.renewalDate ? (
                 <p className="text-gray-500 font-semibold">
                   Your plan will auto-renew on {new Date(userProfile.subscriptionData.renewalDate).toLocaleDateString()}.
+                </p>
+              ) : (
+                <p className="text-gray-500 font-semibold">
+                  No renewal information available.
                 </p>
               )}
               <button

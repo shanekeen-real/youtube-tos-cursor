@@ -27,6 +27,7 @@ export interface PricingTier {
   features: string[];
   limits: SubscriptionLimits;
   stripePriceId?: string;
+  stripePriceIdAnnual?: string;
   recommended?: boolean;
 }
 
@@ -96,6 +97,7 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTier, PricingTier> = {
     },
     recommended: true,
     stripePriceId: 'price_1RhMBAPkKFhdAA8L8Zu8ljE1',
+    stripePriceIdAnnual: 'price_1RhMyCPkKFhdAA8Lw5rl0EDj',
   },
   advanced: {
     id: 'advanced',
@@ -133,6 +135,7 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTier, PricingTier> = {
       aiPolicyAnalysis: true,
     },
     stripePriceId: 'price_1RhMCEPkKFhdAA8Lzc1N3Uog',
+    stripePriceIdAnnual: 'price_1RhN86PkKFhdAA8LLoMj7vlc',
   },
   enterprise: {
     id: 'enterprise',
