@@ -8,7 +8,7 @@ import Badge from '@/components/Badge';
 import Link from 'next/link';
 import { Suspense } from "react";
 import ExportModal from '@/components/ExportModal';
-import { Download, Lock } from 'lucide-react';
+import { Download, Lock, AlertTriangle, CheckCircle, Clock, BarChart3, FileText, Target, Globe, Zap, Calendar, Settings, ArrowLeft, ExternalLink, ArrowRight, Shield, Check } from 'lucide-react';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { app } from '@/lib/firebase';
 import { checkUserCanExport } from '@/lib/subscription-utils';
@@ -190,11 +190,20 @@ function ResultsPageContent() {
     fetchData();
   }, [searchParams, session?.user?.id]);
 
+  const getRiskBadgeVariant = (level: 'LOW' | 'MEDIUM' | 'HIGH') => {
+    switch (level) {
+      case 'LOW': return 'safe';
+      case 'MEDIUM': return 'yellow';
+      case 'HIGH': return 'risk';
+      default: return 'neutral';
+    }
+  };
+
   const getRiskColor = (level: 'LOW' | 'MEDIUM' | 'HIGH') => {
     switch (level) {
-      case 'LOW': return 'green';
+      case 'LOW': return 'safe';
       case 'MEDIUM': return 'yellow';
-      case 'HIGH': return 'red';
+      case 'HIGH': return 'risk';
       default: return 'gray';
     }
   };
@@ -203,344 +212,750 @@ function ResultsPageContent() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="text-center py-10">
-        <p>Loading results...</p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading analysis results...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="text-center py-10">
-        <p className="text-red-500 mb-4">Error: {error}</p>
-        <Link href="/">
-          <Button>Back to Home</Button>
-        </Link>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-8">
+            <AlertTriangle className="w-12 h-12 text-risk mx-auto mb-4" />
+            <h2 className="text-title font-semibold text-gray-800 mb-2">Analysis Error</h2>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <div className="flex gap-3 justify-center">
+              <Link href="/">
+                <Button variant="outlined" className="inline-flex items-center gap-2">
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to Home
+                </Button>
+              </Link>
+              <Button onClick={() => window.location.reload()}>
+                Try Again
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!data) {
     return (
-      <div className="text-center py-10">
-        <p className="text-gray-500 mb-4">No data available.</p>
-        <Link href="/">
-          <Button>Back to Home</Button>
-        </Link>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-8">
+            <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h2 className="text-title font-semibold text-gray-800 mb-2">No Data Available</h2>
+            <p className="text-gray-600 mb-6">No scan data was found for this analysis.</p>
+            <Link href="/">
+              <Button className="inline-flex items-center gap-2">
+                <ArrowLeft className="w-4 h-4" />
+                Back to Home
+              </Button>
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-[1800px] mx-auto px-4 lg:px-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-[#212121] mb-2">Scan Results</h1>
-        <p className="text-gray-600">Analysis results for your content</p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <Card>
-          <h3 className="text-lg font-semibold mb-2">Risk Level</h3>
-          <Badge color={getRiskColor(data.riskLevel)} className="text-lg">
-            {data.riskLevel} Risk
-          </Badge>
-        </Card>
-
-        <Card>
-          <h3 className="text-lg font-semibold mb-2">Risk Score</h3>
-          <div className="text-3xl font-bold text-[#212121]">{data.riskScore}/100</div>
-        </Card>
-
-        <Card>
-          <h3 className="text-lg font-semibold mb-2">Content Title</h3>
-          <p className="text-gray-600 truncate">{data.title}</p>
-        </Card>
-      </div>
-
-      <Card>
-        <div className="border-b border-gray-200 mb-6">
-          <nav className="flex space-x-8 relative">
-            {[
-              { id: 'overview', label: 'Overview' },
-              { id: 'details', label: 'Details' },
-              { id: 'suggestions', label: 'Suggestions' }
-            ].map((tab) => (
-              <div key={tab.id} className="relative">
-                <button
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-                {tab.id === 'suggestions' && toArray(data.suggestions).length > 0 && (
-                  <span
-                    className="absolute -top-2 -right-2 flex items-center justify-center rounded-full bg-blue-600 text-white text-[10px] font-bold"
-                    style={{ width: 20, height: 20, lineHeight: '20px' }}
-                  >
-                    {toArray(data.suggestions).length}
-                  </span>
-                )}
-              </div>
-            ))}
-          </nav>
+    <main className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-display font-bold text-gray-800 mb-2">
+            Analysis <span className="text-yellow-500">Results</span>
+          </h1>
+          <p className="text-subtitle text-gray-600">
+            Detailed analysis results for your content
+          </p>
         </div>
 
-        <div className="min-h-[400px]">
-          {activeTab === 'overview' && (
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Summary</h3>
-              <p className="text-gray-600 mb-4">
-                This content has been analyzed for potential Terms of Service violations, copyright and demonetization risks.
-              </p>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-semibold mb-2">Key Findings:</h4>
-                <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
-                  <li>Risk Level: {data.riskLevel}</li>
-                  <li>Risk Score: {data.riskScore}/100</li>
-                  <li>Flagged Sections: {toArray(data.flaggedSections).length}</li>
-                  <li>
-                    Suggestions Provided: {toArray(data.suggestions).length}
-                    {typeof data.allSuggestionsCount === 'number' && data.allSuggestionsCount > toArray(data.suggestions).length && (
-                      <>
-                        {' '}of {data.allSuggestionsCount} (<a href="/pricing" className="text-blue-600 underline">Upgrade to Pro Tier to view all suggestions</a>)
-                      </>
-                    )}
-                  </li>
-                </ul>
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card>
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-yellow-600" />
+              </div>
+              <div>
+                <h3 className="text-caption text-gray-600 mb-1">Risk Level</h3>
+                <Badge variant={getRiskBadgeVariant(data.riskLevel)} className="text-body font-semibold">
+                  {data.riskLevel} Risk
+                </Badge>
               </div>
             </div>
-          )}
+          </Card>
 
-          {activeTab === 'details' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Left column: Content Analysis + Highlights + Analyzed Content */}
-              <div className="flex flex-col gap-6">
-                {/* Content Analysis Card */}
-                {data.context_analysis && (
-                  <div className="bg-white rounded-xl shadow p-6">
-                    <h3 className="text-lg font-semibold mb-4">Content Analysis</h3>
-                    <div className="mb-4">
-                      <textarea
-                        className="w-full bg-gray-50 border border-gray-200 rounded p-2 text-xs text-gray-700 mb-2"
-                        value={data.url || ''}
-                        readOnly
-                        rows={2}
-                        style={{ resize: 'none' }}
-                      />
-                    </div>
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      <span className="inline-block bg-red-100 text-red-700 text-xs font-semibold px-2 py-1 rounded">
-                        {data.context_analysis.content_type?.toUpperCase() || 'UNKNOWN'}
-                      </span>
-                      <span className="inline-block bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded">
-                        {data.context_analysis.target_audience?.toUpperCase() || 'GENERAL'}
-                      </span>
-                      <span className="inline-block bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded">
-                        MONETIZATION {data.context_analysis.monetization_impact || 0}%
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
-                      <div>Language: <span className="font-medium text-gray-800">{data.context_analysis.language_detected}</span></div>
-                      <div>Content Length: <span className="font-medium text-gray-800">{data.context_analysis.content_length} words</span></div>
-                    </div>
-                  </div>
-                )}
-                {/* Highlights Card */}
-                {data.highlights && data.highlights.length > 0 && (
-                  <div className="bg-white rounded-xl shadow p-6">
-                    <h3 className="text-lg font-semibold mb-4">Top Risk Highlights</h3>
-                    <div className="flex flex-wrap gap-3">
-                      {data.highlights.map((h, i) => (
-                        <div key={i} className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 min-w-[160px] flex-1">
-                          <div className="font-semibold text-yellow-800 mb-1">{h.category}</div>
-                          <div className="text-xs text-gray-500 mb-1">Risk: {h.risk}</div>
-                          <div className="text-xs text-gray-500 mb-1">Score: {h.score}</div>
-                          <div className="text-xs text-gray-500">Confidence: {h.confidence}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {/* Analyzed Content Card */}
-                {data.analyzed_content && (
-                  <div className="bg-white rounded-xl shadow p-6">
-                    <h3 className="text-lg font-semibold mb-4">Analyzed Content (Title & Description)</h3>
-                    <div className="bg-gray-50 border border-gray-200 rounded p-3 whitespace-pre-line text-sm text-gray-800 max-h-48 overflow-auto">
-                      {data.analyzed_content}
-                    </div>
-                  </div>
-                )}
-                {/* Metadata Card (mobile only, or at bottom on desktop) */}
-                {data.analysis_metadata && (
-                  <div className="bg-white rounded-xl shadow p-6 lg:hidden">
-                    <h3 className="text-lg font-semibold mb-4">Analysis Metadata</h3>
-                    <div className="grid grid-cols-1 gap-2 text-xs text-gray-600">
-                      <div>Model Used: <span className="font-medium">{data.analysis_metadata.model_used}</span></div>
-                      <div>Timestamp: <span className="font-medium">{new Date(data.analysis_metadata.analysis_timestamp).toLocaleString()}</span></div>
-                      <div>Processing Time: <span className="font-medium">{data.analysis_metadata.processing_time_ms} ms</span></div>
-                      <div>Content Length: <span className="font-medium">{data.analysis_metadata.content_length} chars</span></div>
-                      <div>Mode: <span className="font-medium">{data.analysis_metadata.analysis_mode}</span></div>
-                    </div>
-                  </div>
-                )}
+          <Card>
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                <BarChart3 className="w-6 h-6 text-gray-600" />
               </div>
-              {/* Right column: Policy Category Analysis + Metadata (desktop) */}
-              <div className="flex flex-col gap-6">
-                {/* Policy Category Analysis Table */}
-                {data.policy_categories && Object.keys(data.policy_categories).length > 0 && (
-                  <div className="bg-white rounded-xl shadow p-6" style={{ maxHeight: '420px', minHeight: '320px', overflowY: 'auto', overflowX: 'hidden' }}>
-                    <h3 className="text-lg font-semibold mb-4">Policy Category Analysis</h3>
-                    <div className="flex flex-col gap-4">
-                      {Object.entries(data.policy_categories)
-                        .sort((a, b) => {
-                          if (b[1].risk_score !== a[1].risk_score) {
-                            return b[1].risk_score - a[1].risk_score;
-                          }
-                          return (severityOrder[b[1].severity] || 0) - (severityOrder[a[1].severity] || 0);
-                        })
-                        .map(([cat, val]: any) => (
-                          <div key={cat} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                            {/* Line 1: Policy Title left, Risk Score & Tag right */}
-                            <div className="flex flex-wrap items-center justify-between mb-1 w-full">
-                              <span className="font-semibold text-base truncate max-w-[60%]">{cat.replace(/_/g, ' ')}</span>
-                              <span className="flex items-center gap-2 ml-auto">
-                                <span className="text-sm font-medium text-gray-700">{val.risk_score}%</span>
-                                <span className={`px-2 py-1 rounded text-xs font-bold ${val.severity === 'HIGH' ? 'bg-red-100 text-red-700' : val.severity === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>{val.severity} Risk</span>
-                              </span>
+              <div>
+                <h3 className="text-caption text-gray-600 mb-1">Risk Score</h3>
+                <div className="text-title font-bold text-gray-800">{data.riskScore}/100</div>
+              </div>
+            </div>
+          </Card>
+
+          <Card>
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                <FileText className="w-6 h-6 text-gray-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-caption text-gray-600 mb-1">Content Title</h3>
+                <p className="text-body font-semibold text-gray-800 truncate">{data.title}</p>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Action Buttons Section */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/">
+              <Button variant="outlined" className="inline-flex items-center gap-2">
+                <ArrowLeft className="w-4 h-4" />
+                New Scan
+              </Button>
+            </Link>
+            
+            <Tooltip.Provider>
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>
+                  <div>
+                    <Button 
+                      onClick={canExport ? () => setExportModalOpen(true) : undefined}
+                      className={`inline-flex items-center gap-2 ${!canExport ? 'opacity-50 cursor-not-allowed bg-gray-300 hover:bg-gray-300 text-gray-600' : ''}`}
+                      disabled={!canExport}
+                    >
+                      {!canExport ? <Lock className="w-4 h-4" /> : <Download className="w-4 h-4" />}
+                      Export Report
+                    </Button>
+                  </div>
+                </Tooltip.Trigger>
+                {!canExport && (
+                  <Tooltip.Portal>
+                    <Tooltip.Content
+                      className="bg-gray-900 text-white px-3 py-2 rounded-lg text-sm max-w-xs z-50"
+                      sideOffset={5}
+                    >
+                      <div className="flex flex-col gap-1">
+                        <span>Feature is only available for Pro Members.</span>
+                        <span>Please visit <Link href="/pricing" className="text-yellow-300 hover:text-yellow-200 underline">Pricing</Link> page to upgrade your plan.</span>
+                      </div>
+                      <Tooltip.Arrow className="fill-gray-900" />
+                    </Tooltip.Content>
+                  </Tooltip.Portal>
+                )}
+              </Tooltip.Root>
+            </Tooltip.Provider>
+            
+            <Link href="/scan-history">
+              <Button className="inline-flex items-center gap-2">
+                <BarChart3 className="w-4 h-4" />
+                View History
+              </Button>
+            </Link>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <Card>
+          {/* Tab Navigation */}
+          <div className="border-b border-gray-200 mb-6">
+            <nav className="flex space-x-8">
+              {[
+                { id: 'overview', label: 'Overview', icon: BarChart3 },
+                { id: 'details', label: 'Details', icon: FileText },
+                { id: 'suggestions', label: 'Suggestions', icon: Target }
+              ].map((tab) => {
+                const IconComponent = tab.icon;
+                return (
+                  <div key={tab.id} className="relative">
+                    <button
+                      onClick={() => setActiveTab(tab.id as any)}
+                      className={`py-3 px-1 border-b-2 font-medium text-body transition-colors flex items-center gap-2 ${
+                        activeTab === tab.id
+                          ? 'border-yellow-500 text-yellow-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <IconComponent className="w-4 h-4" />
+                      {tab.label}
+                      {tab.id === 'suggestions' && toArray(data.suggestions).length > 0 && (
+                        <span className="ml-1 flex items-center justify-center rounded-full bg-yellow-500 text-gray-900 text-xs font-bold w-5 h-5">
+                          {toArray(data.suggestions).length}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </nav>
+          </div>
+
+          {/* Tab Content - Fixed Height Container */}
+          <div className="min-h-[600px]">
+            {activeTab === 'overview' && (
+              <div className="h-full">
+                {/* Header Section */}
+                <div className="mb-8">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
+                      <BarChart3 className="w-5 h-5 text-yellow-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-title font-bold text-gray-900">Analysis Overview</h3>
+                      <p className="text-body text-gray-600">Comprehensive risk assessment summary</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Left Column - Risk Assessment */}
+                  <div className="flex flex-col gap-6">
+                    {/* Risk Score Card */}
+                    <Card className="relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-50 rounded-full -translate-y-16 translate-x-16 opacity-50"></div>
+                      <div className="relative">
+                        <div className="flex items-center justify-between mb-6">
+                          <div>
+                            <h4 className="text-body font-semibold text-gray-800 mb-1">Risk Score</h4>
+                            <p className="text-caption text-gray-600">Overall content risk assessment</p>
+                          </div>
+                          <Badge variant={getRiskBadgeVariant(data.riskLevel)} className="text-sm">
+                            {data.riskLevel} Risk
+                          </Badge>
+                        </div>
+                        
+                        <div className="flex items-center gap-6 mb-6">
+                          <div className="relative">
+                            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-yellow-100 to-yellow-200 flex items-center justify-center">
+                              <span className="text-2xl font-bold text-gray-800">{data.riskScore}</span>
                             </div>
-                            {/* Line 2: Confidence score */}
-                            <div className="text-xs text-gray-500 mb-1">Confidence score: {val.confidence}%</div>
-                            {/* Line 3: Violations or move analysis up if none */}
-                            {val.violations && val.violations.length > 0 ? (
-                              <div className="text-xs text-red-600 mb-1">{val.violations.join(', ')}</div>
-                            ) : null}
-                            {/* Line 4: Analysis paragraph (move up if no violations) */}
-                            <div className={`text-sm text-gray-800 ${(!val.violations || val.violations.length === 0) ? '' : 'mt-1'}`}>{val.explanation}</div>
+                            <div className="absolute inset-0 rounded-full border-4 border-yellow-200"></div>
+                            <div 
+                              className="absolute inset-0 rounded-full border-4 border-yellow-500"
+                              style={{
+                                clipPath: `polygon(0 0, 100% 0, 100% 100%, 0 100%)`,
+                                transform: `rotate(${(data.riskScore / 100) * 360}deg)`
+                              }}
+                            ></div>
+                          </div>
+                          <div className="flex-1">
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-caption text-gray-600">Low Risk</span>
+                                <span className="text-caption text-gray-600">High Risk</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div 
+                                  className="bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 h-2 rounded-full transition-all duration-500"
+                                  style={{ width: `${data.riskScore}%` }}
+                                ></div>
+                              </div>
+                              <div className="text-caption text-gray-500 text-center">
+                                Score: {data.riskScore}/100
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+
+                    {/* Quick Stats Grid */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <Card className="text-center p-4">
+                        <div className="w-12 h-12 bg-risk/10 rounded-xl flex items-center justify-center mx-auto mb-3">
+                          <AlertTriangle className="w-6 h-6 text-risk" />
+                        </div>
+                        <div className="text-2xl font-bold text-gray-800 mb-1">{toArray(data.flaggedSections).length}</div>
+                        <div className="text-caption text-gray-600">Flagged Sections</div>
+                      </Card>
+                      
+                      <Card className="text-center p-4">
+                        <div className="w-12 h-12 bg-safe/10 rounded-xl flex items-center justify-center mx-auto mb-3">
+                          <Target className="w-6 h-6 text-safe" />
+                        </div>
+                        <div className="text-2xl font-bold text-gray-800 mb-1">{toArray(data.suggestions).length}</div>
+                        <div className="text-caption text-gray-600">Suggestions</div>
+                      </Card>
+                    </div>
+
+                    {/* Content Info Card */}
+                    <Card>
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                          <FileText className="w-4 h-4 text-gray-600" />
+                        </div>
+                        <h4 className="text-body font-semibold text-gray-800">Content Details</h4>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <div className="flex items-start gap-3">
+                          <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2 flex-shrink-0"></div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-caption text-gray-600 mb-1">Title</div>
+                            <div className="text-body font-medium text-gray-800 truncate">{data.title}</div>
+                          </div>
+                        </div>
+                        
+                        {data.url && (
+                          <div className="flex items-start gap-3">
+                            <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2 flex-shrink-0"></div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-caption text-gray-600 mb-1">URL</div>
+                              <div className="text-caption text-gray-800 truncate">{data.url}</div>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {data.createdAt && (
+                          <div className="flex items-start gap-3">
+                            <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2 flex-shrink-0"></div>
+                            <div className="flex-1">
+                              <div className="text-caption text-gray-600 mb-1">Analysis Date</div>
+                              <div className="text-body font-medium text-gray-800">
+                                {new Date(data.createdAt).toLocaleDateString('en-US', { 
+                                  year: 'numeric', 
+                                  month: 'long', 
+                                  day: 'numeric' 
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  </div>
+                  
+                  {/* Right Column - Analysis Summary */}
+                  <div className="flex flex-col gap-6">
+                    {/* Analysis Summary Card */}
+                    <Card>
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
+                          <Shield className="w-4 h-4 text-yellow-600" />
+                        </div>
+                        <h4 className="text-body font-semibold text-gray-800">Analysis Summary</h4>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-xl p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <Check className="w-3 h-3 text-white" />
+                            </div>
+                            <div>
+                              <div className="text-body font-medium text-gray-800 mb-1">Content Analyzed</div>
+                              <div className="text-caption text-gray-600">
+                                This content has been thoroughly analyzed for potential Terms of Service violations, 
+                                copyright issues, and demonetization risks using advanced AI technology.
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <Target className="w-3 h-3 text-white" />
+                            </div>
+                            <div>
+                              <div className="text-body font-medium text-gray-800 mb-1">AI-Powered Detection</div>
+                              <div className="text-caption text-gray-600">
+                                Advanced machine learning models identified potential risks and provided 
+                                actionable suggestions to protect your content and revenue.
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+
+                    {/* Suggestions Preview */}
+                    <Card>
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-safe/10 rounded-lg flex items-center justify-center">
+                            <Target className="w-4 h-4 text-safe" />
+                          </div>
+                          <h4 className="text-body font-semibold text-gray-800">Suggestions</h4>
+                        </div>
+                        <Badge variant="safe" className="text-xs">
+                          {toArray(data.suggestions).length} Available
+                        </Badge>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        {toArray(data.suggestions).slice(0, 3).map((suggestion, index) => (
+                          <div key={index} className="flex items-start gap-3 p-3 bg-safe/5 border border-safe/20 rounded-lg">
+                            <div className="w-2 h-2 bg-safe rounded-full mt-2 flex-shrink-0"></div>
+                            <div className="text-caption text-gray-700 line-clamp-2">
+                              {suggestion.title || suggestion.description || suggestion}
+                            </div>
                           </div>
                         ))}
-                    </div>
-                  </div>
-                )}
-                {/* Metadata Card (desktop only) */}
-                {data.analysis_metadata && (
-                  <div className="bg-white rounded-xl shadow p-6 hidden lg:block">
-                    <h3 className="text-lg font-semibold mb-4">Analysis Metadata</h3>
-                    <div className="grid grid-cols-1 gap-2 text-xs text-gray-600">
-                      <div>Model Used: <span className="font-medium">{data.analysis_metadata.model_used}</span></div>
-                      <div>Timestamp: <span className="font-medium">{new Date(data.analysis_metadata.analysis_timestamp).toLocaleString()}</span></div>
-                      <div>Processing Time: <span className="font-medium">{data.analysis_metadata.processing_time_ms} ms</span></div>
-                      <div>Content Length: <span className="font-medium">{data.analysis_metadata.content_length} chars</span></div>
-                      <div>Mode: <span className="font-medium">{data.analysis_metadata.analysis_mode}</span></div>
-                    </div>
-                  </div>
-                )}
-              </div>
-              {/* Fallback: If no enhanced details, show flagged sections as before */}
-              {!data.context_analysis && !data.policy_categories && (
-                <div className="col-span-2">
-                  <h3 className="text-lg font-semibold mb-4">Flagged Sections</h3>
-                  {toArray(data.flaggedSections).length > 0 ? (
-                    <div className="space-y-4">
-                      {toArray(data.flaggedSections).map((section, index) => (
-                        <div key={index} className="border border-red-200 bg-red-50 p-4 rounded-lg">
-                          <h4 className="font-semibold text-red-800 mb-2">Flagged Section {index + 1}</h4>
-                          <p className="text-red-700">{section}</p>
+                        
+                        {toArray(data.suggestions).length === 0 && (
+                          <div className="text-center py-6 text-gray-500">
+                            <Target className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                            <div className="text-caption">No suggestions available</div>
+                          </div>
+                        )}
+                        
+                        {typeof data.allSuggestionsCount === 'number' && data.allSuggestionsCount > toArray(data.suggestions).length && (
+                          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <div className="text-caption text-gray-700 mb-2">
+                              <span className="font-medium">{data.allSuggestionsCount - toArray(data.suggestions).length} more suggestions</span> available with Pro
+                            </div>
+                            <Link href="/pricing" className="inline-flex items-center gap-2 text-yellow-600 hover:text-yellow-700 text-caption font-medium">
+                              <ArrowRight className="w-3 h-3" />
+                              Upgrade to Pro
+                            </Link>
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+
+                    {/* Action Card */}
+                    <Card className="bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-200">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
+                          <Zap className="w-4 h-4 text-white" />
                         </div>
-                      ))}
+                        <h4 className="text-body font-semibold text-gray-800">Next Steps</h4>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3 text-caption text-gray-700">
+                          <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                          <span>Review detailed analysis in the Details tab</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-caption text-gray-700">
+                          <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                          <span>Implement suggested improvements</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-caption text-gray-700">
+                          <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                          <span>Monitor content performance</span>
+                        </div>
+                      </div>
+                    </Card>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'details' && (
+              <div className="h-full">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Left column: Content Analysis + Highlights + Analyzed Content */}
+                  <div className="flex flex-col gap-6">
+                    {/* Content Analysis Card */}
+                    {data.context_analysis && (
+                      <Card>
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
+                            <Globe className="w-4 h-4 text-yellow-600" />
+                          </div>
+                          <h3 className="text-body font-semibold text-gray-800">Content Analysis</h3>
+                        </div>
+                        
+                        <div className="mb-4">
+                          <textarea
+                            className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-caption text-gray-700 resize-none"
+                            value={data.url || ''}
+                            readOnly
+                            rows={2}
+                          />
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          <Badge variant="risk" className="text-xs">
+                            {data.context_analysis.content_type?.toUpperCase() || 'UNKNOWN'}
+                          </Badge>
+                          <Badge variant="safe" className="text-xs">
+                            {data.context_analysis.target_audience?.toUpperCase() || 'GENERAL'}
+                          </Badge>
+                          <Badge variant="yellow" className="text-xs">
+                            MONETIZATION {data.context_analysis.monetization_impact || 0}%
+                          </Badge>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4 text-caption text-gray-600">
+                          <div className="flex items-center gap-2">
+                            <Globe className="w-3 h-3" />
+                            <span>Language: <span className="font-medium text-gray-800">{data.context_analysis.language_detected}</span></span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-3 h-3" />
+                            <span>Length: <span className="font-medium text-gray-800">{data.context_analysis.content_length} words</span></span>
+                          </div>
+                        </div>
+                      </Card>
+                    )}
+                    
+                    {/* Highlights Card */}
+                    {data.highlights && data.highlights.length > 0 && (
+                      <Card>
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
+                            <Zap className="w-4 h-4 text-yellow-600" />
+                          </div>
+                          <h3 className="text-body font-semibold text-gray-800">Top Risk Highlights</h3>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 gap-3">
+                          {data.highlights.map((h, i) => (
+                            <div key={i} className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                              <div className="font-semibold text-yellow-800 mb-2">{h.category}</div>
+                              <div className="grid grid-cols-3 gap-2 text-caption text-gray-600">
+                                <div>Risk: <span className="font-medium">{h.risk}</span></div>
+                                <div>Score: <span className="font-medium">{h.score}</span></div>
+                                <div>Confidence: <span className="font-medium">{h.confidence}%</span></div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </Card>
+                    )}
+                    
+                    {/* Analyzed Content Card */}
+                    {data.analyzed_content && (
+                      <Card>
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <FileText className="w-4 h-4 text-gray-600" />
+                          </div>
+                          <h3 className="text-body font-semibold text-gray-800">Analyzed Content</h3>
+                        </div>
+                        
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 whitespace-pre-line text-caption text-gray-800 max-h-48 overflow-auto">
+                          {data.analyzed_content}
+                        </div>
+                      </Card>
+                    )}
+                    
+                    {/* Metadata Card (mobile only) */}
+                    {data.analysis_metadata && (
+                      <Card className="lg:hidden">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <Settings className="w-4 h-4 text-gray-600" />
+                          </div>
+                          <h3 className="text-body font-semibold text-gray-800">Analysis Metadata</h3>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 gap-3 text-caption text-gray-600">
+                          <div className="flex items-center gap-2">
+                            <Settings className="w-3 h-3" />
+                            <span>Model: <span className="font-medium">{data.analysis_metadata.model_used}</span></span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-3 h-3" />
+                            <span>Timestamp: <span className="font-medium">{new Date(data.analysis_metadata.analysis_timestamp).toLocaleString()}</span></span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Zap className="w-3 h-3" />
+                            <span>Processing: <span className="font-medium">{data.analysis_metadata.processing_time_ms} ms</span></span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-3 h-3" />
+                            <span>Length: <span className="font-medium">{data.analysis_metadata.content_length} chars</span></span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <BarChart3 className="w-3 h-3" />
+                            <span>Mode: <span className="font-medium">{data.analysis_metadata.analysis_mode}</span></span>
+                          </div>
+                        </div>
+                      </Card>
+                    )}
+                  </div>
+                  
+                  {/* Right column: Policy Category Analysis + Metadata (desktop) */}
+                  <div className="flex flex-col gap-6">
+                    {/* Policy Category Analysis Table */}
+                    {data.policy_categories && Object.keys(data.policy_categories).length > 0 && (
+                      <Card>
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
+                            <Target className="w-4 h-4 text-yellow-600" />
+                          </div>
+                          <h3 className="text-body font-semibold text-gray-800">Policy Category Analysis</h3>
+                        </div>
+                        
+                        <div className="max-h-96 overflow-y-auto space-y-4">
+                          {Object.entries(data.policy_categories)
+                            .sort((a, b) => {
+                              if (b[1].risk_score !== a[1].risk_score) {
+                                return b[1].risk_score - a[1].risk_score;
+                              }
+                              return (severityOrder[b[1].severity] || 0) - (severityOrder[a[1].severity] || 0);
+                            })
+                            .map(([cat, val]: any) => (
+                              <div key={cat} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="font-semibold text-body text-gray-800 truncate max-w-[60%]">
+                                    {cat.replace(/_/g, ' ')}
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-caption font-medium text-gray-700">{val.risk_score}%</span>
+                                    <Badge variant={getRiskBadgeVariant(val.severity)} className="text-xs">
+                                      {val.severity} Risk
+                                    </Badge>
+                                  </div>
+                                </div>
+                                
+                                <div className="text-caption text-gray-500 mb-2">
+                                  Confidence: {val.confidence}%
+                                </div>
+                                
+                                {val.violations && val.violations.length > 0 && (
+                                  <div className="text-caption text-risk mb-2">
+                                    {val.violations.join(', ')}
+                                  </div>
+                                )}
+                                
+                                <div className="text-sm text-gray-800">
+                                  {val.explanation}
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </Card>
+                    )}
+                    
+                    {/* Metadata Card (desktop only) */}
+                    {data.analysis_metadata && (
+                      <Card className="hidden lg:block">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <Settings className="w-4 h-4 text-gray-600" />
+                          </div>
+                          <h3 className="text-body font-semibold text-gray-800">Analysis Metadata</h3>
+                        </div>
+                        
+                        <div className="space-y-3 text-caption text-gray-600">
+                          <div className="flex items-center gap-2">
+                            <Settings className="w-3 h-3" />
+                            <span>Model: <span className="font-medium">{data.analysis_metadata.model_used}</span></span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-3 h-3" />
+                            <span>Timestamp: <span className="font-medium">{new Date(data.analysis_metadata.analysis_timestamp).toLocaleString()}</span></span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Zap className="w-3 h-3" />
+                            <span>Processing: <span className="font-medium">{data.analysis_metadata.processing_time_ms} ms</span></span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-3 h-3" />
+                            <span>Length: <span className="font-medium">{data.analysis_metadata.content_length} chars</span></span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <BarChart3 className="w-3 h-3" />
+                            <span>Mode: <span className="font-medium">{data.analysis_metadata.analysis_mode}</span></span>
+                          </div>
+                        </div>
+                      </Card>
+                    )}
+                  </div>
+                  
+                  {/* Fallback: If no enhanced details, show flagged sections */}
+                  {!data.context_analysis && !data.policy_categories && (
+                    <div className="col-span-2">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-8 h-8 bg-risk/10 rounded-lg flex items-center justify-center">
+                          <AlertTriangle className="w-4 h-4 text-risk" />
+                        </div>
+                        <h3 className="text-body font-semibold text-gray-800">Flagged Sections</h3>
+                      </div>
+                      
+                      {toArray(data.flaggedSections).length > 0 ? (
+                        <div className="space-y-4">
+                          {toArray(data.flaggedSections).map((section, index) => (
+                            <div key={index} className="border border-risk/20 bg-risk/5 p-4 rounded-lg">
+                              <h4 className="font-semibold text-risk mb-2">Flagged Section {index + 1}</h4>
+                              <p className="text-gray-800">{section}</p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-gray-500">No specific sections were flagged in this analysis.</p>
+                      )}
                     </div>
-                  ) : (
-                    <p className="text-gray-500">No specific sections were flagged in this analysis.</p>
                   )}
                 </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'suggestions' && (
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Recommendations</h3>
-              {toArray(data.suggestions).length > 0 ? (
-                <div className="space-y-4">
-                  {toArray(data.suggestions).map((suggestion, index) => (
-                    <div key={index} className="border border-blue-200 bg-blue-50 p-4 rounded-lg">
-                      <h4 className="font-semibold text-blue-800 mb-2">
-                        Suggestion {index + 1}: {suggestion.title}
-                      </h4>
-                      <p className="text-blue-700 mb-1">{suggestion.text}</p>
-                      <div className="text-xs text-gray-500">
-                        Priority: {suggestion.priority} | Impact: {suggestion.impact_score}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500">No specific suggestions available for this content.</p>
-              )}
-            </div>
-          )}
-        </div>
-      </Card>
-
-      <div className="mt-8 flex justify-center space-x-4">
-        <Link href="/">
-          <Button variant="outlined">New Scan</Button>
-        </Link>
-        
-        <Tooltip.Provider>
-          <Tooltip.Root>
-            <Tooltip.Trigger asChild>
-              <div>
-                <Button 
-                  onClick={canExport ? () => setExportModalOpen(true) : undefined}
-                  className={`flex items-center gap-2 ${!canExport ? 'opacity-50 cursor-not-allowed bg-gray-300 hover:bg-gray-300 text-gray-600' : ''}`}
-                  disabled={!canExport}
-                >
-                  {!canExport ? <Lock className="w-4 h-4" /> : <Download className="w-4 h-4" />}
-                  Export Report
-                </Button>
               </div>
-            </Tooltip.Trigger>
-            {!canExport && (
-              <Tooltip.Portal>
-                <Tooltip.Content
-                  className="bg-gray-900 text-white px-3 py-2 rounded-lg text-sm max-w-xs z-50"
-                  sideOffset={5}
-                >
-                  <div className="flex flex-col gap-1">
-                    <span>Feature is only available for Pro Members.</span>
-                    <span>Please visit <Link href="/pricing" className="text-blue-300 hover:text-blue-200 underline">Pricing</Link> page to upgrade your plan.</span>
-                  </div>
-                  <Tooltip.Arrow className="fill-gray-900" />
-                </Tooltip.Content>
-              </Tooltip.Portal>
             )}
-          </Tooltip.Root>
-        </Tooltip.Provider>
-        
-        <Link href="/scan-history">
-          <Button>View History</Button>
-        </Link>
-      </div>
 
-      {/* Export Modal */}
-      {data && canExport && (
-        <ExportModal
-          open={exportModalOpen}
-          onClose={() => setExportModalOpen(false)}
-          data={data}
-        />
-      )}
-    </div>
+            {activeTab === 'suggestions' && (
+              <div className="h-full">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 bg-safe/10 rounded-lg flex items-center justify-center">
+                    <Target className="w-4 h-4 text-safe" />
+                  </div>
+                  <h3 className="text-body font-semibold text-gray-800">Recommendations</h3>
+                </div>
+                
+                {toArray(data.suggestions).length > 0 ? (
+                  <div className="space-y-4">
+                    {toArray(data.suggestions).map((suggestion, index) => (
+                      <div key={index} className="border border-yellow-200 bg-yellow-50 p-4 rounded-lg">
+                        <h4 className="font-semibold text-yellow-800 mb-2">
+                          Suggestion {index + 1}: {suggestion.title}
+                        </h4>
+                        <p className="text-gray-800 mb-2">{suggestion.text}</p>
+                        <div className="flex items-center gap-4 text-caption text-gray-600">
+                          <span>Priority: {suggestion.priority}</span>
+                          <span>Impact: {suggestion.impact_score}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">No specific suggestions available for this content.</p>
+                )}
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Export Modal */}
+        {data && canExport && (
+          <ExportModal
+            open={exportModalOpen}
+            onClose={() => setExportModalOpen(false)}
+            data={data}
+          />
+        )}
+      </div>
+    </main>
   );
 }
 
 export default function ResultsPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
       <ResultsPageContent />
     </Suspense>
   );

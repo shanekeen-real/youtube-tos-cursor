@@ -13,7 +13,7 @@ import {
   type AnalysisData,
   type ExportOptions 
 } from '@/lib/export-utils';
-import { Download, FileText, FileSpreadsheet, Settings, Check, Lock } from 'lucide-react';
+import { Download, FileText, FileSpreadsheet, Settings, Check, Lock, X, Shield, Zap } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import Link from 'next/link';
 
@@ -192,29 +192,43 @@ export default function ExportModal({ open, onClose, data }: ExportModalProps) {
   // Show error state if export is not allowed
   if (!canExport) {
     return (
-      <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-xl max-w-md w-full overflow-hidden">
+          {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <div className="flex items-center gap-3">
-              <Lock className="w-5 h-5 text-red-600" />
+              <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                <Lock className="w-4 h-4 text-red-600" />
+              </div>
               <h2 className="text-lg font-semibold text-gray-900">Export Not Available</h2>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="w-4 h-4" />
             </button>
           </div>
+          
+          {/* Content */}
           <div className="p-6">
-            <p className="text-gray-600 mb-4">{exportError}</p>
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Lock className="w-8 h-8 text-red-500" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Upgrade Required</h3>
+              <p className="text-gray-600 mb-4">{exportError}</p>
+              <p className="text-sm text-gray-500">
+                Export functionality is available on Pro and Enterprise plans.
+              </p>
+            </div>
+            
             <div className="flex gap-3">
               <Button onClick={onClose} variant="outlined" className="flex-1">
                 Close
               </Button>
               <Button onClick={() => window.location.href = '/pricing'} className="flex-1">
+                <Zap className="w-4 h-4 mr-2" />
                 Upgrade Plan
               </Button>
             </div>
@@ -225,27 +239,30 @@ export default function ExportModal({ open, onClose, data }: ExportModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center gap-3">
-            <Download className="w-5 h-5 text-blue-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Export Analysis</h2>
+            <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
+              <Download className="w-4 h-4 text-yellow-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Export Analysis</h2>
+              <p className="text-sm text-gray-600">Download your analysis report</p>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors"
             disabled={isExporting}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-140px)]">
           {/* Format Selection */}
           <div>
             <h3 className="text-sm font-medium text-gray-900 mb-3">Export Format</h3>
@@ -255,10 +272,10 @@ export default function ExportModal({ open, onClose, data }: ExportModalProps) {
                 return (
                   <label
                     key={option.id}
-                    className={`relative flex items-start p-3 border rounded-lg cursor-pointer transition-colors ${
+                    className={`relative flex items-start p-4 border rounded-xl cursor-pointer transition-all ${
                       format === option.id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? 'border-yellow-500 bg-yellow-50 shadow-sm'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                     }`}
                   >
                     <input
@@ -272,18 +289,22 @@ export default function ExportModal({ open, onClose, data }: ExportModalProps) {
                     />
                     <div className="flex items-center gap-3">
                       <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                        format === option.id ? 'border-blue-500' : 'border-gray-300'
+                        format === option.id ? 'border-yellow-500' : 'border-gray-300'
                       }`}>
                         {format === option.id && (
-                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
                         )}
                       </div>
-                      <Icon className="w-5 h-5 text-gray-600" />
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                        format === option.id ? 'bg-yellow-100' : 'bg-gray-100'
+                      }`}>
+                        <Icon className={`w-4 h-4 ${format === option.id ? 'text-yellow-600' : 'text-gray-600'}`} />
+                      </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-gray-900">{option.label}</span>
                           {option.recommended && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
                               Recommended
                             </span>
                           )}
@@ -302,12 +323,12 @@ export default function ExportModal({ open, onClose, data }: ExportModalProps) {
             <h3 className="text-sm font-medium text-gray-900 mb-3">Content Options</h3>
             <div className="space-y-3">
               {contentOptions.map((option) => (
-                <label key={option.id} className="flex items-start gap-3 cursor-pointer">
+                <label key={option.id} className="flex items-start gap-3 cursor-pointer p-3 rounded-lg hover:bg-gray-50 transition-colors">
                   <input
                     type="checkbox"
                     checked={option.checked}
                     onChange={(e) => option.onChange(e.target.checked)}
-                    className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="mt-1 w-4 h-4 text-yellow-600 border-gray-300 rounded focus:ring-yellow-500"
                     disabled={isExporting}
                   />
                   <div className="flex-1">
@@ -321,10 +342,10 @@ export default function ExportModal({ open, onClose, data }: ExportModalProps) {
 
           {/* Export Progress */}
           {isExporting && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
               <div className="flex items-center gap-3">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                <span className="text-sm text-blue-800">{exportProgress}</span>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
+                <span className="text-sm text-yellow-800 font-medium">{exportProgress}</span>
               </div>
             </div>
           )}

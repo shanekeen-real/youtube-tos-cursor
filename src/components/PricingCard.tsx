@@ -5,6 +5,7 @@ import Button from './Button';
 import { useSession } from 'next-auth/react';
 import { loadStripe } from '@stripe/stripe-js';
 import axios from 'axios';
+import { Check } from 'lucide-react';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
@@ -16,7 +17,7 @@ interface PricingCardProps {
   features: string[];
   recommended?: boolean;
   badgeText?: string;
-  badgeColor?: 'red' | 'yellow' | 'green' | 'blue' | 'gray';
+  badgeColor?: 'risk' | 'safe' | 'neutral' | 'yellow';
   currentTier?: string;
 }
 
@@ -28,7 +29,7 @@ export default function PricingCard({
   features, 
   recommended = false, 
   badgeText, 
-  badgeColor = 'blue',
+  badgeColor = 'yellow',
   currentTier 
 }: PricingCardProps) {
   const { data: session } = useSession();
@@ -69,26 +70,26 @@ export default function PricingCard({
   return (
     <Card
       className={`flex flex-col items-start relative h-full ${
-        recommended ? 'border-2 border-blue-600 shadow-md' : 'border'
-      } ${isCurrentTier ? 'ring-2 ring-green-500' : ''}`}
+        recommended ? 'border-2 border-yellow-500' : 'border-gray-200'
+      } ${isCurrentTier ? 'ring-2 ring-safe' : ''}`}
     >
       {recommended && badgeText && (
         <span className="absolute -top-4 left-1/2 -translate-x-1/2">
-          <Badge color={badgeColor}>{badgeText}</Badge>
+          <Badge variant={badgeColor}>{badgeText}</Badge>
         </span>
       )}
       
       <div className="w-full">
-        <div className="mb-4">
-          <h3 className="font-bold text-lg text-[#212121]">{title}</h3>
-          <div className="text-3xl font-bold text-[#212121] mt-2">{price}</div>
-          <p className="text-sm text-gray-600 mt-1">{description}</p>
+        <div className="mb-6">
+          <h3 className="text-title font-semibold text-gray-900">{title}</h3>
+          <div className="text-display font-bold text-gray-900 mt-2">{price}</div>
+          <p className="text-body text-gray-600 mt-2">{description}</p>
         </div>
 
-        <ul className="text-sm text-gray-700 space-y-2 mb-6 flex-1">
+        <ul className="text-body text-gray-700 space-y-3 mb-8 flex-1">
           {features.map((feature, index) => (
             <li key={index} className="flex items-start">
-              <span className="text-green-500 mr-2 mt-0.5">✓</span>
+              <Check className="text-safe mr-3 mt-0.5 h-5 w-5 flex-shrink-0" />
               {feature}
             </li>
           ))}
@@ -113,7 +114,7 @@ export default function PricingCard({
             </Button>
           ) : (
             <Button 
-              variant={recommended ? "blue" : "primary"}
+              variant={recommended ? "primary" : "secondary"}
               className="w-full" 
               onClick={handleUpgrade}
               disabled={loading}

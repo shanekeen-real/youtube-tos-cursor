@@ -9,37 +9,35 @@ import Badge from '@/components/Badge';
 import ProgressMeter from '@/components/ProgressMeter';
 import FeatureGrid, { FeatureSet } from '../components/FeatureGrid';
 import { SUBSCRIPTION_TIERS } from '@/types/subscription';
+import { Input } from '@/components/ui/input';
+import { Shield, AlertTriangle, CheckCircle } from 'lucide-react';
 
-const featureSets = [
+const featureSets: FeatureSet[] = [
   {
     title: 'Free',
-    price: '$0',
     features: SUBSCRIPTION_TIERS.free.features.map(label => ({ label })),
   },
   {
     title: 'Pro',
-    price: '$14.99/mo',
     features: SUBSCRIPTION_TIERS.pro.features.map(label => ({ label })),
     recommended: true,
     badgeText: 'Most Popular',
-    badgeColor: 'blue' as const,
+    badgeColor: 'yellow',
   },
   {
     title: 'Advanced',
-    price: '$48.99/mo',
     features: SUBSCRIPTION_TIERS.advanced.features.map(label => ({ label })),
   },
   {
     title: 'Enterprise',
-    price: 'Contact',
     features: SUBSCRIPTION_TIERS.enterprise.features.map(label => ({ label })),
   },
 ];
 
 const ProgressBar = ({ progress, rainbow = false }: { progress: number; rainbow?: boolean }) => (
-  <div className="w-full h-2 bg-gray-200 rounded overflow-hidden mb-4">
+  <div className="w-full h-2 bg-gray-200 rounded-xl overflow-hidden mb-6">
     <div
-      className={rainbow ? "h-full transition-all duration-200" : "h-full bg-red-500 transition-all duration-200"}
+      className={rainbow ? "h-full transition-all duration-200" : "h-full bg-yellow-500 transition-all duration-200"}
       style={{
         width: `${progress}%`,
         background: rainbow
@@ -157,49 +155,70 @@ export default function Home() {
     }
   };
 
+  const getRiskIcon = (riskLevel: string) => {
+    if (riskLevel === 'high') return <AlertTriangle className="h-6 w-6 text-risk" />;
+    if (riskLevel === 'medium') return <AlertTriangle className="h-6 w-6 text-yellow-500" />;
+    return <CheckCircle className="h-6 w-6 text-safe" />;
+  };
+
   return (
-    <div>
-      <main className="min-h-screen bg-white flex flex-col items-center px-4 py-8 font-sans">
-        {/* Hero */}
-        <section className="flex flex-col items-center text-center mb-10 bg-white">
-          <h1 className="text-4xl sm:text-5xl font-bold text-[#212121] mb-2">
-            Protect Your YouTube Channel from <span className="text-red-600">Demonetization</span>
-          </h1>
-          <p className="text-lg text-[#212121] max-w-2xl mb-8">
-            Paste YouTube's policies or a video URL to discover risks instantly. Get fix advice with AI.
-          </p>
-          <Card className="w-full max-w-xl flex flex-col items-center border border-gray-200">
-            <div className="w-full flex mb-3">
-               <button 
+    <div className="min-h-screen bg-white">
+      <main className="flex flex-col items-center px-4 py-12">
+        {/* Hero Section */}
+        <section className="flex flex-col items-center text-center mb-16 max-w-4xl">
+          <div className="mb-8">
+            <Shield className="h-16 w-16 text-yellow-500 mx-auto mb-6" />
+            <h1 className="text-display font-bold text-gray-900 mb-6">
+              Protect Your YouTube Revenue from <span className="text-risk">Demonetization</span>
+            </h1>
+            <p className="text-subtitle text-gray-600 max-w-2xl mx-auto">
+              Analyze YouTube policies and video content instantly. Get AI-powered risk assessment and fix recommendations.
+            </p>
+          </div>
+
+          {/* Analysis Card */}
+          <Card className="w-full max-w-2xl">
+            <div className="w-full flex mb-6">
+              <button 
                 onClick={() => { setAnalysisType('text'); setInputValue(''); }}
-                className={`flex-1 py-2 px-4 rounded-l-lg text-sm font-semibold focus:outline-none ${analysisType === 'text' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+                className={`flex-1 py-3 px-6 rounded-l-xl text-body font-semibold focus:outline-none transition-colors ${
+                  analysisType === 'text' 
+                    ? 'bg-yellow-500 text-gray-900' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
               >
                 Analyze by Text
               </button>
               <button 
                 onClick={() => { setAnalysisType('url'); setInputValue(''); }}
-                className={`flex-1 py-2 px-4 rounded-r-lg text-sm font-semibold focus:outline-none ${analysisType === 'url' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+                className={`flex-1 py-3 px-6 rounded-r-xl text-body font-semibold focus:outline-none transition-colors ${
+                  analysisType === 'url' 
+                    ? 'bg-yellow-500 text-gray-900' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
               >
                 Analyze by URL
               </button>
             </div>
 
-            <label htmlFor="tos-input" className="font-semibold mb-2 w-full text-left text-[#212121]">Content to analyze</label>
+            <label htmlFor="tos-input" className="text-body font-semibold mb-3 w-full text-left text-gray-900 block">
+              Content to analyze
+            </label>
             {analysisType === 'text' ? (
               <textarea
                 id="tos-input"
                 placeholder="Paste YouTube Terms or Policy text here..."
-                className="w-full h-32 border border-gray-300 rounded-lg p-3 mb-4 resize-none focus:outline-none focus:ring-2 focus:ring-red-500 bg-[#FAFAFA] text-[#212121]"
+                className="w-full h-32 border border-gray-200 rounded-xl p-4 mb-6 resize-none focus:outline-none focus:ring-2 focus:ring-yellow-500 bg-white text-gray-900 text-body"
                 value={inputValue}
                 onChange={e => setInputValue(e.target.value)}
                 disabled={loadingFree || loadingFull}
               />
             ) : (
-              <input
+              <Input
                 id="url-input"
                 type="url"
                 placeholder="Enter YouTube video URL..."
-                className="w-full h-12 border border-gray-300 rounded-lg p-3 mb-4 focus:outline-none focus:ring-2 focus:ring-red-500 bg-[#FAFAFA] text-[#212121]"
+                className="mb-6"
                 value={inputValue}
                 onChange={e => setInputValue(e.target.value)}
                 disabled={loadingFree || loadingFull}
@@ -209,10 +228,11 @@ export default function Home() {
             {(loadingFree || loadingFull) && (
               <ProgressBar progress={progress} rainbow={loadingFull} />
             )}
+            
             <div className="flex w-full gap-4">
               <Button 
                 variant="secondary" 
-                className="flex-1 flex items-center justify-center" 
+                className="flex-1" 
                 onClick={handleFreeScan} 
                 disabled={loadingFree || loadingFull || !inputValue.trim() || analysisType === 'url'}
                 title={analysisType === 'url' ? "Free scan not available for URLs" : ""}
@@ -220,8 +240,8 @@ export default function Home() {
                 {loadingFree ? 'Scanning...' : 'Free Scan'}
               </Button>
               <Button 
-                variant="blue" 
-                className="flex-1 flex items-center justify-center" 
+                variant="primary" 
+                className="flex-1" 
                 onClick={handleFullReport} 
                 disabled={loadingFull || loadingFree || !inputValue.trim()}
               >
@@ -229,16 +249,32 @@ export default function Home() {
               </Button>
             </div>
           </Card>
+
+          {/* Free Scan Results */}
           {freeScanResult && (
-            <div className="w-full max-w-xl mt-8 flex flex-col gap-6">
-              <Card className="flex flex-col items-center border border-gray-200">
-                <div className="text-5xl font-bold text-red-600 mb-2">{freeScanResult.risk_score}%</div>
-                <div className="text-sm text-[#606060] mb-2">{freeScanResult.flagged_section}</div>
+            <div className="w-full max-w-2xl mt-8 flex flex-col gap-6">
+              <Card>
+                <div className="flex items-center justify-center mb-4">
+                  {getRiskIcon(freeScanResult.risk_level)}
+                </div>
+                <div className="text-display font-bold text-gray-900 text-center mb-2">
+                  {freeScanResult.risk_score}%
+                </div>
+                <div className="text-body text-gray-600 text-center mb-4">
+                  {freeScanResult.flagged_section}
+                </div>
+                <Badge 
+                  variant={freeScanResult.risk_level === 'high' ? 'risk' : 
+                          freeScanResult.risk_level === 'medium' ? 'neutral' : 'safe'}
+                  className="mx-auto"
+                >
+                  {freeScanResult.risk_level.toUpperCase()} RISK
+                </Badge>
               </Card>
-              <Card className="border border-gray-200">
-                <div className="font-semibold mb-2">Policy Analysis</div>
+              
+              <Card title="Policy Analysis">
                 <textarea
-                  className="w-full h-20 border border-gray-300 rounded-lg p-3 mb-2 resize-none bg-[#FAFAFA] text-[#212121]"
+                  className="w-full h-20 border border-gray-200 rounded-xl p-4 resize-none bg-gray-50 text-gray-900 text-body"
                   value={inputValue}
                   readOnly
                 />
@@ -246,16 +282,28 @@ export default function Home() {
             </div>
           )}
         </section>
+
         {/* Feature Grid */}
-        <FeatureGrid sets={featureSets} />
+        <section className="w-full max-w-6xl">
+          <h2 className="text-title font-semibold text-gray-900 text-center mb-12">
+            Choose Your Protection Plan
+          </h2>
+          <FeatureGrid sets={featureSets} />
+        </section>
       </main>
-      <footer className="w-full flex flex-col items-center mt-12 mb-2 text-sm text-gray-500">
-        <div className="flex gap-4">
-          <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer" className="hover:underline">Privacy Policy</a>
+
+      {/* Footer */}
+      <footer className="w-full flex flex-col items-center mt-16 mb-8 text-caption text-gray-500">
+        <div className="flex gap-4 mb-2">
+          <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer" className="hover:text-yellow-500 transition-colors">
+            Privacy Policy
+          </a>
           <span>|</span>
-          <a href="/terms-of-service.html" target="_blank" rel="noopener noreferrer" className="hover:underline">Terms of Service</a>
+          <a href="/terms-of-service.html" target="_blank" rel="noopener noreferrer" className="hover:text-yellow-500 transition-colors">
+            Terms of Service
+          </a>
         </div>
-        <div className="mt-2">&copy; {new Date().getFullYear()} YouTube TOS Analyzer. Effective July 3rd, 2025.</div>
+        <div>&copy; {new Date().getFullYear()} Yellow Dollar. Effective July 3rd, 2025.</div>
       </footer>
     </div>
   );

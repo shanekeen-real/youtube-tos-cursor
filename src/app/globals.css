@@ -1,20 +1,154 @@
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&display=swap');
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@400,500,600,700&display=swap');
 @import "tailwindcss";
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@import "tw-animate-css";
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: 'Roboto', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+  font-family: 'Archivo', 'Satoshi', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
 }
 
 body.dark {
-  --background: #181818;
-  --foreground: #ededed;
-  background: #181818;
-  color: #ededed;
+  --background: #171717;
+  --foreground: #FFFFFF;
+  background: #171717;
+  color: #FFFFFF;
+}
+
+:root {
+  --radius: 12px;
+  --background: #FFFFFF;
+  --foreground: #171717;
+  --card: #FFFFFF;
+  --card-foreground: #171717;
+  --popover: #FFFFFF;
+  --popover-foreground: #171717;
+  --primary: #F6C232;
+  --primary-foreground: #171717;
+  --secondary: #F5F5F5;
+  --secondary-foreground: #171717;
+  --muted: #F5F5F5;
+  --muted-foreground: #666666;
+  --accent: #F5F5F5;
+  --accent-foreground: #171717;
+  --destructive: #FF3B30;
+  --destructive-foreground: #FFFFFF;
+  --border: #E0E0E0;
+  --input: #E0E0E0;
+  --ring: #F6C232;
+  --chart-1: #F6C232;
+  --chart-2: #00C853;
+  --chart-3: #FF3B30;
+  --chart-4: #212121;
+  --chart-5: #666666;
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #171717;
+  --sidebar-primary: #F6C232;
+  --sidebar-primary-foreground: #171717;
+  --sidebar-accent: #F5F5F5;
+  --sidebar-accent-foreground: #171717;
+  --sidebar-border: #E0E0E0;
+  --sidebar-ring: #F6C232;
+}
+
+.dark {
+  --background: #171717;
+  --foreground: #FFFFFF;
+  --card: #212121;
+  --card-foreground: #FFFFFF;
+  --popover: #212121;
+  --popover-foreground: #FFFFFF;
+  --primary: #F6C232;
+  --primary-foreground: #171717;
+  --secondary: #212121;
+  --secondary-foreground: #FFFFFF;
+  --muted: #212121;
+  --muted-foreground: #999999;
+  --accent: #212121;
+  --accent-foreground: #FFFFFF;
+  --destructive: #FF3B30;
+  --destructive-foreground: #FFFFFF;
+  --border: #333333;
+  --input: #333333;
+  --ring: #F6C232;
+  --chart-1: #F6C232;
+  --chart-2: #00C853;
+  --chart-3: #FF3B30;
+  --chart-4: #FFFFFF;
+  --chart-5: #999999;
+  --sidebar: #212121;
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-primary: #F6C232;
+  --sidebar-primary-foreground: #171717;
+  --sidebar-accent: #212121;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #333333;
+  --sidebar-ring: #F6C232;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+    outline-color: var(--ring);
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+}
+
+/* Custom utility classes for Yellow Dollar design system */
+@layer utilities {
+  .text-display {
+    font-size: 3rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  
+  .text-title {
+    font-size: 2rem;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+  
+  .text-subtitle {
+    font-size: 1.25rem;
+    line-height: 1.5;
+  }
+  
+  .text-body {
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+  
+  .text-caption {
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+  
+  .bg-yellow-dollar {
+    background-color: #F6C232;
+  }
+  
+  .text-yellow-dollar {
+    color: #F6C232;
+  }
+  
+  .border-yellow-dollar {
+    border-color: #F6C232;
+  }
+  
+  .bg-risk {
+    background-color: #FF3B30;
+    color: white;
+  }
+  
+  .bg-safe {
+    background-color: #00C853;
+    color: white;
+  }
+  
+  .bg-neutral {
+    background-color: #E0E0E0;
+    color: #171717;
+  }
 }

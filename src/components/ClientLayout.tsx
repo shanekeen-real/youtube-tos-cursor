@@ -5,6 +5,7 @@ import UserMenu from './UserMenu';
 import Button from './Button';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
+import { Shield } from 'lucide-react';
 
 export const AuthContext = createContext<{
   user: any;
@@ -17,28 +18,58 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   return (
     <AuthContext.Provider value={{ user: session?.user || null, setAuthOpen }}>
-      <header className="w-full flex items-center justify-between max-w-5xl mx-auto mb-12 pt-4 px-4">
-        <div className="flex items-center gap-2">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="bg-red-600 text-white font-bold rounded px-2 py-1 text-lg">YT</div>
-            <span className="font-bold text-xl text-[#212121]">TOS Analyzer</span>
-          </Link>
+      {/* Sticky Navbar */}
+      <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white/95 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo */}
+            <Link href="/" className="flex items-center gap-3 group">
+              <div className="w-8 h-8 bg-yellow-500 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105">
+                <Shield className="w-4 h-4 text-gray-900" />
+              </div>
+              <span className="font-bold text-xl text-gray-900">Yellow Dollar</span>
+            </Link>
+
+            {/* Navigation */}
+            <nav className="flex items-center gap-6">
+              {status === 'loading' ? (
+                <div className="animate-pulse bg-gray-200 h-9 w-20 rounded-xl"></div>
+              ) : session?.user ? (
+                <UserMenu user={session.user} />
+              ) : (
+                <>
+                  <Link 
+                    href="/pricing" 
+                    className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    Pricing
+                  </Link>
+                  <Button 
+                    variant="outlined" 
+                    size="sm"
+                    onClick={() => setAuthOpen(true)}
+                  >
+                    Sign in
+                  </Button>
+                  <Button 
+                    variant="primary" 
+                    size="sm"
+                    onClick={() => setAuthOpen(true)}
+                  >
+                    Get started
+                  </Button>
+                </>
+              )}
+            </nav>
+          </div>
         </div>
-        <nav className="flex gap-4 text-sm items-center">
-          {status === 'loading' ? (
-            <div className="animate-pulse bg-gray-200 h-9 w-20 rounded"></div>
-          ) : session?.user ? (
-            <UserMenu user={session.user} />
-          ) : (
-            <>
-              <Link href="/pricing" className="text-gray-600 hover:text-gray-900 px-3 py-2">Pricing</Link>
-              <Button variant="outlined" className="h-9 px-4" onClick={() => setAuthOpen(true)}>Sign in</Button>
-              <Button variant="blue" className="h-9 px-4" onClick={() => setAuthOpen(true)}>Get started</Button>
-            </>
-          )}
-        </nav>
       </header>
-      <div className="w-full flex flex-col items-center">{children}</div>
+
+      {/* Main Content */}
+      <div className="w-full flex flex-col items-center pt-8">
+        {children}
+      </div>
+      
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
     </AuthContext.Provider>
   );

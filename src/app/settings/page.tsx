@@ -7,6 +7,7 @@ import { getFirestore, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { app } from '@/lib/firebase';
 import Link from 'next/link';
 import { getTierLimits } from '@/types/subscription';
+import { Settings, User, CreditCard, Youtube, Moon, Sun, AlertTriangle, CheckCircle, Shield } from 'lucide-react';
 
 // Define the structure of a user's profile data
 interface UserProfile {
@@ -43,6 +44,7 @@ export default function SettingsPage() {
   const [ytChannel, setYtChannel] = useState<YouTubeChannel | null>(null);
   const [ytConnecting, setYtConnecting] = useState(false);
   const [managingSubscription, setManagingSubscription] = useState(false);
+  
   useEffect(() => {
     if (dark) {
       document.body.classList.add('dark');
@@ -50,6 +52,7 @@ export default function SettingsPage() {
       document.body.classList.remove('dark');
     }
   }, [dark]);
+  
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (!session?.user?.id) return;
@@ -60,6 +63,7 @@ export default function SettingsPage() {
     };
     fetchUserProfile();
   }, [session?.user?.id]);
+  
   useEffect(() => {
     const fetchYouTube = async () => {
       if (!session?.user?.id) return;
@@ -84,7 +88,9 @@ export default function SettingsPage() {
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
   }, [session?.user?.id]);
+  
   const progress = userProfile ? (userProfile.scanCount / userProfile.scanLimit) * 100 : 0;
+  
   const handleUnlinkYouTube = async () => {
     if (!session?.user?.id) return;
     if (!window.confirm('Are you sure you want to unlink your YouTube channel?')) return;
@@ -154,120 +160,236 @@ export default function SettingsPage() {
     }
   };
 
-  return (
-    <main className="min-h-screen bg-white flex flex-col items-center px-4 py-8 font-sans">
-      <div className="w-full max-w-md bg-white flex flex-col gap-6">
-        <Card className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <span className="font-medium text-[#212121]">Dark Mode</span>
-            <Button variant={dark ? 'blue' : 'outlined'} onClick={() => setDark((d) => !d)}>
-              {dark ? 'On' : 'Off'}
-            </Button>
+  if (!session?.user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-risk/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle className="h-8 w-8 text-risk" />
           </div>
-          <div className="text-[#606060] text-sm">More settings coming soon...</div>
-        </Card>
-        {/* Usage Card */}
-        {userProfile && (
-          <Card>
-            <h2 className="text-xl font-semibold mb-2">Usage</h2>
-            {(() => {
-              const tierLimits = getTierLimits(userProfile.subscriptionTier);
-              const displayLimit = tierLimits.scanLimit === 'unlimited' ? 'unlimited' : tierLimits.scanLimit;
-              return (
-                <p className="text-gray-600">
-                  You have used <span className="font-bold text-black">{userProfile.scanCount}</span> of your <span className="font-bold text-black">{displayLimit}</span> scans this month.
-                </p>
-              );
-            })()}
-            <div className="w-full h-4 bg-gray-200 rounded-full mt-4 overflow-hidden">
-              <div
-                className="h-full bg-blue-600 transition-all"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <div className="text-right text-sm text-gray-500 mt-1">{Math.round(progress)}%</div>
-          </Card>
-        )}
-        {/* Account Details Card */}
-        {userProfile && (
-          <Card>
-            <h2 className="text-xl font-semibold mb-2">Account Details</h2>
-            <p><strong>Email:</strong> {userProfile.email}</p>
-            <p><strong>Member Since:</strong> {new Date(userProfile.createdAt).toLocaleDateString()}</p>
-          </Card>
-        )}
-        {/* My Subscription Card */}
-        {userProfile && (
-          <Card>
-            <h2 className="text-xl font-semibold mb-2">My Subscription</h2>
-            <p className="capitalize text-4xl font-bold mb-4" style={
-              userProfile.subscriptionTier === 'pro' || userProfile.subscriptionTier === 'advanced' || userProfile.subscriptionTier === 'enterprise' 
-                ? {background: 'linear-gradient(90deg, #ff0080, #7928ca, #007cf0, #00dfd8, #ff0080)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'} 
-                : {color: '#2563eb'}
-            }>{userProfile.subscriptionTier}</p>
-            <div className="space-y-2">
-              {userProfile.subscriptionData?.cancelledAt && userProfile.subscriptionData?.expiresAt ? (
-                <p className="text-red-500 font-semibold">
-                  Your {(userProfile.subscriptionData as any)?.tier || userProfile.subscriptionTier} plan will expire on {new Date(userProfile.subscriptionData.expiresAt).toLocaleDateString()}.
-                </p>
-              ) : userProfile.subscriptionData?.renewalDate ? (
-                <p className="text-gray-500 font-semibold">
-                  Your plan will auto-renew on {new Date(userProfile.subscriptionData.renewalDate).toLocaleDateString()}.
-                </p>
+          <p className="text-gray-800 font-medium mb-6">Please sign in to access settings.</p>
+          <Button onClick={() => window.location.href = '/api/auth/signin'}>Sign In</Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-gray-50">
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-title font-semibold text-gray-800 mb-2">Settings</h1>
+          <p className="text-gray-600">Manage your account preferences and connections.</p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Account Settings */}
+          <div className="space-y-6">
+            {/* Account Details */}
+            <Card>
+              <div className="flex items-center gap-3 mb-4">
+                <User className="w-5 h-5 text-yellow-500" />
+                <h2 className="text-subtitle font-semibold text-gray-800">Account Details</h2>
+              </div>
+              {userProfile && (
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span className="text-gray-600">Email</span>
+                    <span className="font-medium text-gray-800">{userProfile.email}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span className="text-gray-600">Member Since</span>
+                    <span className="font-medium text-gray-800">{new Date(userProfile.createdAt).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-gray-600">Subscription Tier</span>
+                    <span className="font-medium text-gray-800 capitalize">{userProfile.subscriptionTier}</span>
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            {/* Usage */}
+            {userProfile && (
+              <Card>
+                <div className="flex items-center gap-3 mb-4">
+                  <Shield className="w-5 h-5 text-yellow-500" />
+                  <h2 className="text-subtitle font-semibold text-gray-800">Usage</h2>
+                </div>
+                {(() => {
+                  const tierLimits = getTierLimits(userProfile.subscriptionTier);
+                  const displayLimit = tierLimits.scanLimit === 'unlimited' ? 'unlimited' : tierLimits.scanLimit;
+                  return (
+                    <div className="space-y-4">
+                      <p className="text-gray-600">
+                        You have used <span className="font-semibold text-gray-800">{userProfile.scanCount}</span> of your <span className="font-semibold text-gray-800">{displayLimit}</span> scans this month.
+                      </p>
+                      <div className="space-y-2">
+                        <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-yellow-500 transition-all duration-300"
+                            style={{ width: `${Math.min(progress, 100)}%` }}
+                          />
+                        </div>
+                        <div className="text-right text-caption text-gray-500">{Math.round(progress)}% used</div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </Card>
+            )}
+
+            {/* Subscription Management */}
+            {userProfile && userProfile.subscriptionTier !== 'free' && (
+              <Card>
+                <div className="flex items-center gap-3 mb-4">
+                  <CreditCard className="w-5 h-5 text-yellow-500" />
+                  <h2 className="text-subtitle font-semibold text-gray-800">Subscription</h2>
+                </div>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span className="text-gray-600">Current Plan</span>
+                    <span className="font-medium text-gray-800 capitalize">{userProfile.subscriptionTier}</span>
+                  </div>
+                  {userProfile.subscriptionData?.renewalDate && (
+                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                      <span className="text-gray-600">Next Billing</span>
+                      <span className="font-medium text-gray-800">{new Date(userProfile.subscriptionData.renewalDate).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                  {userProfile.subscriptionData?.cancelledAt && (
+                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                      <span className="text-gray-600">Cancelled</span>
+                      <span className="font-medium text-gray-800">{new Date(userProfile.subscriptionData.cancelledAt).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                  <Button 
+                    onClick={handleManageSubscription}
+                    disabled={managingSubscription}
+                    className="w-full"
+                  >
+                    {managingSubscription ? 'Opening...' : 'Manage Subscription'}
+                  </Button>
+                </div>
+              </Card>
+            )}
+          </div>
+
+          {/* Connections & Preferences */}
+          <div className="space-y-6">
+            {/* YouTube Connection */}
+            <Card>
+              <div className="flex items-center gap-3 mb-4">
+                <Youtube className="w-5 h-5 text-yellow-500" />
+                <h2 className="text-subtitle font-semibold text-gray-800">YouTube Connection</h2>
+              </div>
+              {ytChannel ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 p-3 bg-safe/5 rounded-lg border border-safe/20">
+                    <CheckCircle className="w-5 h-5 text-safe" />
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-800">{ytChannel.snippet?.title || 'YouTube Channel'}</p>
+                      <p className="text-sm text-gray-600">{ytChannel.snippet?.customUrl || 'Connected'}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="p-2 bg-gray-50 rounded-lg">
+                      <div className="text-lg font-semibold text-gray-800">{ytChannel.statistics?.subscriberCount ? parseInt(ytChannel.statistics.subscriberCount).toLocaleString() : '--'}</div>
+                      <div className="text-xs text-gray-600">Subscribers</div>
+                    </div>
+                    <div className="p-2 bg-gray-50 rounded-lg">
+                      <div className="text-lg font-semibold text-gray-800">{ytChannel.statistics?.viewCount ? parseInt(ytChannel.statistics.viewCount).toLocaleString() : '--'}</div>
+                      <div className="text-xs text-gray-600">Views</div>
+                    </div>
+                    <div className="p-2 bg-gray-50 rounded-lg">
+                      <div className="text-lg font-semibold text-gray-800">{ytChannel.statistics?.videoCount ? parseInt(ytChannel.statistics.videoCount).toLocaleString() : '--'}</div>
+                      <div className="text-xs text-gray-600">Videos</div>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="outlined" 
+                    onClick={handleUnlinkYouTube}
+                    className="w-full"
+                  >
+                    Unlink YouTube
+                  </Button>
+                </div>
               ) : (
-                <p className="text-gray-500 font-semibold">
-                  No renewal information available.
-                </p>
+                <div className="space-y-4">
+                  <div className="text-center py-6">
+                    <Youtube className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-600 mb-4">Connect your YouTube channel to unlock advanced features like revenue analysis and bulk scanning.</p>
+                    <Button 
+                      onClick={handleConnectYouTube}
+                      disabled={ytConnecting}
+                      className="w-full"
+                    >
+                      {ytConnecting ? 'Connecting...' : 'Connect YouTube'}
+                    </Button>
+                  </div>
+                </div>
               )}
-              <button
-                className="w-full py-2 px-4 rounded font-semibold bg-blue-600 text-white hover:bg-blue-700"
-                onClick={() => window.location.href = '/pricing'}
-              >
-                Upgrade Plan
-              </button>
-              {userProfile.subscriptionTier !== 'free' && userProfile.stripeCustomerId && (
-                <button
-                  className="w-full py-2 px-4 rounded font-semibold bg-gray-600 text-white hover:bg-gray-700"
-                  onClick={handleManageSubscription}
-                  disabled={managingSubscription}
-                >
-                  {managingSubscription ? 'Opening...' : 'Manage Subscription'}
-                </button>
-              )}
-            </div>
-          </Card>
-        )}
-        {/* YouTube Channel Integration Card */}
-        <Card>
-          <h2 className="text-2xl font-bold mb-2">YouTube Channel Integration</h2>
-          {ytChannel ? (
-            <div className="mt-4 p-4 bg-gray-50 border rounded">
-              <h3 className="text-xl font-semibold mb-2">Connected Channel:</h3>
-              <div className="flex items-center gap-4">
-                {ytChannel.snippet?.thumbnails?.default?.url && (
-                  <img src={ytChannel.snippet.thumbnails.default.url} alt="Channel" className="w-16 h-16 rounded-full" />
-                )}
-                <div>
-                  <div className="font-bold text-lg">{ytChannel.snippet?.title}</div>
-                  <div className="text-gray-600">{ytChannel.snippet?.customUrl}</div>
-                  <div className="text-gray-600">Subscribers: {ytChannel.statistics?.subscriberCount}</div>
-                  <div className="text-gray-600">Total Views: {ytChannel.statistics?.viewCount}</div>
-                  <div className="text-gray-600">Videos: {ytChannel.statistics?.videoCount}</div>
+            </Card>
+
+            {/* Preferences */}
+            <Card>
+              <div className="flex items-center gap-3 mb-4">
+                <Settings className="w-5 h-5 text-yellow-500" />
+                <h2 className="text-subtitle font-semibold text-gray-800">Preferences</h2>
+              </div>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between py-3 border-b border-gray-100">
+                  <div className="flex items-center gap-3">
+                    {dark ? <Moon className="w-4 h-4 text-gray-600" /> : <Sun className="w-4 h-4 text-gray-600" />}
+                    <span className="text-gray-700">Dark Mode</span>
+                  </div>
+                  <Button 
+                    variant={dark ? 'primary' : 'outlined'} 
+                    size="sm"
+                    onClick={() => setDark((d) => !d)}
+                  >
+                    {dark ? 'On' : 'Off'}
+                  </Button>
+                </div>
+                <div className="text-caption text-gray-500">
+                  More settings and preferences coming soon...
                 </div>
               </div>
-              <Button variant="primary" className="mt-6 bg-red-600 hover:bg-red-700 text-white" onClick={handleUnlinkYouTube}>
-                Unlink YouTube
-              </Button>
-            </div>
-          ) : (
-            <div className="mt-4">
-              <p className="text-gray-600 mb-4">Connect your YouTube channel to analyze your own videos for TOS compliance.</p>
-              <Button disabled={ytConnecting} onClick={handleConnectYouTube}>
-                {ytConnecting ? 'Connecting...' : 'Connect YouTube'}
-              </Button>
-            </div>
-          )}
-        </Card>
+            </Card>
+
+            {/* Quick Actions */}
+            <Card>
+              <div className="flex items-center gap-3 mb-4">
+                <Shield className="w-5 h-5 text-yellow-500" />
+                <h2 className="text-subtitle font-semibold text-gray-800">Quick Actions</h2>
+              </div>
+              <div className="space-y-3">
+                <Button 
+                  variant="outlined" 
+                  onClick={() => window.location.href = '/dashboard'}
+                  className="w-full justify-start"
+                >
+                  Go to Dashboard
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  onClick={() => window.location.href = '/scan-history'}
+                  className="w-full justify-start"
+                >
+                  View Scan History
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  onClick={() => window.location.href = '/pricing'}
+                  className="w-full justify-start"
+                >
+                  Manage Subscription
+                </Button>
+              </div>
+            </Card>
+          </div>
+        </div>
       </div>
     </main>
   );

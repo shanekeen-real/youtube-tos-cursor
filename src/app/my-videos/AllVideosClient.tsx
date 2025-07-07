@@ -94,7 +94,11 @@ export default function AllVideosClient() {
 
   // Memoized filtered videos
   const filteredVideos = useMemo(() => {
-    let filtered = [...videos];
+    // Deduplicate videos by videoId first
+    const uniqueVideos = videos.filter((video, index, self) => 
+      index === self.findIndex(v => v.id.videoId === video.id.videoId)
+    );
+    let filtered = [...uniqueVideos];
     
     // Search filter
     if (filters.search) {
@@ -194,7 +198,12 @@ export default function AllVideosClient() {
           const data = await response.json();
           
           if (isLoadMore) {
-            setVideos(prev => [...prev, ...(data.items || [])]);
+            setVideos(prev => {
+              // Deduplicate videos by videoId to prevent duplicate keys
+              const existingIds = new Set(prev.map(v => v.id.videoId));
+              const newVideos = (data.items || []).filter(v => !existingIds.has(v.id.videoId));
+              return [...prev, ...newVideos];
+            });
           } else {
             setVideos(data.items || []);
           }
@@ -350,19 +359,26 @@ export default function AllVideosClient() {
   // Loading states
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your videos...</p>
+        </div>
       </div>
     );
   }
 
   if (!session?.user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4">Please Sign In</h2>
-          <p className="text-gray-600 mb-4">You need to be signed in to view your videos.</p>
-          <Button onClick={() => router.push('/')}>Sign In</Button>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-8">
+            <h2 className="text-title font-semibold text-gray-800 mb-2">Sign In Required</h2>
+            <p className="text-gray-600 mb-6">You need to be signed in to view your videos.</p>
+            <Button onClick={() => router.push('/')} className="w-full">
+              Sign In to Continue
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -375,14 +391,17 @@ export default function AllVideosClient() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">My Videos</h1>
-              <p className="text-gray-600 mt-2">
+              <h1 className="text-display font-bold text-gray-800">
+                My <span className="text-yellow-500">Videos</span>
+              </h1>
+              <p className="text-subtitle text-gray-600 mt-2">
                 {pagination.totalResults ? `${pagination.totalResults} videos found` : 'Loading videos...'}
               </p>
             </div>
             <Button 
-              variant="secondary" 
+              variant="outlined" 
               onClick={() => router.push('/dashboard')}
+              className="inline-flex items-center gap-2"
             >
               Back to Dashboard
             </Button>
@@ -399,7 +418,7 @@ export default function AllVideosClient() {
                   placeholder="Search videos by title, description, or tags..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                 />
               </div>
 
@@ -408,7 +427,7 @@ export default function AllVideosClient() {
                 <select
                   value={filters.sortBy}
                   onChange={(e) => setFilters(prev => ({ ...prev, sortBy: e.target.value as any }))}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                 >
                   <option value="date">Date</option>
                   <option value="title">Title</option>
@@ -421,7 +440,7 @@ export default function AllVideosClient() {
                     ...prev, 
                     sortOrder: prev.sortOrder === 'asc' ? 'desc' : 'asc' 
                   }))}
-                  className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                 >
                   {filters.sortOrder === 'asc' ? <SortAsc className="h-5 w-5" /> : <SortDesc className="h-5 w-5" />}
                 </button>
@@ -431,7 +450,7 @@ export default function AllVideosClient() {
               <select
                 value={filters.dateRange}
                 onChange={(e) => setFilters(prev => ({ ...prev, dateRange: e.target.value as any }))}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
               >
                 <option value="all">All Time</option>
                 <option value="week">Last Week</option>
@@ -443,7 +462,7 @@ export default function AllVideosClient() {
               <select
                 value={filters.privacy}
                 onChange={e => setFilters(prev => ({ ...prev, privacy: e.target.value as any }))}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
               >
                 <option value="public">Public</option>
                 <option value="unlisted">Unlisted</option>
@@ -455,13 +474,13 @@ export default function AllVideosClient() {
               <div className="flex border border-gray-300 rounded-lg overflow-hidden">
                 <button
                   onClick={() => setFilters(prev => ({ ...prev, viewType: 'grid' }))}
-                  className={`px-3 py-2 ${filters.viewType === 'grid' ? 'bg-blue-500 text-white' : 'bg-white hover:bg-gray-50'}`}
+                  className={`px-3 py-2 ${filters.viewType === 'grid' ? 'bg-yellow-500 text-gray-900' : 'bg-white hover:bg-gray-50'}`}
                 >
                   <Grid className="h-5 w-5" />
                 </button>
                 <button
                   onClick={() => setFilters(prev => ({ ...prev, viewType: 'list' }))}
-                  className={`px-3 py-2 ${filters.viewType === 'list' ? 'bg-blue-500 text-white' : 'bg-white hover:bg-gray-50'}`}
+                  className={`px-3 py-2 ${filters.viewType === 'list' ? 'bg-yellow-500 text-gray-900' : 'bg-white hover:bg-gray-50'}`}
                 >
                   <List className="h-5 w-5" />
                 </button>
@@ -525,9 +544,9 @@ export default function AllVideosClient() {
             ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
             : "space-y-4"
           }>
-            {filteredVideos.map((video) => (
+            {filteredVideos.map((video, index) => (
               <VideoCard
-                key={video.id.videoId}
+                key={`${video.id.videoId}-${index}`}
                 video={video}
                 viewType={filters.viewType}
                 onAnalyze={handleAnalyzeVideo}
@@ -547,7 +566,7 @@ export default function AllVideosClient() {
         {hasMore && (
           <div ref={loadMoreRef} className="flex justify-center py-8">
             {isLoadingMore && (
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-4 border-yellow-500 border-t-transparent"></div>
             )}
           </div>
         )}

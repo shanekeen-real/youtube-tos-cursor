@@ -1,6 +1,7 @@
 import React from 'react';
 import Card from './Card';
 import Badge from './Badge';
+import { Check, X } from 'lucide-react';
 
 interface Feature {
   label: string;
@@ -14,7 +15,7 @@ export interface FeatureSet {
   features: Feature[];
   recommended?: boolean;
   badgeText?: string;
-  badgeColor?: 'red' | 'yellow' | 'green' | 'blue' | 'gray';
+  badgeColor?: 'risk' | 'safe' | 'neutral' | 'yellow';
 }
 
 interface FeatureGridProps {
@@ -27,20 +28,26 @@ export default function FeatureGrid({ sets }: FeatureGridProps) {
       {sets.map((set, i) => (
         <Card
           key={set.title}
-          className={`flex flex-col items-start relative ${set.recommended ? 'border-2 border-blue-600 shadow-md' : 'border'}`}
+          className={`flex flex-col items-start relative ${set.recommended ? 'border-2 border-yellow-500' : 'border-gray-200'}`}
         >
-          <span className="font-bold text-lg mb-2 text-[#212121]">{set.title}</span>
+          <span className="text-title font-semibold mb-4 text-gray-900">{set.title}</span>
           {set.recommended && set.badgeText && (
             <span className="absolute -top-4 left-1/2 -translate-x-1/2">
-              <Badge color={set.badgeColor || 'blue'}>{set.badgeText}</Badge>
+              <Badge variant={set.badgeColor || 'yellow'}>{set.badgeText}</Badge>
             </span>
           )}
-          <ul className="text-sm text-gray-700 space-y-1 mt-2">
+          <ul className="text-body text-gray-700 space-y-2 mt-2">
             {set.features.map((f, j) => (
-              <li key={j} className={f.muted ? 'text-gray-400' : 'text-[#212121]'}>
-                {f.checked && <span className="mr-1">✓</span>}
-                {!f.checked && f.muted && <span className="mr-1">×</span>}
-                {f.link ? <a href={f.link} className="text-blue-600 underline">{f.label}</a> : f.label}
+              <li key={j} className={`flex items-start ${f.muted ? 'text-gray-400' : 'text-gray-900'}`}>
+                {f.checked && <Check className="text-safe mr-2 mt-0.5 h-4 w-4 flex-shrink-0" />}
+                {!f.checked && f.muted && <X className="text-gray-400 mr-2 mt-0.5 h-4 w-4 flex-shrink-0" />}
+                {f.link ? (
+                  <a href={f.link} className="text-yellow-500 underline hover:text-yellow-600">
+                    {f.label}
+                  </a>
+                ) : (
+                  f.label
+                )}
               </li>
             ))}
           </ul>
