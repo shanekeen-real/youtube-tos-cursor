@@ -200,8 +200,8 @@ export default function AllVideosClient() {
           if (isLoadMore) {
             setVideos(prev => {
               // Deduplicate videos by videoId to prevent duplicate keys
-              const existingIds = new Set(prev.map(v => v.id.videoId));
-              const newVideos = (data.items || []).filter(v => !existingIds.has(v.id.videoId));
+              const existingIds = new Set(prev.map((v: Video) => v.id.videoId));
+              const newVideos = (data.items || []).filter((v: Video) => !existingIds.has(v.id.videoId));
               return [...prev, ...newVideos];
             });
           } else {
