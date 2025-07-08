@@ -13,6 +13,7 @@ import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { app } from '@/lib/firebase';
 import { checkUserCanExport } from '@/lib/subscription-utils';
 import * as Tooltip from '@radix-ui/react-tooltip';
+import he from 'he';
 
 interface ScanData {
   id?: string;
@@ -135,7 +136,11 @@ function ResultsPageContent() {
             return;
           }
           
-          setData((scanData.analysisResult || scanData) as ScanData);
+          // Merge top-level analyzed_content and analysis_source into the data object
+          let mergedData = scanData.analysisResult || scanData;
+          if (scanData.analyzed_content) mergedData.analyzed_content = scanData.analyzed_content;
+          if (scanData.analysis_source) mergedData.analysis_source = scanData.analysis_source;
+          setData(mergedData as ScanData);
         } catch (err: any) {
           // Debug: Log error
           console.error('[ResultsPage] Error fetching scan:', err);
@@ -674,12 +679,21 @@ function ResultsPageContent() {
                         </div>
                         
                         <div className="mb-4">
-                          <textarea
-                            className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-caption text-gray-700 resize-none"
-                            value={data.url || ''}
-                            readOnly
-                            rows={2}
-                          />
+                          {/* Decode HTML entities and render as paragraphs for readability */}
+                          {(() => {
+                            const decoded = he.decode(he.decode(data.analyzed_content || ''));
+                            const paragraphs = decoded
+                              .split(/\n\s*\n|(?<=[.!?])\s+(?=[A-Z])/g)
+                              .map((p: string) => p.trim())
+                              .filter((p: string) => Boolean(p));
+                            return (
+                              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-caption text-gray-800 max-h-48 overflow-auto">
+                                {paragraphs.map((para: string, idx: number) => (
+                                  <p key={idx} style={{ marginBottom: '1em' }}>{para}</p>
+                                ))}
+                              </div>
+                            );
+                          })()}
                         </div>
                         
                         <div className="flex flex-wrap gap-2 mb-4">
@@ -741,9 +755,20 @@ function ResultsPageContent() {
                           </div>
                           <h3 className="text-body font-semibold text-gray-800">Analyzed Content</h3>
                         </div>
-                        
-                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 whitespace-pre-line text-caption text-gray-800 max-h-48 overflow-auto">
-                          {data.analyzed_content}
+                        <div className="mb-2 text-caption text-gray-600 font-semibold">Transcript</div>
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-caption text-gray-800 max-h-48 overflow-auto">
+                          {(() => {
+                            const decoded = he.decode(he.decode(data.analyzed_content || ''));
+                            const paragraphs = decoded
+                              .split(/\n\s*\n|(?<=[.!?])\s+(?=[A-Z])/g)
+                              .map((p: string) => p.trim())
+                              .filter((p: string) => Boolean(p));
+                            return (
+                              paragraphs.map((para: string, idx: number) => (
+                                <p key={idx} style={{ marginBottom: '1em' }}>{para}</p>
+                              ))
+                            );
+                          })()}
                         </div>
                       </Card>
                     )}

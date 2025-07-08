@@ -9,6 +9,17 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
 
 export async function GET(req: NextRequest) {
   try {
+    console.log('=== TESTING SUBSCRIPTION STATUS ===');
+    
+    // Verify Stripe configuration
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.error('STRIPE_SECRET_KEY is not configured');
+      return NextResponse.json({ 
+        error: 'Stripe configuration error',
+        details: 'Stripe is not properly configured.'
+      }, { status: 500 });
+    }
+    
     const session = await auth();
     
     if (!session?.user?.id) {
@@ -31,8 +42,12 @@ export async function GET(req: NextRequest) {
 
     // Get Stripe customer data if available
     let stripeData = null;
+    let portalTest = null;
+    
     if (userData?.stripeCustomerId) {
       try {
+        console.log('Testing Stripe connection with customer ID:', userData.stripeCustomerId);
+        
         const customer = await stripe.customers.retrieve(userData.stripeCustomerId);
         console.log('Stripe customer data:', customer);
 
@@ -43,9 +58,32 @@ export async function GET(req: NextRequest) {
         });
         console.log('Stripe subscriptions:', subscriptions);
 
+        // Test customer portal creation
+        try {
+          console.log('Testing customer portal creation...');
+          const portalSession = await stripe.billingPortal.sessions.create({
+            customer: userData.stripeCustomerId,
+            return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/settings`,
+          });
+          portalTest = {
+            success: true,
+            url: portalSession.url,
+            sessionId: portalSession.id
+          };
+          console.log('Portal test successful:', portalTest);
+        } catch (portalError) {
+          console.error('Portal test failed:', portalError);
+          portalTest = {
+            success: false,
+            error: portalError instanceof Error ? portalError.message : 'Unknown portal error',
+            fullError: portalError
+          };
+        }
+
         stripeData = {
           customer,
           subscriptions: subscriptions.data,
+          portalTest
         };
       } catch (error) {
         console.error('Error fetching Stripe data:', error);
@@ -53,15 +91,20 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    const result = {
       userId,
       firestore: userData,
       stripe: stripeData,
       timestamp: new Date().toISOString(),
-    });
+    };
+    
+    console.log('Test result:', result);
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Test subscription status error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    return NextResponse.json({ error: 'Failed to test subscription status', details: errorMessage }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Test failed', 
+      details: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
   }
 } 

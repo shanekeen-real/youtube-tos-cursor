@@ -759,6 +759,8 @@ async function performPolicyCategoryAnalysisBatched(text: string, model: AIModel
   await rateLimiter.waitIfNeeded();
   
   const prompt = `
+    IMPORTANT: Respond ONLY with valid JSON. Do not include any commentary, explanation, or text outside the JSON object. The response MUST be valid JSON parsable by JSON.parse().
+
     Analyze the following content for YouTube policy compliance. For each of the following category KEYS, provide a risk score, confidence, violations, severity, and explanation. You must return a result for every key, even if the risk is 0.
 
     Categories (use these KEYS as JSON keys):
@@ -782,6 +784,8 @@ async function performPolicyCategoryAnalysisBatched(text: string, model: AIModel
         ...
       }
     }
+
+    AGAIN: Respond ONLY with valid JSON. Do not include any commentary, explanation, or text outside the JSON object.
   `;
 
   // Retry logic for batch processing

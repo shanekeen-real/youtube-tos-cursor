@@ -334,6 +334,8 @@ export async function POST(req: NextRequest) {
         const cacheRef = adminDb.collection('analysis_cache').doc(cacheKey);
         await cacheRef.set({
             analysisResult: safeResult,
+            analyzed_content: analyzedContent,
+            analysis_source: analysisSource,
             timestamp: new Date(),
             original_url: url,
             video_id: videoId,
@@ -349,6 +351,8 @@ export async function POST(req: NextRequest) {
     try {
       const historyRef = await adminDb.collection('analysis_cache').add({
         analysisResult: safeResult,
+        analyzed_content: analyzedContent,
+        analysis_source: analysisSource,
         timestamp: new Date(),
         original_url: url,
         video_id: videoId,

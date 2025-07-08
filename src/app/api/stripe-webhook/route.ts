@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
         const updatePayload = {
           subscriptionTier: tier,
           scanLimit: tierLimits.scanLimit,
-          ...(stripeCustomerId && { stripeCustomerId }),
+          stripeCustomerId: stripeCustomerId, // Always include, even if null
           subscriptionData: {
             tier: tier,
             limits: tierLimits,
@@ -143,13 +143,16 @@ export async function POST(req: NextRequest) {
             subscriptionUserId = userDoc.id;
             console.log('Found user by Stripe customer ID:', subscriptionUserId);
           } else {
-            console.log('No user found with this Stripe customer ID');
+            console.error('No user found with this Stripe customer ID:', subscription.customer);
           }
         } catch (error) {
           console.error('Error searching for user by Stripe customer ID:', error);
         }
       }
       
+      if (!subscriptionUserId) {
+        console.error('No user found for this subscription event. Skipping Firestore update.');
+      }
       if (subscriptionUserId) {
         try {
           // AUTOMATIC SYNC: Use the same logic as the manual sync endpoint
@@ -159,16 +162,14 @@ export async function POST(req: NextRequest) {
           const userDoc = await userRef.get();
           
           if (!userDoc.exists) {
-            console.error('User document not found for automatic sync');
-            break;
+            console.error('User document not found for automatic sync:', subscriptionUserId);
           }
           
           const userData = userDoc.data();
           const stripeCustomerId = userData?.stripeCustomerId || subscription.customer;
           
           if (!stripeCustomerId) {
-            console.error('No Stripe customer ID found for automatic sync');
-            break;
+            console.error('No Stripe customer ID found for automatic sync:', subscriptionUserId);
           }
           
           // Get all subscriptions for this customer to determine the correct state
@@ -179,6 +180,12 @@ export async function POST(req: NextRequest) {
           });
           
           console.log('Found subscriptions for automatic sync:', subscriptions.data.length);
+          console.log('All subscriptions:', subscriptions.data.map(sub => ({
+            id: sub.id,
+            status: sub.status,
+            cancel_at_period_end: sub.cancel_at_period_end,
+            price_id: (sub.items && sub.items.data && sub.items.data[0] && sub.items.data[0].price?.id) || null
+          })));
           
           let newTier: SubscriptionTier = 'free';
           let newScanLimit = SUBSCRIPTION_TIERS.free.limits.scanLimit;
@@ -186,96 +193,96 @@ export async function POST(req: NextRequest) {
           let cancelledAt: string | undefined = undefined;
           let expiresAt: string | undefined = undefined;
           
-          // Find the most recent active subscription
+          // Simplified subscription state detection - prioritize active subscriptions
+          // Map Stripe price IDs to tiers (consolidated)
+          const priceIdToTier: Record<string, SubscriptionTier> = {
+            'price_1RhMBAPkKFhdAA8L8Zu8ljE1': 'pro', // Pro monthly
+            'price_1RhMyCPkKFhdAA8Lw5rl0EDj': 'pro', // Pro annual
+            'price_1RhMCEPkKFhdAA8Lzc1N3Uog': 'advanced', // Advanced monthly
+            'price_1RhN86PkKFhdAA8LLoMj7vlc': 'advanced', // Advanced annual
+          };
+
+          // Find the most recent active subscription (including scheduled cancellations)
           const activeSubscription = subscriptions.data.find(sub => 
-            sub.status === 'active' && !sub.cancel_at_period_end
-          );
-          // Find the most recent scheduled-to-cancel subscription
-          const scheduledCancelSubscription = subscriptions.data.find(sub => 
-            sub.status === 'active' && sub.cancel_at_period_end
-          );
-          // Find the most recent cancelled subscription
-          const cancelledSubscription = subscriptions.data.find(sub => 
-            sub.status === 'canceled' || sub.status === 'incomplete_expired'
+            sub.status === 'active'
           );
 
           if (activeSubscription) {
-            // User is fully active, not scheduled for cancellation
-            // Use paid tier and limits
-            const priceIdToTier: Record<string, SubscriptionTier> = {
-              'price_1RhMBAPkKFhdAA8L8Zu8ljE1': 'pro',
-              'price_1RhMyCPkKFhdAA8Lw5rl0EDj': 'pro',
-              'price_1RhMCEPkKFhdAA8Lzc1N3Uog': 'advanced',
-              'price_1RhN86PkKFhdAA8LLoMj7vlc': 'advanced',
-            };
+            console.log('Found active subscription:', activeSubscription.id);
+            console.log('Subscription status:', activeSubscription.status);
+            console.log('Cancel at period end:', activeSubscription.cancel_at_period_end);
+            
+            // Determine tier from the active subscription
             if (activeSubscription.items && activeSubscription.items.data && activeSubscription.items.data.length > 0) {
               const firstItem = activeSubscription.items.data[0];
               const priceId = firstItem.price?.id;
+              console.log('Active subscription price ID:', priceId);
+              
               if (priceId && priceIdToTier[priceId]) {
                 newTier = priceIdToTier[priceId];
                 newScanLimit = SUBSCRIPTION_TIERS[newTier].limits.scanLimit;
+                console.log('Mapped to tier:', newTier);
               }
             }
-            const activeSub = activeSubscription as any;
+
             // Get current_period_end from the subscription item
+            const activeSub = activeSubscription as any;
             if (activeSub.items && activeSub.items.data && activeSub.items.data.length > 0) {
               const firstItem = activeSub.items.data[0];
               if (firstItem.current_period_end) {
                 renewalDate = new Date(firstItem.current_period_end * 1000).toISOString();
               }
             }
-            // Note: No cancellation info for truly active subscriptions
-          } else if (scheduledCancelSubscription) {
-            // User is scheduled for cancellation but still on paid tier
-            // Use paid tier and limits, set cancellation info
-            const priceIdToTier: Record<string, SubscriptionTier> = {
-              'price_1RhMBAPkKFhdAA8L8Zu8ljE1': 'pro',
-              'price_1RhMyCPkKFhdAA8Lw5rl0EDj': 'pro',
-              'price_1RhMCEPkKFhdAA8Lzc1N3Uog': 'advanced',
-              'price_1RhN86PkKFhdAA8LLoMj7vlc': 'advanced',
-            };
-            if (scheduledCancelSubscription.items && scheduledCancelSubscription.items.data && scheduledCancelSubscription.items.data.length > 0) {
-              const firstItem = scheduledCancelSubscription.items.data[0];
-              const priceId = firstItem.price?.id;
-              if (priceId && priceIdToTier[priceId]) {
-                newTier = priceIdToTier[priceId];
-                newScanLimit = SUBSCRIPTION_TIERS[newTier].limits.scanLimit;
+
+            // Handle cancellation info if subscription is scheduled for cancellation
+            if (activeSubscription.cancel_at_period_end) {
+              const scheduledSub = activeSubscription as any;
+              if (scheduledSub.cancel_at) {
+                expiresAt = new Date(scheduledSub.cancel_at * 1000).toISOString();
+              } else if (scheduledSub.items && scheduledSub.items.data && scheduledSub.items.data.length > 0) {
+                const firstItem = scheduledSub.items.data[0];
+                if (firstItem.current_period_end) {
+                  expiresAt = new Date(firstItem.current_period_end * 1000).toISOString();
+                }
+              }
+              if (scheduledSub.canceled_at) {
+                cancelledAt = new Date(scheduledSub.canceled_at * 1000).toISOString();
+              } else {
+                cancelledAt = new Date().toISOString();
               }
             }
-            const scheduledSub = scheduledCancelSubscription as any;
-            // For scheduled cancellations, don't set renewalDate (it will be cleared)
-            if (scheduledSub.cancel_at) {
-              expiresAt = new Date(scheduledSub.cancel_at * 1000).toISOString();
-            } else if (scheduledSub.items && scheduledSub.items.data && scheduledSub.items.data.length > 0) {
-              const firstItem = scheduledSub.items.data[0];
-              if (firstItem.current_period_end) {
-                expiresAt = new Date(firstItem.current_period_end * 1000).toISOString();
+          } else {
+            // No active subscription found, check for cancelled subscriptions
+            const cancelledSubscription = subscriptions.data.find(sub => 
+              sub.status === 'canceled' || sub.status === 'incomplete_expired'
+            );
+
+            if (cancelledSubscription) {
+              console.log('Found cancelled subscription:', cancelledSubscription.id);
+              // User is fully cancelled, downgrade to free
+              newTier = 'free';
+              newScanLimit = SUBSCRIPTION_TIERS.free.limits.scanLimit;
+              const cancelledSub = cancelledSubscription as any;
+              if (cancelledSub.canceled_at) {
+                cancelledAt = new Date(cancelledSub.canceled_at * 1000).toISOString();
+              } else {
+                cancelledAt = new Date().toISOString();
               }
-            }
-            if (scheduledSub.canceled_at) {
-              cancelledAt = new Date(scheduledSub.canceled_at * 1000).toISOString();
+              if (cancelledSub.cancel_at) {
+                expiresAt = new Date(cancelledSub.cancel_at * 1000).toISOString();
+              } else if (cancelledSub.items && cancelledSub.items.data && cancelledSub.items.data.length > 0) {
+                const firstItem = cancelledSub.items.data[0];
+                if (firstItem.current_period_end) {
+                  expiresAt = new Date(firstItem.current_period_end * 1000).toISOString();
+                }
+              }
+              renewalDate = undefined;
             } else {
-              cancelledAt = new Date().toISOString();
+              console.log('No active or cancelled subscriptions found, defaulting to free tier');
+              // No subscriptions found, default to free
+              newTier = 'free';
+              newScanLimit = SUBSCRIPTION_TIERS.free.limits.scanLimit;
             }
-          } else if (cancelledSubscription) {
-            // User is fully cancelled, downgrade to free
-            newTier = 'free';
-            newScanLimit = SUBSCRIPTION_TIERS.free.limits.scanLimit;
-            const cancelledSub = cancelledSubscription as any;
-            if (cancelledSub.canceled_at) {
-              cancelledAt = new Date(cancelledSub.canceled_at * 1000).toISOString();
-            } else {
-              cancelledAt = new Date().toISOString();
-            }
-            if (cancelledSub.cancel_at) {
-              expiresAt = new Date(cancelledSub.cancel_at * 1000).toISOString();
-            } else if (cancelledSub.items && cancelledSub.items.data && cancelledSub.items.data.length > 0) {
-              const firstItem = cancelledSub.items.data[0];
-              if (firstItem.current_period_end) {
-                expiresAt = new Date(firstItem.current_period_end * 1000).toISOString();
-              }
-            }
-            renewalDate = undefined;
           }
           
           // Build subscriptionData dynamically to avoid undefined fields
@@ -379,22 +386,26 @@ export async function POST(req: NextRequest) {
             let cancelledAt: string | undefined = undefined;
             let expiresAt: string | undefined = undefined;
             
-            // Find the most recent active subscription
+            // Simplified subscription state detection for invoice payments
+            // Map Stripe price IDs to tiers (consolidated)
+            const priceIdToTier: Record<string, SubscriptionTier> = {
+              'price_1RhMBAPkKFhdAA8L8Zu8ljE1': 'pro', // Pro monthly
+              'price_1RhMyCPkKFhdAA8Lw5rl0EDj': 'pro', // Pro annual
+              'price_1RhMCEPkKFhdAA8Lzc1N3Uog': 'advanced', // Advanced monthly
+              'price_1RhN86PkKFhdAA8LLoMj7vlc': 'advanced', // Advanced annual
+            };
+
+            // Find the most recent active subscription (including scheduled cancellations)
             const activeSubscription = subscriptions.data.find(sub => 
-              sub.status === 'active' && !sub.cancel_at_period_end
+              sub.status === 'active'
             );
             
             if (activeSubscription) {
               console.log('Found active subscription for invoice payment sync:', activeSubscription.id);
+              console.log('Subscription status:', activeSubscription.status);
+              console.log('Cancel at period end:', activeSubscription.cancel_at_period_end);
               
-              // Map Stripe price IDs to tiers
-              const priceIdToTier: Record<string, SubscriptionTier> = {
-                'price_1RhMBAPkKFhdAA8L8Zu8ljE1': 'pro', // Pro monthly
-                'price_1RhMyCPkKFhdAA8Lw5rl0EDj': 'pro', // Pro annual
-                'price_1RhMCEPkKFhdAA8Lzc1N3Uog': 'advanced', // Advanced monthly
-                'price_1RhN86PkKFhdAA8LLoMj7vlc': 'advanced', // Advanced annual
-              };
-              
+              // Determine tier from the active subscription
               if (activeSubscription.items && activeSubscription.items.data && activeSubscription.items.data.length > 0) {
                 const firstItem = activeSubscription.items.data[0];
                 const priceId = firstItem.price?.id;
@@ -415,10 +426,28 @@ export async function POST(req: NextRequest) {
                   renewalDate = new Date(firstItem.current_period_end * 1000).toISOString();
                 }
               }
+
+              // Handle cancellation info if subscription is scheduled for cancellation
+              if (activeSubscription.cancel_at_period_end) {
+                const scheduledSub = activeSubscription as any;
+                if (scheduledSub.cancel_at) {
+                  expiresAt = new Date(scheduledSub.cancel_at * 1000).toISOString();
+                } else if (scheduledSub.items && scheduledSub.items.data && scheduledSub.items.data.length > 0) {
+                  const firstItem = scheduledSub.items.data[0];
+                  if (firstItem.current_period_end) {
+                    expiresAt = new Date(firstItem.current_period_end * 1000).toISOString();
+                  }
+                }
+                if (scheduledSub.canceled_at) {
+                  cancelledAt = new Date(scheduledSub.canceled_at * 1000).toISOString();
+                } else {
+                  cancelledAt = new Date().toISOString();
+                }
+              }
             } else {
-              // Check for cancelled subscriptions
+              // No active subscription found, check for cancelled subscriptions
               const cancelledSubscription = subscriptions.data.find(sub => 
-                sub.status === 'canceled' || sub.cancel_at_period_end
+                sub.status === 'canceled' || sub.status === 'incomplete_expired'
               );
               
               if (cancelledSubscription) {
@@ -439,6 +468,11 @@ export async function POST(req: NextRequest) {
                     expiresAt = new Date(firstItem.current_period_end * 1000).toISOString();
                   }
                 }
+              } else {
+                console.log('No active or cancelled subscriptions found for invoice payment, defaulting to free tier');
+                // No subscriptions found, default to free
+                newTier = 'free';
+                newScanLimit = SUBSCRIPTION_TIERS.free.limits.scanLimit;
               }
             }
             

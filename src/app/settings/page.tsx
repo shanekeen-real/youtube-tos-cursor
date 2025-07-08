@@ -44,6 +44,7 @@ export default function SettingsPage() {
   const [ytChannel, setYtChannel] = useState<YouTubeChannel | null>(null);
   const [ytConnecting, setYtConnecting] = useState(false);
   const [managingSubscription, setManagingSubscription] = useState(false);
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
   
   useEffect(() => {
     if (dark) {
@@ -136,6 +137,8 @@ export default function SettingsPage() {
   const handleManageSubscription = async () => {
     if (!session?.user?.id) return;
     setManagingSubscription(true);
+    setSubscriptionError(null); // Clear any previous errors
+    
     try {
       const response = await fetch('/api/create-customer-portal-session', {
         method: 'POST',
@@ -149,12 +152,26 @@ export default function SettingsPage() {
         window.location.href = data.url;
       } else {
         const errorData = await response.json();
-        console.error('Failed to create customer portal session:', errorData.error);
-        alert('Failed to open subscription management. Please try again.');
+        console.error('Failed to create customer portal session:', errorData);
+        
+        // Show more helpful error messages based on the error type
+        let errorMessage = 'Failed to open subscription management. Please try again.';
+        
+        if (errorData.error === 'No Stripe customer ID found') {
+          errorMessage = errorData.details || 'You need to have an active subscription to access the customer portal. Please upgrade your plan first.';
+        } else if (errorData.error === 'No active subscription found') {
+          errorMessage = errorData.details || 'Your subscription may have expired or been cancelled. Please check your subscription status or upgrade your plan.';
+        } else if (errorData.error === 'Failed to verify subscription status') {
+          errorMessage = errorData.details || 'Unable to check your subscription status. Please try again or contact support.';
+        } else if (errorData.details) {
+          errorMessage = errorData.details;
+        }
+        
+        setSubscriptionError(errorMessage);
       }
     } catch (error) {
       console.error('Error creating customer portal session:', error);
-      alert('Failed to open subscription management. Please try again.');
+      setSubscriptionError('Failed to open subscription management. Please try again.');
     } finally {
       setManagingSubscription(false);
     }
@@ -241,7 +258,7 @@ export default function SettingsPage() {
             )}
 
             {/* Subscription Management */}
-            {userProfile && userProfile.subscriptionTier !== 'free' && (
+            {userProfile && (
               <Card>
                 <div className="flex items-center gap-3 mb-4">
                   <CreditCard className="w-5 h-5 text-yellow-500" />
@@ -252,25 +269,83 @@ export default function SettingsPage() {
                     <span className="text-gray-600">Current Plan</span>
                     <span className="font-medium text-gray-800 capitalize">{userProfile.subscriptionTier}</span>
                   </div>
-                  {userProfile.subscriptionData?.renewalDate && (
-                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                      <span className="text-gray-600">Next Billing</span>
-                      <span className="font-medium text-gray-800">{new Date(userProfile.subscriptionData.renewalDate).toLocaleDateString()}</span>
-                    </div>
+                  
+                  {userProfile.subscriptionTier !== 'free' ? (
+                    <>
+                      {(userProfile.subscriptionData?.expiresAt)
+                        ? (
+                          <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                            <span className="text-gray-600">Subscription ends on</span>
+                            <span className="font-medium text-gray-800">{new Date(userProfile.subscriptionData.expiresAt).toLocaleDateString()}</span>
+                          </div>
+                        )
+                        : userProfile.subscriptionData?.renewalDate ? (
+                          <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                            <span className="text-gray-600">Next Billing</span>
+                            <span className="font-medium text-gray-800">{new Date(userProfile.subscriptionData.renewalDate).toLocaleDateString()}</span>
+                          </div>
+                        ) : null}
+                      {userProfile.subscriptionData?.cancelledAt && (
+                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                          <span className="text-gray-600">Cancelled</span>
+                          <span className="font-medium text-gray-800">{new Date(userProfile.subscriptionData.cancelledAt).toLocaleDateString()}</span>
+                        </div>
+                      )}
+                      <Button 
+                        onClick={handleManageSubscription}
+                        disabled={managingSubscription}
+                        className="w-full"
+                      >
+                        {managingSubscription ? 'Opening...' : 'Manage Subscription'}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      {userProfile.stripeCustomerId && (
+                        <div className="text-center py-4">
+                          <p className="text-gray-600 mb-3">You previously had a subscription that may have expired or been cancelled.</p>
+                          {subscriptionError && (
+                            <div className="mb-3 p-3 bg-risk/5 border border-risk/20 rounded-lg">
+                              <p className="text-sm text-risk">{subscriptionError}</p>
+                            </div>
+                          )}
+                          <div className="space-y-2">
+                            <Button 
+                              onClick={handleManageSubscription}
+                              disabled={managingSubscription}
+                              variant="outlined"
+                              className="w-full"
+                            >
+                              {managingSubscription ? 'Checking...' : 'Check Subscription Status'}
+                            </Button>
+                            <Button 
+                              onClick={() => {
+                                setSubscriptionError(null);
+                                window.location.href = '/pricing';
+                              }}
+                              className="w-full"
+                            >
+                              Upgrade Plan
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      {!userProfile.stripeCustomerId && (
+                        <div className="text-center py-4">
+                          <p className="text-gray-600 mb-3">Upgrade to unlock more features and higher scan limits.</p>
+                          <Button 
+                            onClick={() => {
+                              setSubscriptionError(null);
+                              window.location.href = '/pricing';
+                            }}
+                            className="w-full"
+                          >
+                            View Plans
+                          </Button>
+                        </div>
+                      )}
+                    </>
                   )}
-                  {userProfile.subscriptionData?.cancelledAt && (
-                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                      <span className="text-gray-600">Cancelled</span>
-                      <span className="font-medium text-gray-800">{new Date(userProfile.subscriptionData.cancelledAt).toLocaleDateString()}</span>
-                    </div>
-                  )}
-                  <Button 
-                    onClick={handleManageSubscription}
-                    disabled={managingSubscription}
-                    className="w-full"
-                  >
-                    {managingSubscription ? 'Opening...' : 'Manage Subscription'}
-                  </Button>
                 </div>
               </Card>
             )}
