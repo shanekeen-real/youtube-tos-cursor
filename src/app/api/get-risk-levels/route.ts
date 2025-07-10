@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
         // Create a map of video IDs to their latest analysis
         const videoAnalysisMap = new Map<string, { analysis: any; scanId: string; timestamp: any }>();
         
-        userAnalyses.forEach(doc => {
+        userAnalyses.forEach((doc: any) => {
           const data = doc.data();
           const videoId = data.video_id;
           
