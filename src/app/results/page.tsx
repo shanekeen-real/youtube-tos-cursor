@@ -751,7 +751,7 @@ function ResultsPageContent() {
                               <div key={cat} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                                 <div className="flex items-center justify-between mb-2">
                                   <span className="font-semibold text-body text-gray-800 truncate max-w-[60%]">
-                                    {cat.replace(/_/g, ' ')}
+                                    {cat.replace(/_/g, ' ').replace(/\b(\w+) \1\b/g, '$1')}
                                   </span>
                                   <div className="flex items-center gap-2">
                                     <span className="text-caption font-medium text-gray-700">{val.risk_score}%</span>

@@ -59,7 +59,7 @@ async function getTranscriptViaNodeLibrary(videoId: string): Promise<string | nu
         if (transcript && transcript.length > 0) {
           const transcriptText = transcript
             .map((segment: any) => segment.text)
-            .join(' ');
+            .join('\n');
           if (transcriptText && transcriptText.length > 0) {
             console.log(`Successfully fetched ${langCode} transcript via @danielxceron/youtube-transcript: ${transcriptText.length} characters`);
             return transcriptText;
@@ -77,7 +77,7 @@ async function getTranscriptViaNodeLibrary(videoId: string): Promise<string | nu
     if (transcript && transcript.length > 0) {
       const transcriptText = transcript
         .map((segment: any) => segment.text)
-        .join(' ');
+        .join('\n');
       if (transcriptText && transcriptText.length > 0) {
         // Check if the transcript appears to be in a non-English language
         const isNonEnglish = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(transcriptText) || // Arabic

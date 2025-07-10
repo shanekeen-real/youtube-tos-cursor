@@ -1621,27 +1621,56 @@ function calculateOverallRiskScore(policyAnalysis: any, riskAssessment: any): nu
   // Calculate weighted average
   const weightedAverage = totalWeight > 0 ? totalWeightedScore / totalWeight : 0;
   
-  // Apply severity adjustments for very high individual scores
+  // Apply severity adjustments based on risk distribution
   const highRiskCategories = Object.values(policyAnalysis).filter((cat: any) => (cat as any).risk_score >= 80);
-  const mediumRiskCategories = Object.values(policyAnalysis).filter((cat: any) => (cat as any).risk_score >= 60 && (cat as any).risk_score < 80);
+  const mediumRiskCategories = Object.values(policyAnalysis).filter((cat: any) => (cat as any).risk_score >= 40 && (cat as any).risk_score < 80);
+  const lowRiskCategories = Object.values(policyAnalysis).filter((cat: any) => (cat as any).risk_score >= 20 && (cat as any).risk_score < 40);
   
   let adjustedScore = weightedAverage;
   
-  // If there are very high risk categories (80+), boost the score
+  // If there are very high risk categories (80+), significant boost
   if (highRiskCategories.length > 0) {
+    adjustedScore = Math.min(100, weightedAverage + 20);
+  }
+  // If there are multiple medium-high risk categories (40+), moderate boost
+  else if (mediumRiskCategories.length >= 3) {
     adjustedScore = Math.min(100, weightedAverage + 15);
   }
-  // If there are medium-high risk categories (60+), slight boost
-  else if (mediumRiskCategories.length > 0) {
-    adjustedScore = Math.min(100, weightedAverage + 8);
+  // If there are 2 medium risk categories, slight boost
+  else if (mediumRiskCategories.length >= 2) {
+    adjustedScore = Math.min(100, weightedAverage + 10);
   }
+  // If there are multiple low-medium risk categories, small boost
+  else if (lowRiskCategories.length >= 3 || mediumRiskCategories.length >= 1) {
+    adjustedScore = Math.min(100, weightedAverage + 5);
+  }
+  
+  // Additional adjustment: If the content has multiple concerning categories,
+  // ensure the score reflects the cumulative risk
+  const concerningCategories = Object.values(policyAnalysis).filter((cat: any) => (cat as any).risk_score >= 30);
+  if (concerningCategories.length >= 4) {
+    adjustedScore = Math.min(100, Math.max(adjustedScore, 35)); // Minimum 35 if 4+ concerning categories
+  } else if (concerningCategories.length >= 2) {
+    adjustedScore = Math.min(100, Math.max(adjustedScore, 25)); // Minimum 25 if 2+ concerning categories
+  }
+  
+  // Debug logging
+  console.log('Risk calculation debug:', {
+    weightedAverage: Math.round(weightedAverage * 100) / 100,
+    highRiskCategories: highRiskCategories.length,
+    mediumRiskCategories: mediumRiskCategories.length,
+    lowRiskCategories: lowRiskCategories.length,
+    concerningCategories: concerningCategories.length,
+    adjustedScore: Math.round(adjustedScore * 100) / 100,
+    finalScore: Math.round(adjustedScore)
+  });
   
   return Math.round(adjustedScore);
 }
 
 function getRiskLevel(score: number): 'LOW' | 'MEDIUM' | 'HIGH' {
-  if (score <= 30) return 'LOW';
-  if (score <= 70) return 'MEDIUM';
+  if (score <= 25) return 'LOW';
+  if (score <= 65) return 'MEDIUM';
   return 'HIGH';
 }
 

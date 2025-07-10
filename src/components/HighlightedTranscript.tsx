@@ -42,13 +42,36 @@ export default function HighlightedTranscript({ content, riskyPhrases = [], risk
   // Always double-decode the transcript before any processing
   const decoded = he.decode(he.decode(content));
 
-  // Robust paragraph splitting: prefer double newlines, fallback to sentence boundaries
+  // Improved paragraph splitting: group lines into logical paragraphs
   let paragraphTexts: string[] = [];
-  if (decoded.includes('\n\n')) {
+  if (decoded.match(/\n\s*\n/)) {
     paragraphTexts = decoded.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+  } else if (decoded.match(/\n/)) {
+    // Group lines into paragraphs: accumulate lines until a line ends with . ! or ? or every 4 lines
+    const lines = decoded.split(/\n/).map(l => l.trim()).filter(Boolean);
+    let currentPara: string[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      currentPara.push(lines[i]);
+      const isEnd = /[.!?]$/.test(lines[i]);
+      if (isEnd || currentPara.length >= 4) {
+        paragraphTexts.push(currentPara.join(' '));
+        currentPara = [];
+      }
+    }
+    if (currentPara.length > 0) {
+      paragraphTexts.push(currentPara.join(' '));
+    }
   } else {
-    // Fallback: split by sentence boundaries (period/question/exclamation followed by space and capital)
+    // Try sentence boundaries
     paragraphTexts = decoded.split(/(?<=[.!?])\s+(?=[A-Z])/).map(p => p.trim()).filter(Boolean);
+    // If still only one big block, chunk by word count
+    if (paragraphTexts.length <= 1 && decoded.length > 0) {
+      const words = decoded.split(/\s+/);
+      const chunkSize = 50;
+      for (let i = 0; i < words.length; i += chunkSize) {
+        paragraphTexts.push(words.slice(i, i + chunkSize).join(' '));
+      }
+    }
   }
 
   // Helper: Get all recognized content types
