@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     });
 
     // Sort by timestamp in memory
-    analyses.sort((a, b) => {
+    analyses.sort((a: any, b: any) => {
       if (!a.timestamp || !b.timestamp) return 0;
       return b.timestamp.getTime() - a.timestamp.getTime();
     });
