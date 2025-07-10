@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
           });
 
         // Sort by timestamp (newest first)
-        scans.sort((a, b) => {
+        scans.sort((a: any, b: any) => {
           const dateA = new Date(a.timestamp);
           const dateB = new Date(b.timestamp);
           return dateB.getTime() - dateA.getTime();
