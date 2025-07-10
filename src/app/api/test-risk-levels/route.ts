@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
       .limit(10)
       .get();
 
-    const analyses = userAnalyses.docs.map(doc => {
+    const analyses = userAnalyses.docs.map((doc: any) => {
       const data = doc.data();
       return {
         videoId: data.video_id,

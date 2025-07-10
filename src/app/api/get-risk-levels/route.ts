@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
         });
 
         // Return risk levels for requested video IDs
-        videoIds.forEach(videoId => {
+        videoIds.forEach((videoId: string) => {
           const latestAnalysis = videoAnalysisMap.get(videoId);
           if (latestAnalysis) {
             riskLevels[videoId] = {

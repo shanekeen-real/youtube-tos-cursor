@@ -32,8 +32,8 @@ export async function GET(req: NextRequest) {
           .get();
 
         const scans = videoScans.docs
-          .filter(doc => !doc.data().isCache) // Exclude cache docs
-          .map(doc => {
+          .filter((doc: any) => !doc.data().isCache) // Exclude cache docs
+          .map((doc: any) => {
             const data = doc.data();
             return {
               scanId: doc.id,

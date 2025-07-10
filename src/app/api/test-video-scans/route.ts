@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
     const videoScans = new Map<string, any[]>();
     
-    userAnalyses.docs.forEach(doc => {
+    userAnalyses.docs.forEach((doc: any) => {
       const data = doc.data();
       const videoId = data.video_id;
       

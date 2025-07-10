@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
           .orderBy('timestamp', 'desc')
           .get();
 
-        const scans = userScans.docs.map(doc => {
+        const scans = userScans.docs.map((doc: any) => {
           const data = doc.data();
           const timestamp = data.timestamp?.toDate?.() || data.timestamp || data.createdAt || new Date();
           

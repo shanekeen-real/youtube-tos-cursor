@@ -173,7 +173,7 @@ export async function GET(req: NextRequest) {
           .where('isCache', '==', false)
           .get();
         const scanMap = new Map();
-        scanSnaps.docs.forEach(doc => {
+        scanSnaps.docs.forEach((doc: any) => {
           const data = doc.data();
           const videoId = data.video_id;
           const timestamp = data.timestamp?.toDate?.() || data.timestamp || data.createdAt || new Date();
