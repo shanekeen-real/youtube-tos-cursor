@@ -1,6 +1,16 @@
 import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
-import { adminDb } from "./firebase-admin"
+
+// Conditional import for server-side only
+let adminDb: any = null;
+if (typeof window === 'undefined') {
+  try {
+    const { adminDb: db } = require("./firebase-admin");
+    adminDb = db;
+  } catch (error) {
+    console.error("Failed to import adminDb:", error);
+  }
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [

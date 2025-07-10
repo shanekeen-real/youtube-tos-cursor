@@ -1,4 +1,13 @@
-import { adminDb } from './firebase-admin';
+// Conditional import for server-side only
+let adminDb: any = null;
+if (typeof window === 'undefined') {
+  try {
+    const { adminDb: db } = require('./firebase-admin');
+    adminDb = db;
+  } catch (error) {
+    console.error("Failed to import adminDb:", error);
+  }
+}
 
 // Simple usage tracker for API calls
 interface UsageStats {
@@ -33,11 +42,19 @@ class UsageTracker {
   }
 
   constructor() {
-    this.loadUsage();
+    // Only load usage if we're on the server side and adminDb is available
+    if (typeof window === 'undefined' && adminDb) {
+      this.loadUsage();
+    }
   }
 
   private async loadUsage() {
     try {
+      if (!adminDb) {
+        console.warn('adminDb not available, skipping usage loading');
+        return;
+      }
+      
       const today = new Date().toISOString().split('T')[0];
       const usageRef = adminDb.collection('usage_tracking').doc(today);
       const doc = await usageRef.get();
@@ -62,6 +79,11 @@ class UsageTracker {
 
   private async saveUsage(date: string, data: UsageData) {
     try {
+      if (!adminDb) {
+        console.warn('adminDb not available, skipping usage saving');
+        return;
+      }
+      
       const usageRef = adminDb.collection('usage_tracking').doc(date);
       await usageRef.set(data);
     } catch (error) {
@@ -72,8 +94,8 @@ class UsageTracker {
   async trackUsage(service: 'gemini' | 'claude' | 'youtube', units: number = 1): Promise<boolean> {
     const today = new Date().toISOString().split('T')[0];
     
-    // Load current usage if not in memory
-    if (!this.usage.has(today)) {
+    // Load current usage if not in memory and adminDb is available
+    if (!this.usage.has(today) && adminDb) {
       await this.loadUsage();
     }
     
@@ -96,8 +118,10 @@ class UsageTracker {
     currentUsage[service] = newTotal;
     this.usage.set(today, currentUsage);
     
-    // Save to database
-    await this.saveUsage(today, currentUsage);
+    // Save to database if adminDb is available
+    if (adminDb) {
+      await this.saveUsage(today, currentUsage);
+    }
     
     console.log(`${service.toUpperCase()} usage tracked: ${newTotal}/${this.DAILY_LIMITS[service]}`);
     return true;
@@ -106,7 +130,7 @@ class UsageTracker {
   async checkQuota(service: 'gemini' | 'claude' | 'youtube'): Promise<{ available: boolean; current: number; limit: number }> {
     const today = new Date().toISOString().split('T')[0];
     
-    if (!this.usage.has(today)) {
+    if (!this.usage.has(today) && adminDb) {
       await this.loadUsage();
     }
     

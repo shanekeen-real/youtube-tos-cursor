@@ -8,12 +8,23 @@ import Badge from '@/components/Badge';
 import Link from 'next/link';
 import { Suspense } from "react";
 import ExportModal from '@/components/ExportModal';
+import HighlightedTranscript from '@/components/HighlightedTranscript';
 import { Download, Lock, AlertTriangle, CheckCircle, Clock, BarChart3, FileText, Target, Globe, Zap, Calendar, Settings, ArrowLeft, ExternalLink, ArrowRight, Shield, Check } from 'lucide-react';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { app } from '@/lib/firebase';
 import { checkUserCanExport } from '@/lib/subscription-utils';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import he from 'he';
+import { getTierLimits } from '@/types/subscription';
+
+interface RiskSpan {
+  text: string;
+  start_index: number;
+  end_index: number;
+  risk_level: 'LOW' | 'MEDIUM' | 'HIGH';
+  policy_category: string;
+  explanation: string;
+}
 
 interface ScanData {
   id?: string;
@@ -48,6 +59,7 @@ interface ScanData {
     score: number;
     confidence: number;
   }[];
+  risky_spans?: RiskSpan[];
   analysis_metadata?: {
     model_used: string;
     analysis_timestamp: string;
@@ -58,6 +70,8 @@ interface ScanData {
   analyzed_content?: string;
   analysis_source?: string;
   allSuggestionsCount?: number;
+  risky_phrases?: string[]; // Added risky_phrases to ScanData interface
+  risky_phrases_by_category?: { [category: string]: string[] }; // Added risky_phrases_by_category to ScanData interface
 }
 
 function toArray(val: any): any[] {
@@ -215,6 +229,34 @@ function ResultsPageContent() {
 
   const severityOrder = { HIGH: 2, MEDIUM: 1, LOW: 0 };
 
+  // Utility function to check for English language
+  const isEnglish = (lang: string | undefined) => {
+    if (!lang) return false;
+    const l = lang.toLowerCase();
+    return l === 'english' || l === 'en' || l.startsWith('en-');
+  };
+
+  const suggestionLimit = React.useMemo(() => {
+    // If userProfile is still loading, return a high limit to show all suggestions temporarily
+    if (!userProfile && status === 'authenticated') {
+      console.log('[ResultsPage] User profile still loading, showing all suggestions temporarily');
+      return 100;
+    }
+    
+    const tier = userProfile?.subscriptionTier || 'free';
+    const limits = getTierLimits(tier);
+    const limit = limits.suggestionsPerScan === 'all' ? 100 : limits.suggestionsPerScan;
+    
+    // Debug logging
+    console.log('[ResultsPage] User profile:', userProfile);
+    console.log('[ResultsPage] Subscription tier:', tier);
+    console.log('[ResultsPage] Tier limits:', limits);
+    console.log('[ResultsPage] Suggestion limit:', limit);
+    console.log('[ResultsPage] Total suggestions available:', toArray(data?.suggestions).length);
+    
+    return limit;
+  }, [userProfile, data?.suggestions, status]);
+
   if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -272,7 +314,7 @@ function ResultsPageContent() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-white">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
@@ -589,51 +631,6 @@ function ResultsPageContent() {
                       </div>
                     </Card>
 
-                    {/* Suggestions Preview */}
-                    <Card>
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-safe/10 rounded-lg flex items-center justify-center">
-                            <Target className="w-4 h-4 text-safe" />
-                          </div>
-                          <h4 className="text-body font-semibold text-gray-800">Suggestions</h4>
-                        </div>
-                        <Badge variant="safe" className="text-xs">
-                          {toArray(data.suggestions).length} Available
-                        </Badge>
-                      </div>
-                      
-                      <div className="space-y-3">
-                        {toArray(data.suggestions).slice(0, 3).map((suggestion, index) => (
-                          <div key={index} className="flex items-start gap-3 p-3 bg-safe/5 border border-safe/20 rounded-lg">
-                            <div className="w-2 h-2 bg-safe rounded-full mt-2 flex-shrink-0"></div>
-                            <div className="text-caption text-gray-700 line-clamp-2">
-                              {suggestion.title || suggestion.description || suggestion}
-                            </div>
-                          </div>
-                        ))}
-                        
-                        {toArray(data.suggestions).length === 0 && (
-                          <div className="text-center py-6 text-gray-500">
-                            <Target className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                            <div className="text-caption">No suggestions available</div>
-                          </div>
-                        )}
-                        
-                        {typeof data.allSuggestionsCount === 'number' && data.allSuggestionsCount > toArray(data.suggestions).length && (
-                          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                            <div className="text-caption text-gray-700 mb-2">
-                              <span className="font-medium">{data.allSuggestionsCount - toArray(data.suggestions).length} more suggestions</span> available with Pro
-                            </div>
-                            <Link href="/pricing" className="inline-flex items-center gap-2 text-yellow-600 hover:text-yellow-700 text-caption font-medium">
-                              <ArrowRight className="w-3 h-3" />
-                              Upgrade to Pro
-                            </Link>
-                          </div>
-                        )}
-                      </div>
-                    </Card>
-
                     {/* Action Card */}
                     <Card className="bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-200">
                       <div className="flex items-center gap-3 mb-4">
@@ -679,21 +676,14 @@ function ResultsPageContent() {
                         </div>
                         
                         <div className="mb-4">
-                          {/* Decode HTML entities and render as paragraphs for readability */}
-                          {(() => {
-                            const decoded = he.decode(he.decode(data.analyzed_content || ''));
-                            const paragraphs = decoded
-                              .split(/\n\s*\n|(?<=[.!?])\s+(?=[A-Z])/g)
-                              .map((p: string) => p.trim())
-                              .filter((p: string) => Boolean(p));
-                            return (
-                              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-caption text-gray-800 max-h-48 overflow-auto">
-                                {paragraphs.map((para: string, idx: number) => (
-                                  <p key={idx} style={{ marginBottom: '1em' }}>{para}</p>
-                                ))}
-                              </div>
-                            );
-                          })()}
+                          {/* Highlighted transcript with risky sections */}
+                          <HighlightedTranscript 
+                            content={data.analyzed_content || ''} 
+                            riskyPhrases={data.risky_phrases || []}
+                            riskyPhrasesByCategory={data.risky_phrases_by_category || {}}
+                            policyCategories={data.policy_categories || {}}
+                            contextAnalysis={data.context_analysis}
+                          />
                         </div>
                         
                         <div className="flex flex-wrap gap-2 mb-4">
@@ -718,6 +708,19 @@ function ResultsPageContent() {
                             <span>Length: <span className="font-medium text-gray-800">{data.context_analysis.content_length} words</span></span>
                           </div>
                         </div>
+                        
+                        {/* Language Warning */}
+                        {data.context_analysis.language_detected && !isEnglish(data.context_analysis.language_detected) && (
+                          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <div className="flex items-center gap-2 text-yellow-800">
+                              <AlertTriangle className="w-4 h-4" />
+                              <span className="text-sm font-medium">Non-English Content Detected</span>
+                            </div>
+                            <p className="text-sm text-yellow-700 mt-1">
+                              This content appears to be in {data.context_analysis.language_detected}. For best results, please ensure the video has English subtitles enabled or try a different video with English content.
+                            </p>
+                          </div>
+                        )}
                       </Card>
                     )}
                     
@@ -937,18 +940,33 @@ function ResultsPageContent() {
                 
                 {toArray(data.suggestions).length > 0 ? (
                   <div className="space-y-4">
-                    {toArray(data.suggestions).map((suggestion, index) => (
-                      <div key={index} className="border border-yellow-200 bg-yellow-50 p-4 rounded-lg">
-                        <h4 className="font-semibold text-yellow-800 mb-2">
-                          Suggestion {index + 1}: {suggestion.title}
-                        </h4>
-                        <p className="text-gray-800 mb-2">{suggestion.text}</p>
-                        <div className="flex items-center gap-4 text-caption text-gray-600">
-                          <span>Priority: {suggestion.priority}</span>
-                          <span>Impact: {suggestion.impact_score}</span>
+                    {toArray(data.suggestions).map((suggestion, index) => {
+                      const isLocked = index >= suggestionLimit;
+                      return (
+                        <div key={index} className="relative">
+                          <div className={isLocked ? 'filter blur-sm opacity-60 pointer-events-none select-none' : ''} aria-hidden={isLocked}>
+                            <div className="border border-yellow-200 bg-yellow-50 p-4 rounded-lg">
+                              <h4 className="font-semibold text-yellow-800 mb-2">
+                                Suggestion {index + 1}: {suggestion.title}
+                              </h4>
+                              <p className="text-gray-800 mb-2">{suggestion.text}</p>
+                              <div className="flex items-center gap-4 text-caption text-gray-600">
+                                <span>Priority: {suggestion.priority}</span>
+                                <span>Impact: {suggestion.impact_score}</span>
+                              </div>
+                            </div>
+                          </div>
+                          {isLocked && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
+                              <Lock className="w-6 h-6 text-gray-500 mb-1" />
+                              <span className="text-xs text-gray-700 px-2 py-1 rounded">
+                                Upgrade to <Link href="/pricing" className="underline text-blue-600">Pro</Link> to unlock more suggestions
+                              </span>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-gray-500">No specific suggestions available for this content.</p>

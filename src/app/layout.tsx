@@ -23,7 +23,7 @@ const geistMono = Geist_Mono({
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#F9F9F9] font-sans`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white font-sans`}>
         <SessionProvider>
           <ClientLayout>{children}</ClientLayout>
         </SessionProvider>

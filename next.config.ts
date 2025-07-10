@@ -5,6 +5,37 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // Exclude Node.js modules from client-side bundle
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        child_process: false,
+        http2: false,
+        crypto: false,
+        stream: false,
+        url: false,
+        zlib: false,
+        path: false,
+        os: false,
+        util: false,
+        assert: false,
+        buffer: false,
+        events: false,
+        querystring: false,
+        punycode: false,
+        string_decoder: false,
+        timers: false,
+        tty: false,
+        vm: false,
+        worker_threads: false,
+      };
+    }
+    return config;
+  },
   turbopack: {
     rules: {
       '*.test.ts': {

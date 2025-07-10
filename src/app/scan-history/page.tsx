@@ -102,7 +102,7 @@ export default function ScanHistoryPage() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Loading scan history...</p>
@@ -113,7 +113,7 @@ export default function ScanHistoryPage() {
 
   if (!session?.user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-4">
           <div className="bg-white rounded-xl border border-gray-200 p-8">
             <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -130,7 +130,7 @@ export default function ScanHistoryPage() {
   
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-4">
           <div className="bg-white rounded-xl border border-gray-200 p-8">
             <XCircle className="w-12 h-12 text-risk mx-auto mb-4" />
@@ -146,7 +146,7 @@ export default function ScanHistoryPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-white">
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">

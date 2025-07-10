@@ -49,13 +49,50 @@ function isValidYouTubeUrl(url: string): boolean {
 async function getTranscriptViaNodeLibrary(videoId: string): Promise<string | null> {
   try {
     console.log(`Trying @danielxceron/youtube-transcript library for video ${videoId}...`);
+    
+    // First try to get English transcript (try multiple English variants)
+    const englishVariants = ['en', 'en-US', 'en-GB', 'en-CA', 'en-AU'];
+    
+    for (const langCode of englishVariants) {
+      try {
+        const transcript = await YoutubeTranscript.fetchTranscript(videoId, { lang: langCode });
+        if (transcript && transcript.length > 0) {
+          const transcriptText = transcript
+            .map((segment: any) => segment.text)
+            .join(' ');
+          if (transcriptText && transcriptText.length > 0) {
+            console.log(`Successfully fetched ${langCode} transcript via @danielxceron/youtube-transcript: ${transcriptText.length} characters`);
+            return transcriptText;
+          }
+        }
+      } catch (englishError: any) {
+        console.log(`${langCode} transcript not available: ${englishError.message}`);
+      }
+    }
+    
+    console.log(`No English transcript variants available, trying default language`);
+    
+    // Fallback to default language if English is not available
     const transcript = await YoutubeTranscript.fetchTranscript(videoId);
     if (transcript && transcript.length > 0) {
       const transcriptText = transcript
         .map((segment: any) => segment.text)
         .join(' ');
       if (transcriptText && transcriptText.length > 0) {
-        console.log(`Successfully fetched transcript via @danielxceron/youtube-transcript: ${transcriptText.length} characters`);
+        // Check if the transcript appears to be in a non-English language
+        const isNonEnglish = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(transcriptText) || // Arabic
+                            /[\u4E00-\u9FFF]/.test(transcriptText) || // Chinese
+                            /[\u3040-\u309F\u30A0-\u30FF]/.test(transcriptText) || // Japanese
+                            /[\uAC00-\uD7AF]/.test(transcriptText) || // Korean
+                            /[\u0E00-\u0E7F]/.test(transcriptText) || // Thai
+                            /[\u0900-\u097F]/.test(transcriptText); // Devanagari (Hindi, etc.)
+        
+        if (isNonEnglish) {
+          console.log(`Warning: Transcript appears to be in a non-English language. Length: ${transcriptText.length} characters`);
+          console.log(`First 200 characters: ${transcriptText.substring(0, 200)}`);
+        } else {
+          console.log(`Successfully fetched transcript via @danielxceron/youtube-transcript: ${transcriptText.length} characters`);
+        }
         return transcriptText;
       }
     }

@@ -3,6 +3,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import { usageTracker } from './usage-tracker';
 import { z } from 'zod';
 import * as Sentry from '@sentry/nextjs';
+import he from 'he';
+import { filterFalsePositives } from './false-positive-filter';
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY as string);
 const anthropic = new Anthropic({
@@ -42,7 +44,7 @@ class GeminiModel implements AIModel {
 }
 
 class ClaudeModel implements AIModel {
-  name = 'claude-3-haiku-20240307';
+  name = 'claude-3-5-sonnet-20241022';
   
   async generateContent(prompt: string): Promise<string> {
     usageTracker.recordCall('claude');
@@ -151,6 +153,9 @@ export interface EnhancedAnalysisResult {
     priority: 'HIGH' | 'MEDIUM' | 'LOW';
     impact_score: number;
   }[];
+  risky_spans?: RiskSpan[];
+  risky_phrases?: string[]; // Added for frontend highlighting
+  risky_phrases_by_category?: { [category: string]: string[] }; // Added for categorized highlighting
   analysis_metadata: {
     model_used: string;
     analysis_timestamp: string;
@@ -231,31 +236,165 @@ export async function performEnhancedAnalysis(text: string): Promise<EnhancedAna
     throw new Error('No text provided for analysis.');
   }
 
+  // Check if the text appears to be in a non-English language
+  const isArabic = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(text);
+  const isChinese = /[\u4E00-\u9FFF]/.test(text);
+  const isJapanese = /[\u3040-\u309F\u30A0-\u30FF]/.test(text);
+  const isKorean = /[\uAC00-\uD7AF]/.test(text);
+  const isThai = /[\u0E00-\u0E7F]/.test(text);
+  const isHindi = /[\u0900-\u097F]/.test(text);
+  
+  const isNonEnglish = isArabic || isChinese || isJapanese || isKorean || isThai || isHindi;
+  
+  let detectedLanguage = 'English';
+  if (isArabic) detectedLanguage = 'Arabic';
+  else if (isChinese) detectedLanguage = 'Chinese';
+  else if (isJapanese) detectedLanguage = 'Japanese';
+  else if (isKorean) detectedLanguage = 'Korean';
+  else if (isThai) detectedLanguage = 'Thai';
+  else if (isHindi) detectedLanguage = 'Hindi';
+  
+  if (isNonEnglish) {
+    console.log(`Warning: Content appears to be in ${detectedLanguage}. This may affect analysis quality.`);
+    console.log(`First 200 characters: ${text.substring(0, 200)}`);
+  }
+
   const model = getModelWithFallback();
+  const CHUNK_SIZE = 3500;
+  const CHUNK_OVERLAP = 250;
+  let allRiskySpans: any[] = [];
+  let riskAssessment: any;
+
+  // Double-decode transcript before chunking and sending to AI
+  const decodedText = he.decode(he.decode(text));
 
   try {
     // Stage 1: Content Classification
     await rateLimiter.waitIfNeeded();
-    const contextAnalysis = await performContextAnalysis(text, model);
+    const contextAnalysis = await performContextAnalysis(decodedText, model);
     
     // Stage 2: Policy Category Analysis (with batching)
-    const policyAnalysis = await performPolicyCategoryAnalysisBatched(text, model, contextAnalysis);
-    
-    // Stage 3: Risk Assessment
+    const policyAnalysis = await performPolicyCategoryAnalysisBatched(decodedText, model, contextAnalysis);
+
+    // Stage 3: Risk Assessment (with chunking for long transcripts)
     await rateLimiter.waitIfNeeded();
-    const riskAssessment = await performRiskAssessment(text, model, policyAnalysis, contextAnalysis);
+    let allRiskyPhrases: string[] = [];
+    console.log('Policy analysis results:', JSON.stringify(policyAnalysis, null, 2));
+    if (decodedText.length > CHUNK_SIZE) {
+      // Split decoded transcript into overlapping chunks
+      const chunks: { text: string; start: number }[] = [];
+      let pos = 0;
+      while (pos < decodedText.length) {
+        const chunkText = decodedText.slice(pos, pos + CHUNK_SIZE);
+        chunks.push({ text: chunkText, start: pos });
+        if (pos + CHUNK_SIZE >= decodedText.length) break;
+        pos += CHUNK_SIZE - CHUNK_OVERLAP;
+      }
+      // Run risk assessment on each chunk and merge results
+      for (const chunk of chunks) {
+        const chunkAssessment = await performRiskAssessment(chunk.text, model, policyAnalysis, contextAnalysis, true);
+        if (chunkAssessment && chunkAssessment.risky_phrases_by_category) {
+          const phraseArrays: string[][] = Object.values(chunkAssessment.risky_phrases_by_category);
+          for (const phrases of phraseArrays) {
+            allRiskyPhrases.push(...phrases);
+          }
+        }
+        if (!riskAssessment) riskAssessment = chunkAssessment;
+      }
+      // Merge/expand overlapping or adjacent risky spans
+      allRiskySpans = mergeOverlappingSpans(allRiskySpans, decodedText);
+      if (riskAssessment) riskAssessment.risky_spans = allRiskySpans;
+    } else {
+      riskAssessment = await performRiskAssessment(decodedText, model, policyAnalysis, contextAnalysis, true);
+      console.log('Risk assessment results:', JSON.stringify(riskAssessment, null, 2));
+      if (riskAssessment && riskAssessment.risky_phrases_by_category) {
+        const phraseArrays: string[][] = Object.values(riskAssessment.risky_phrases_by_category);
+        for (const phrases of phraseArrays) {
+          allRiskyPhrases.push(...phrases);
+        }
+      }
+      allRiskySpans = riskAssessment.risky_spans || [];
+    }
+    // Deduplicate risky phrases
+    allRiskyPhrases = Array.from(new Set(allRiskyPhrases.filter(Boolean)));
     
+    // Filter out false positives - common words that shouldn't be flagged
+    const falsePositiveWords = [
+      'you', 'worried', 'rival', 'team', 'player', 'goal', 'score', 'match', 'game', 'play', 
+      'win', 'lose', 'good', 'bad', 'big', 'small', 'new', 'old', 'first', 'last', 'best', 'worst',
+      'money', 'dollar', 'price', 'cost', 'value', 'worth', 'expensive', 'cheap', 'million', 'billion',
+      'year', 'month', 'week', 'day', 'time', 'people', 'person', 'thing', 'way', 'day', 'work',
+      'make', 'take', 'get', 'go', 'come', 'see', 'know', 'think', 'feel', 'want', 'need', 'like',
+      'look', 'say', 'tell', 'ask', 'give', 'find', 'use', 'try', 'call', 'help', 'start', 'stop',
+      'keep', 'put', 'bring', 'turn', 'move', 'change', 'show', 'hear', 'play', 'run', 'walk',
+      'sit', 'stand', 'wait', 'watch', 'read', 'write', 'speak', 'talk', 'listen', 'learn', 'teach',
+      'buy', 'sell', 'pay', 'earn', 'spend', 'save', 'lose', 'win', 'beat', 'hit', 'catch', 'throw',
+      'kick', 'run', 'jump', 'swim', 'dance', 'sing', 'laugh', 'cry', 'smile', 'frown', 'love', 'hate',
+      'like', 'dislike', 'happy', 'sad', 'angry', 'excited', 'bored', 'tired', 'hungry', 'thirsty',
+      'hot', 'cold', 'warm', 'cool', 'fast', 'slow', 'quick', 'easy', 'hard', 'simple', 'complex',
+      'right', 'wrong', 'true', 'false', 'yes', 'no', 'maybe', 'sure', 'okay', 'fine', 'great', 'awesome',
+      // Add common harmless words that are being flagged
+      'kid', 'kids', 'phone', 'device', 'child', 'children', 'boy', 'girl', 'son', 'daughter',
+      'family', 'parent', 'mom', 'dad', 'mother', 'father', 'sister', 'brother', 'baby', 'toddler',
+      'teen', 'teenager', 'youth', 'young', 'old', 'elderly', 'senior', 'adult', 'grown', 'grownup',
+      'mobile', 'cell', 'smartphone', 'iphone', 'android', 'tablet', 'computer', 'laptop', 'desktop',
+      'screen', 'display', 'monitor', 'keyboard', 'mouse', 'touch', 'tap', 'swipe', 'click', 'type',
+      'text', 'message', 'call', 'ring', 'dial', 'number', 'contact', 'address', 'email', 'mail',
+      'home', 'house', 'room', 'bedroom', 'kitchen', 'bathroom', 'living', 'dining', 'office', 'work',
+      'school', 'class', 'teacher', 'student', 'classroom', 'homework', 'study', 'learn', 'education',
+      'friend', 'buddy', 'pal', 'mate', 'colleague', 'neighbor', 'cousin', 'uncle', 'aunt', 'grandma',
+      'grandpa', 'grandmother', 'grandfather', 'nephew', 'niece', 'relative', 'relation', 'family'
+    ];
+    
+    // Filter out false positives from all risky phrases
+    allRiskyPhrases = allRiskyPhrases.filter((phrase: string) => 
+      !falsePositiveWords.some(falsePositive => 
+        phrase.toLowerCase().includes(falsePositive.toLowerCase())
+      )
+    );
+    
+    // Also filter out false positives from risky_phrases_by_category
+    if (riskAssessment && riskAssessment.risky_phrases_by_category) {
+      for (const category in riskAssessment.risky_phrases_by_category) {
+        riskAssessment.risky_phrases_by_category[category] = 
+          riskAssessment.risky_phrases_by_category[category].filter((phrase: string) => 
+            !falsePositiveWords.some(falsePositive => 
+              phrase.toLowerCase().includes(falsePositive.toLowerCase())
+            )
+          );
+      }
+    }
+
     // Stage 4: Confidence Analysis
     await rateLimiter.waitIfNeeded();
-    const confidenceAnalysis = await performConfidenceAnalysis(text, model, policyAnalysis, contextAnalysis);
+    const confidenceAnalysis = await performConfidenceAnalysis(decodedText, model, policyAnalysis, contextAnalysis);
     
     // Stage 5: Generate Actionable Suggestions
     await rateLimiter.waitIfNeeded();
-    const suggestions = await generateActionableSuggestions(text, model, policyAnalysis, riskAssessment);
+    const suggestions = await generateActionableSuggestions(decodedText, model, policyAnalysis, riskAssessment);
     
     // Calculate overall risk score and level
     const overallRiskScore = calculateOverallRiskScore(policyAnalysis, riskAssessment);
     const riskLevel = getRiskLevel(overallRiskScore);
+    console.log('Calculated overall risk score:', overallRiskScore, 'Risk level:', riskLevel);
+    
+    // Clean and validate risky phrases to remove false positives
+    console.log('Before cleaning - allRiskyPhrases:', allRiskyPhrases);
+    const originalCount = allRiskyPhrases.length;
+    allRiskyPhrases = cleanRiskyPhrases(allRiskyPhrases);
+    const cleanedCount = allRiskyPhrases.length;
+    console.log(`After cleaning - allRiskyPhrases: ${cleanedCount}/${originalCount} phrases remaining:`, allRiskyPhrases);
+    
+    if (riskAssessment && riskAssessment.risky_phrases_by_category) {
+      console.log('Before cleaning - risky_phrases_by_category:', JSON.stringify(riskAssessment.risky_phrases_by_category, null, 2));
+      for (const category in riskAssessment.risky_phrases_by_category) {
+        const originalCategoryCount = riskAssessment.risky_phrases_by_category[category].length;
+        riskAssessment.risky_phrases_by_category[category] = cleanRiskyPhrases(riskAssessment.risky_phrases_by_category[category]);
+        const cleanedCategoryCount = riskAssessment.risky_phrases_by_category[category].length;
+        console.log(`Category ${category}: ${cleanedCategoryCount}/${originalCategoryCount} phrases remaining`);
+      }
+      console.log('After cleaning - risky_phrases_by_category:', JSON.stringify(riskAssessment.risky_phrases_by_category, null, 2));
+    }
     
     // Generate highlights from policy analysis
     const highlights = generateHighlights(policyAnalysis);
@@ -272,19 +411,22 @@ export async function performEnhancedAnalysis(text: string): Promise<EnhancedAna
       flagged_section: riskAssessment.flagged_section,
       policy_categories: policyAnalysis,
       context_analysis: {
-        content_type: 'General',
-        target_audience: 'General Audience',
-        monetization_impact: 50,
-        content_length: text.split(' ').length,
-        language_detected: 'English'
+        content_type: contextAnalysis.content_type,
+        target_audience: contextAnalysis.target_audience,
+        monetization_impact: contextAnalysis.monetization_impact,
+        content_length: contextAnalysis.content_length,
+        language_detected: contextAnalysis.language_detected
       },
-      highlights: highlights,
-      suggestions: suggestions,
+      highlights,
+      suggestions,
+      risky_spans: allRiskySpans,
+      risky_phrases: allRiskyPhrases,
+      risky_phrases_by_category: riskAssessment.risky_phrases_by_category || {},
       analysis_metadata: {
         model_used: model.name,
         analysis_timestamp: new Date().toISOString(),
         processing_time_ms: processingTime,
-        content_length: text.length,
+        content_length: decodedText.length,
         analysis_mode: 'enhanced'
       }
     };
@@ -316,10 +458,13 @@ export async function performEnhancedAnalysis(text: string): Promise<EnhancedAna
           target_audience: 'General Audience',
           monetization_impact: 50,
           content_length: text.split(' ').length,
-          language_detected: 'English'
+          language_detected: detectedLanguage
         },
         highlights: basicResult.highlights,
         suggestions: basicResult.suggestions,
+        risky_spans: [], // No risky spans in basic mode
+        risky_phrases: [], // No risky phrases in basic mode
+        risky_phrases_by_category: {}, // No categorized phrases in basic mode
         analysis_metadata: {
           model_used: model.name,
           analysis_timestamp: new Date().toISOString(),
@@ -370,6 +515,9 @@ export async function performEnhancedAnalysis(text: string): Promise<EnhancedAna
           priority: 'HIGH',
           impact_score: 0
         }],
+        risky_spans: [], // No risky spans in emergency mode
+        risky_phrases: [], // No risky phrases in emergency mode
+        risky_phrases_by_category: {}, // No categorized phrases in emergency mode
         analysis_metadata: {
           model_used: 'emergency-fallback',
           analysis_timestamp: new Date().toISOString(),
@@ -467,11 +615,22 @@ const ContextAnalysisSchema = z.object({
   language_detected: z.string()
 });
 
+const RiskSpanSchema = z.object({
+  text: z.string(),
+  start_index: z.number().min(0).optional(),
+  end_index: z.number().min(0).optional(),
+  risk_level: z.enum(['LOW', 'MEDIUM', 'HIGH']),
+  policy_category: z.string(),
+  explanation: z.string()
+});
+
 const RiskAssessmentSchema = z.object({
   overall_risk_score: z.number().min(0).max(100),
   flagged_section: z.string(),
   risk_factors: z.array(z.string()),
-  severity_level: z.enum(['LOW', 'MEDIUM', 'HIGH'])
+  severity_level: z.enum(['LOW', 'MEDIUM', 'HIGH']),
+  risky_spans: z.array(RiskSpanSchema).optional(),
+  risky_phrases_by_category: z.record(z.string(), z.array(z.string())).optional()
 });
 
 const ConfidenceAnalysisSchema = z.object({
@@ -531,15 +690,63 @@ function parseJSONSafely(jsonString: string): any {
   // Strategy 2: Simple sanitization for common issues
   try {
     let sanitized = jsonString;
-    
     // Only fix trailing commas before closing braces/brackets
-    sanitized = sanitized.replace(/,(\\s*[}\]])/g, '$1');
+    sanitized = sanitized.replace(/,(\s*[}\]])/g, '$1');
     // Fix non-standard single quote escapes (\')
     sanitized = sanitized.replace(/\\'/g, "'");
-    // Try parsing the sanitized JSON
     return JSON.parse(sanitized);
   } catch (error) {
-    console.log('Simple sanitization failed, trying regex extraction...');
+    console.log('Simple sanitization failed, trying robust quote fixing...');
+  }
+
+  // Strategy 2.5: Robustly fix unescaped quotes in ALL string values
+  try {
+    let sanitized = jsonString;
+    
+    // Fix unescaped quotes in ALL string values, not just explanation fields
+    // This regex finds any string value and escapes unescaped quotes inside it
+    sanitized = sanitized.replace(
+      /("(?:explanation|violations|severity|content_type|target_audience|language_detected)":\s*")((?:[^"\\]|\\.)*)"/g,
+      (match, prefix, content) => {
+        // Escape only unescaped quotes in the content
+        const fixed = content.replace(/(?<!\\)"/g, '\\"');
+        return prefix + fixed + '"';
+      }
+    );
+    
+    // Also fix trailing commas before closing braces/brackets
+    sanitized = sanitized.replace(/,(\s*[}\]])/g, '$1');
+    // Fix non-standard single quote escapes (\')
+    sanitized = sanitized.replace(/\\'/g, "'");
+    
+    return JSON.parse(sanitized);
+  } catch (error) {
+    console.log('Robust quote fixing failed, trying comprehensive quote fixing...');
+  }
+
+  // Strategy 2.6: Smart quote fixing that only targets string values, not keys
+  try {
+    let sanitized = jsonString;
+    
+    // Smart approach: only fix quotes in string values, not in JSON keys
+    // This regex specifically targets string values after colons
+    sanitized = sanitized.replace(
+      /:\s*"([^"]*(?:"[^"]*)*)"/g,
+      (match, content) => {
+        // Only escape quotes that are not already escaped
+        const fixed = content.replace(/(?<!\\)"/g, '\\"');
+        return `: "${fixed}"`;
+      }
+    );
+    
+    // Also fix trailing commas before closing braces/brackets
+    sanitized = sanitized.replace(/,(\s*[}\]])/g, '$1');
+    // Fix non-standard single quote escapes (\')
+    sanitized = sanitized.replace(/\\'/g, "'");
+    
+    return JSON.parse(sanitized);
+  } catch (error) {
+    console.log('Smart quote fixing failed, trying regex extraction...');
   }
 
   // Strategy 3: Extract JSON using regex (only if no valid JSON found)
@@ -555,22 +762,18 @@ function parseJSONSafely(jsonString: string): any {
   // Strategy 4: Manual parsing as last resort
   try {
     const result: any = {};
-    
     // Extract categories using regex
     const categoryMatches = jsonString.match(/"([^"]+)"\s*:\s*\{[^}]+\}/g);
     if (categoryMatches) {
       result.categories = {};
-      
       for (const match of categoryMatches) {
         const keyMatch = match.match(/"([^"]+)"/);
         if (keyMatch) {
           const key = keyMatch[1];
-          
           // Extract basic fields using regex
           const riskScoreMatch = match.match(/"risk_score":\s*(\d+)/);
           const confidenceMatch = match.match(/"confidence":\s*(\d+)/);
           const severityMatch = match.match(/"severity":\s*"([^"]+)"/);
-          
           result.categories[key] = {
             risk_score: riskScoreMatch ? parseInt(riskScoreMatch[1]) : 0,
             confidence: confidenceMatch ? parseInt(confidenceMatch[1]) : 0,
@@ -580,7 +783,6 @@ function parseJSONSafely(jsonString: string): any {
           };
         }
       }
-      
       return result;
     }
   } catch (error) {
@@ -591,7 +793,7 @@ function parseJSONSafely(jsonString: string): any {
   Sentry.captureException(new Error('All JSON parsing strategies failed'), {
     extra: {
       jsonString: jsonString.substring(0, 500), // Truncate to avoid huge payloads
-      strategiesAttempted: ['direct', 'sanitized', 'regex', 'manual']
+      strategiesAttempted: ['direct', 'sanitized', 'robust-quote-fixing', 'regex', 'manual']
     }
   });
 
@@ -677,6 +879,15 @@ function getAllPolicyCategoryKeysAndNames() {
 // Stage 1: Content Classification
 async function performContextAnalysis(text: string, model: AIModel): Promise<ContextAnalysis> {
   const prompt = `
+    IMPORTANT: Respond ONLY with valid JSON. Do not include any commentary, explanation, or text outside the JSON object.
+
+    CRITICAL JSON FORMATTING RULES:
+    - All string values MUST escape any double quotes inside them as \\".
+    - Do NOT use unescaped double quotes inside any string value.
+    - Do NOT include comments or extra text—output ONLY valid JSON.
+    - Example: "content_type": "This is a string with an escaped quote: \\\"example\\\"."
+    - If a string contains a newline, escape it as \\n.
+
     Analyze the following content to determine its context and characteristics:
 
     Content: "${text}"
@@ -690,11 +901,30 @@ async function performContextAnalysis(text: string, model: AIModel): Promise<Con
       "language_detected": "string (primary language)"
     }
 
+    CRITICAL CONTENT TYPE DETECTION GUIDELINES:
+    - If content mentions sports, football, soccer, basketball, baseball, tennis, players, teams, matches, games, goals, scores, championships, leagues → classify as "Sports"
+    - If content mentions video games, gaming, gameplay, exploits, vulnerabilities, cheats, hacks, or gaming-related terms → classify as "Gaming"
+    - If content discusses programming, coding, software development, technical tutorials → classify as "Technology" or "Tutorial"
+    - If content is educational or instructional → classify as "Educational" or "Tutorial"
+    - If content is entertainment-focused → classify as "Entertainment"
+    - If content is news or current events → classify as "News"
+    - If content is music or audio-focused → classify as "Music"
+    - If content is comedy or humor-focused → classify as "Comedy"
+    - If content reviews products/services → classify as "Review"
+    - If content is personal vlog-style → classify as "Vlog"
+    - If content is documentary-style → classify as "Documentary"
+    - If content is fashion/beauty → classify as "Fashion"
+    - If content is cooking/food → classify as "Cooking"
+    - If content is travel-related → classify as "Travel"
+    - Only use "General" if content doesn't clearly fit any specific category
+
     Consider:
     - Content genre and style
     - Target demographic
     - Typical monetization success for this content type
     - Language and cultural context
+
+    AGAIN: Respond ONLY with valid JSON. Do not include any commentary, explanation, or text outside the JSON object.
   `;
 
   const result = await callAIWithRetry((model: AIModel) => model.generateContent(prompt));
@@ -761,7 +991,23 @@ async function performPolicyCategoryAnalysisBatched(text: string, model: AIModel
   const prompt = `
     IMPORTANT: Respond ONLY with valid JSON. Do not include any commentary, explanation, or text outside the JSON object. The response MUST be valid JSON parsable by JSON.parse().
 
+    CRITICAL JSON FORMATTING RULES:
+    - All string values MUST escape any double quotes inside them as \\".
+    - Do NOT use unescaped double quotes inside any string value.
+    - Do NOT include comments or extra text—output ONLY valid JSON.
+    - Example: "explanation": "This is a string with an escaped quote: \\\"example\\\"."
+    - If a string contains a newline, escape it as \\n.
+
     Analyze the following content for YouTube policy compliance. For each of the following category KEYS, provide a risk score, confidence, violations, severity, and explanation. You must return a result for every key, even if the risk is 0.
+
+    CRITICAL ANALYSIS GUIDELINES:
+    - Be conservative - only flag content that is genuinely problematic
+    - Common words like "you", "worried", "rival", "team", "player", "goal", "score", "match", "game", "play", "win", "lose" are NOT policy violations
+    - Family/child words like "kid", "kids", "child", "children", "boy", "girl", "son", "daughter", "family", "parent", "mom", "dad", "baby", "toddler", "teen", "teenager" are NOT policy violations - these are normal family content
+    - Technology words like "phone", "device", "mobile", "cell", "smartphone", "tablet", "computer", "laptop", "screen", "display", "keyboard", "mouse" are NOT policy violations - these are normal tech content
+    - Sports terminology and general discussion are NOT harmful content
+    - Only flag actual profanity, hate speech, threats, graphic violence, or sexual content
+    - If in doubt, err on the side of NOT flagging content
 
     Categories (use these KEYS as JSON keys):
     ${allCategoryKeys.map(key => `- ${key}`).join('\n  ')}
@@ -984,23 +1230,86 @@ async function performPolicyCategoryAnalysisBatched(text: string, model: AIModel
 }
 
 // Stage 3: Risk Assessment
-async function performRiskAssessment(text: string, model: AIModel, policyAnalysis: any, context: ContextAnalysis): Promise<any> {
+async function performRiskAssessment(text: string, model: AIModel, policyAnalysis: any, context: ContextAnalysis, isChunked = false): Promise<any> {
+  const allCategoriesList = getAllPolicyCategoryKeysAndNames();
+  const allCategoryKeys = allCategoriesList.map(cat => cat.key);
+  
   const prompt = `
-    Assess the overall risk level and identify the most concerning section of the following content:
+    IMPORTANT: Respond ONLY with valid JSON. Do not include any commentary, explanation, or text outside the JSON object.
+
+    CRITICAL JSON FORMATTING RULES:
+    - All string values MUST escape any double quotes inside them as \\".
+    - Do NOT use unescaped double quotes inside any string value.
+    - Do NOT include comments or extra text—output ONLY valid JSON.
+    - Example: "flagged_section": "This is a string with an escaped quote: \\\"example\\\"."
+    - If a string contains a newline, escape it as \\n.
+
+    Assess the overall risk level and identify ALL and ONLY the sections of the following content that directly contain policy violations or concerns (do NOT include generic intros, outros, or non-risky text):
 
     Content: "${text}"
     Policy Analysis: ${JSON.stringify(policyAnalysis, null, 2)}
     Context: ${JSON.stringify(context, null, 2)}
 
+    CRITICAL CONTEXT-AWARE RISSESSMENT:
+    - For SPORTS content: Terms like "rival", "worried", "team", "player", "score", "goal", "match", "competition", "win", "lose" are completely normal and acceptable. Only flag if there's actual hate speech, threats, or extreme profanity.
+    - For GAMING content: Terms like "exploits", "vulnerabilities", "hacking", "cheats", "kills", "weapons", "violence" are typically acceptable in gaming context unless they are:
+      * Explicitly teaching real-world harmful activities
+      * Promoting actual illegal activities
+      * Containing graphic violence descriptions
+      * Using excessive profanity
+    - For TECHNOLOGY content: Technical terms like "exploits", "vulnerabilities", "hacking" are acceptable when discussing security research or educational content
+    - For EDUCATIONAL content: Academic discussions of sensitive topics are generally acceptable
+    - For ENTERTAINMENT content: Mild profanity and controversial topics may be acceptable depending on target audience
+
+    CRITICAL FALSE POSITIVE PREVENTION:
+    - DO NOT flag common words like "you", "worried", "rival", "team", "player", "goal", "score", "match", "game", "play", "win", "lose", "good", "bad", "big", "small", "new", "old", "first", "last", "best", "worst"
+    - DO NOT flag family/child words like "kid", "kids", "child", "children", "boy", "girl", "son", "daughter", "family", "parent", "mom", "dad", "baby", "toddler", "teen", "teenager" - these are normal family content
+    - DO NOT flag technology words like "phone", "device", "mobile", "cell", "smartphone", "tablet", "computer", "laptop", "screen", "display", "keyboard", "mouse" - these are normal tech content
+    - DO NOT flag sports terminology as harmful content
+    - DO NOT flag general discussion words as policy violations
+    - Only flag words that are ACTUALLY problematic in context (e.g., actual profanity, hate speech, threats, graphic violence descriptions)
+    - If a word could be interpreted multiple ways, err on the side of NOT flagging it
+
+    IMPORTANT: Calculate the overall risk score based on the policy analysis and context. Use a weighted average approach considering all categories. Only assign HIGH risk scores (70-100) for content with serious policy violations. MEDIUM risk (40-69) for moderate concerns. LOW risk (0-39) for minor issues or clean content. Be conservative - don't inflate scores unnecessarily.
+
     Return the overall risk score as an integer between 0 and 100. Do NOT use a 0-5 or 0-10 scale. The value must be on a 0-100 scale.
+
+    For each policy category, return a list of risky words or phrases that are present in the content and are the reason for the risk in that category. These should be ACTUAL WORDS from the transcript text that are genuinely problematic (e.g., actual profanity like 'fuck', 'shit', actual hate speech, actual threats, etc.), not generic category descriptions or common words. Look for specific words in the transcript that are genuinely risky. If a risky word appears multiple times, include it only once in the list for that category.
+
+    Use these EXACT category keys in the risky_phrases_by_category object:
+    ${allCategoryKeys.map(key => `- ${key}`).join('\n    ')}
 
     Provide risk assessment in JSON format:
     {
       "overall_risk_score": "number (0-100)",
       "flagged_section": "string (most concerning part of the content)",
       "risk_factors": ["list of main risk factors"],
-      "severity_level": "LOW|MEDIUM|HIGH"
+      "severity_level": "LOW|MEDIUM|HIGH",
+      "risky_phrases_by_category": {
+        "CATEGORY_KEY": ["risky word or phrase", ...],
+        ...
+      }
     }
+
+    Guidelines:
+    - For each policy category, include ONLY genuinely risky words/phrases that are the reason for the risk.
+    - Look for ACTUAL WORDS from the transcript text, not generic descriptions.
+    - Examples of genuinely risky words: actual profanity like "fuck", "shit", "damn", "ass", "bitch", "crap", "hell", "god damn"
+    - Examples of genuinely risky content: actual hate speech, actual threats, actual graphic violence descriptions, actual sexual content
+    - DO NOT flag: "you", "worried", "rival", "team", "player", "goal", "score", "match", "game", "play", "win", "lose", "good", "bad", "big", "small", "new", "old", "first", "last", "best", "worst", "money", "dollar", "price", "cost", "value", "worth", "expensive", "cheap"
+    - DO NOT flag family/child words: "kid", "kids", "child", "children", "boy", "girl", "son", "daughter", "family", "parent", "mom", "dad", "baby", "toddler", "teen", "teenager" - these are normal family content
+    - DO NOT flag technology words: "phone", "device", "mobile", "cell", "smartphone", "tablet", "computer", "laptop", "screen", "display", "keyboard", "mouse" - these are normal tech content
+    - DO NOT flag common sports terminology as harmful content
+    - DO NOT flag general discussion words as policy violations
+    - If a word could be interpreted multiple ways, err on the side of NOT flagging it
+    - Do NOT include generic category descriptions like "property damage" or "dangerous acts".
+    - If a risky word/phrase appears in multiple categories, include it in each relevant category.
+    - If no risky words/phrases found for a category, return an empty array for that category.
+    - If no risky sections found, return empty arrays.
+    - The overall risk score should reflect the highest risk categories from the policy analysis.
+    - Use the EXACT category keys listed above in the risky_phrases_by_category object.
+
+    AGAIN: Respond ONLY with valid JSON. Do not include any commentary, explanation, or text outside the JSON object.
   `;
 
   let retryCount = 0;
@@ -1050,9 +1359,40 @@ async function performRiskAssessment(text: string, model: AIModel, policyAnalysi
   }
 }
 
+// Helper to merge/expand overlapping or adjacent risky spans
+function mergeOverlappingSpans(spans: any[], decodedText: string): any[] {
+  if (!spans.length) return [];
+  // Sort by start_index
+  spans = spans.slice().sort((a, b) => a.start_index - b.start_index);
+  const merged: any[] = [];
+  let prev = spans[0];
+  for (let i = 1; i < spans.length; i++) {
+    const curr = spans[i];
+    // If overlapping or adjacent, merge
+    if (curr.start_index <= prev.end_index + 1 && curr.risk_level === prev.risk_level && curr.policy_category === prev.policy_category) {
+      prev.end_index = Math.max(prev.end_index, curr.end_index);
+      prev.text += decodedText.slice(prev.end_index, curr.end_index);
+    } else {
+      merged.push(prev);
+      prev = curr;
+    }
+  }
+  merged.push(prev);
+  return merged;
+}
+
 // Stage 4: Confidence Analysis
 async function performConfidenceAnalysis(text: string, model: AIModel, policyAnalysis: any, context: ContextAnalysis): Promise<any> {
   const prompt = `
+    IMPORTANT: Respond ONLY with valid JSON. Do not include any commentary, explanation, or text outside the JSON object.
+
+    CRITICAL JSON FORMATTING RULES:
+    - All string values MUST escape any double quotes inside them as \\".
+    - Do NOT use unescaped double quotes inside any string value.
+    - Do NOT include comments or extra text—output ONLY valid JSON.
+    - Example: "confidence_factors": ["This is a string with an escaped quote: \\\"example\\\"."]
+    - If a string contains a newline, escape it as \\n.
+
     Assess the confidence level of the following analysis:
 
     Content Length: ${text.length} characters
@@ -1073,6 +1413,8 @@ async function performConfidenceAnalysis(text: string, model: AIModel, policyAna
       "context_availability": "number (0-100)",
       "confidence_factors": ["list of factors affecting confidence"]
     }
+
+    AGAIN: Respond ONLY with valid JSON. Do not include any commentary, explanation, or text outside the JSON object.
   `;
 
   let retryCount = 0;
@@ -1124,26 +1466,10 @@ async function performConfidenceAnalysis(text: string, model: AIModel, policyAna
 // Stage 5: Generate Actionable Suggestions
 async function generateActionableSuggestions(text: string, model: AIModel, policyAnalysis: any, riskAssessment: any): Promise<any[]> {
   const prompt = `
-    Generate specific, actionable suggestions to improve the following content based on the analysis:
+    IMPORTANT: Respond ONLY with valid JSON. Do not include any commentary, explanation, or text outside the JSON object.
 
-    Content: "${text}"
-    Policy Analysis: ${JSON.stringify(policyAnalysis, null, 2)}
-    Risk Assessment: ${JSON.stringify(riskAssessment, null, 2)}
-
-    Provide suggestions in JSON format:
-    {
-      "suggestions": [
-        {
-          "title": "string (suggestion title)",
-          "text": "string (detailed explanation)",
-          "priority": "HIGH|MEDIUM|LOW",
-          "impact_score": "number (0-100, how much this will improve the content)"
-        }
-      ]
-    }
-
-    Focus on practical, implementable changes that will reduce policy violations and improve monetization potential.
-  `;
+    CRITICAL JSON FORMATTING RULES:
+    - All string values MUST escape any double quotes inside them as \\\".\n    - Do NOT use unescaped double quotes inside any string value.\n    - Do NOT include comments or extra text—output ONLY valid JSON.\n    - Example: \"text\": \"This is a string with an escaped quote: \\\"example\\\".\"\n    - If a string contains a newline, escape it as \\n.\n\n    Generate specific, actionable suggestions to improve the following content based on the analysis:\n\n    Content: "${text}"\n    Policy Analysis: ${JSON.stringify(policyAnalysis, null, 2)}\n    Risk Assessment: ${JSON.stringify(riskAssessment, null, 2)}\n\n    All suggestions should be phrased as advice or recommendations (e.g., 'It is advised to...', 'Consider...', 'We recommend...'), not as direct commands. Avoid imperative language.\n\n    You MUST provide at least 5 actionable suggestions for every scan, regardless of risk level. If the content is very safe, include tips for growth, engagement, monetization, or best practices.\n\n    Provide suggestions in JSON format:\n    {\n      "suggestions": [\n        {\n          "title": "string (suggestion title)",\n          "text": "string (detailed explanation)",\n          "priority": "HIGH|MEDIUM|LOW",\n          "impact_score": "number (0-100, how much this will improve the content)"\n        }\n      ]\n    }\n\n    Focus on practical, implementable changes that will reduce policy violations and improve monetization potential.\n\n    AGAIN: Respond ONLY with valid JSON. Do not include any commentary, explanation, or text outside the JSON object.\n  `;
 
   let retryCount = 0;
   const maxRetries = 2;
@@ -1157,12 +1483,38 @@ async function generateActionableSuggestions(text: string, model: AIModel, polic
       try {
         const parsed = JSON.parse(jsonMatch[0]);
         const validated = SuggestionsSchema.parse(parsed);
-        return validated.suggestions;
+        // Ensure at least 5 suggestions
+        let suggestions = validated.suggestions;
+        if (suggestions.length < 5) {
+          const padCount = 5 - suggestions.length;
+          for (let i = 0; i < padCount; i++) {
+            suggestions.push({
+              title: 'General Best Practice',
+              text: 'Consider reviewing your content for further improvements in engagement, compliance, or monetization.',
+              priority: 'LOW',
+              impact_score: 40
+            });
+          }
+        }
+        return suggestions;
       } catch (parseError) {
         console.log('Regular JSON parsing failed, trying enhanced parsing...');
         const parsed = parseJSONSafely(jsonMatch[0]);
         const validated = SuggestionsSchema.parse(parsed);
-        return validated.suggestions;
+        // Ensure at least 5 suggestions
+        let suggestions = validated.suggestions;
+        if (suggestions.length < 5) {
+          const padCount = 5 - suggestions.length;
+          for (let i = 0; i < padCount; i++) {
+            suggestions.push({
+              title: 'General Best Practice',
+              text: 'Consider reviewing your content for further improvements in engagement, compliance, or monetization.',
+              priority: 'LOW',
+              impact_score: 40
+            });
+          }
+        }
+        return suggestions;
       }
     } catch (err) {
       retryCount++;
@@ -1178,40 +1530,118 @@ async function generateActionableSuggestions(text: string, model: AIModel, polic
       });
       
       if (retryCount > maxRetries) {
-        return [{
+        // Pad to 5 suggestions if needed
+        const suggestions = [{
           title: 'Review Content',
           text: 'Please review your content for potential policy violations.',
           priority: 'MEDIUM',
           impact_score: 50
         }];
+        while (suggestions.length < 5) {
+          suggestions.push({
+            title: 'General Best Practice',
+            text: 'Consider reviewing your content for further improvements in engagement, compliance, or monetization.',
+            priority: 'LOW',
+            impact_score: 40
+          });
+        }
+        return suggestions;
       }
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
-  return [];
+  // Final fallback
+  const suggestions = [{
+    title: 'Review Content',
+    text: 'Please review your content for potential policy violations.',
+    priority: 'MEDIUM',
+    impact_score: 50
+  }];
+  while (suggestions.length < 5) {
+    suggestions.push({
+      title: 'General Best Practice',
+      text: 'Consider reviewing your content for further improvements in engagement, compliance, or monetization.',
+      priority: 'LOW',
+      impact_score: 40
+    });
+  }
+  return suggestions;
+}
+
+// Helper function to clean and validate risky phrases
+function cleanRiskyPhrases(phrases: string[]): string[] {
+  if (!Array.isArray(phrases)) return [];
+  
+  // Use the centralized false positive filtering utility
+  return filterFalsePositives(phrases);
 }
 
 // Helper functions
 function calculateOverallRiskScore(policyAnalysis: any, riskAssessment: any): number {
-  // Calculate weighted average of all policy category scores
-  const categoryScores = Object.values(policyAnalysis).map((cat: any) => cat.risk_score);
-  const averageScore = categoryScores.reduce((sum: number, score: number) => sum + score, 0) / categoryScores.length;
+  // Define category weights based on YouTube policy importance
+  const categoryWeights: { [key: string]: number } = {
+    // High priority categories (weight: 2.0)
+    'CONTENT_SAFETY_VIOLENCE': 2.0,
+    'CONTENT_SAFETY_HARMFUL_CONTENT': 2.0,
+    'COMMUNITY_STANDARDS_HATE_SPEECH': 2.0,
+    'CONTENT_SAFETY_CHILD_SAFETY': 2.0,
+    'COMMUNITY_STANDARDS_HARASSMENT': 2.0,
+    
+    // Medium priority categories (weight: 1.5)
+    'CONTENT_SAFETY_DANGEROUS_ACTS': 1.5,
+    'ADVERTISER_FRIENDLY_SEXUAL_CONTENT': 1.5,
+    'LEGAL_COMPLIANCE_PRIVACY': 1.5,
+    'MONETIZATION_MONETIZATION_ELIGIBILITY': 1.5,
+    
+    // Standard priority categories (weight: 1.0)
+    'ADVERTISER_FRIENDLY_PROFANITY': 1.0,
+    'ADVERTISER_FRIENDLY_CONTROVERSIAL': 1.0,
+    'ADVERTISER_FRIENDLY_BRAND_SAFETY': 1.0,
+    'COMMUNITY_STANDARDS_SPAM': 1.0,
+    'COMMUNITY_STANDARDS_MISINFORMATION': 1.0,
+    'LEGAL_COMPLIANCE_COPYRIGHT': 1.0,
+    'LEGAL_COMPLIANCE_TRADEMARK': 1.0,
+    'LEGAL_COMPLIANCE_LEGAL_REQUESTS': 1.0,
+    'MONETIZATION_AD_POLICIES': 1.0,
+    'MONETIZATION_SPONSORED_CONTENT': 1.0
+  };
+
+  // Calculate weighted average
+  let totalWeightedScore = 0;
+  let totalWeight = 0;
   
-  // Factor in monetization and removal risk
-  const monetizationWeight = 0.4;
-  const removalWeight = 0.3;
-  const policyWeight = 0.3;
+  for (const [category, analysis] of Object.entries(policyAnalysis)) {
+    const weight = categoryWeights[category] || 1.0; // Default weight of 1.0 for unknown categories
+    const score = (analysis as any).risk_score || 0;
+    
+    totalWeightedScore += score * weight;
+    totalWeight += weight;
+  }
   
-  return Math.round(
-    (averageScore * policyWeight) +
-    ((riskAssessment.overall_risk_score || 0) * monetizationWeight) +
-    ((riskAssessment.overall_risk_score || 0) * removalWeight)
-  );
+  // Calculate weighted average
+  const weightedAverage = totalWeight > 0 ? totalWeightedScore / totalWeight : 0;
+  
+  // Apply severity adjustments for very high individual scores
+  const highRiskCategories = Object.values(policyAnalysis).filter((cat: any) => (cat as any).risk_score >= 80);
+  const mediumRiskCategories = Object.values(policyAnalysis).filter((cat: any) => (cat as any).risk_score >= 60 && (cat as any).risk_score < 80);
+  
+  let adjustedScore = weightedAverage;
+  
+  // If there are very high risk categories (80+), boost the score
+  if (highRiskCategories.length > 0) {
+    adjustedScore = Math.min(100, weightedAverage + 15);
+  }
+  // If there are medium-high risk categories (60+), slight boost
+  else if (mediumRiskCategories.length > 0) {
+    adjustedScore = Math.min(100, weightedAverage + 8);
+  }
+  
+  return Math.round(adjustedScore);
 }
 
 function getRiskLevel(score: number): 'LOW' | 'MEDIUM' | 'HIGH' {
-  if (score <= 34) return 'LOW';
-  if (score <= 69) return 'MEDIUM';
+  if (score <= 30) return 'LOW';
+  if (score <= 70) return 'MEDIUM';
   return 'HIGH';
 }
 
@@ -1473,6 +1903,13 @@ async function classifyContent(transcript: string, context: string, user: any): 
 
 IMPORTANT: Respond with ONLY valid JSON. No additional text or formatting.
 
+CRITICAL JSON FORMATTING RULES:
+- All string values MUST escape any double quotes inside them as \\".
+- Do NOT use unescaped double quotes inside any string value.
+- Do NOT include comments or extra text—output ONLY valid JSON.
+- Example: "primary_themes": ["This is a string with an escaped quote: \\\"example\\\"."]
+- If a string contains a newline, escape it as \\n.
+
 Response Format:
 {
   "content_type": "educational|entertainment|news|tutorial|review|other",
@@ -1480,7 +1917,9 @@ Response Format:
   "target_audience": "general|children|teens|adults|professional",
   "content_quality": "high|medium|low",
   "engagement_level": "high|medium|low"
-}`,
+}
+
+AGAIN: Respond ONLY with valid JSON. Do not include any commentary, explanation, or text outside the JSON object.`,
             messages: [
               {
                 role: 'user',
@@ -1549,6 +1988,13 @@ async function assessRisk(transcript: string, context: string, user: any): Promi
 
 IMPORTANT: Respond with ONLY valid JSON. No additional text or formatting.
 
+CRITICAL JSON FORMATTING RULES:
+- All string values MUST escape any double quotes inside them as \\".
+- Do NOT use unescaped double quotes inside any string value.
+- Do NOT include comments or extra text—output ONLY valid JSON.
+- Example: "primary_concerns": ["This is a string with an escaped quote: \\\"example\\\"."]
+- If a string contains a newline, escape it as \\n.
+
 Response Format:
 {
   "overall_risk_score": 0-100,
@@ -1556,7 +2002,9 @@ Response Format:
   "primary_concerns": ["concern1", "concern2", "concern3"],
   "compliance_status": "compliant|warning|violation",
   "recommended_actions": ["action1", "action2", "action3"]
-}`,
+}
+
+AGAIN: Respond ONLY with valid JSON. Do not include any commentary, explanation, or text outside the JSON object.`,
             messages: [
               {
                 role: 'user',
@@ -1625,6 +2073,13 @@ async function analyzeConfidence(transcript: string, context: string, user: any)
 
 IMPORTANT: Respond with ONLY valid JSON. No additional text or formatting.
 
+CRITICAL JSON FORMATTING RULES:
+- All string values MUST escape any double quotes inside them as \\".
+- Do NOT use unescaped double quotes inside any string value.
+- Do NOT include comments or extra text—output ONLY valid JSON.
+- Example: "limitations": ["This is a string with an escaped quote: \\\"example\\\"."]
+- If a string contains a newline, escape it as \\n.
+
 Response Format:
 {
   "overall_confidence": 0-100,
@@ -1632,7 +2087,9 @@ Response Format:
   "context_clarity": "excellent|good|fair|poor",
   "analysis_reliability": "high|medium|low",
   "limitations": ["limitation1", "limitation2", "limitation3"]
-}`,
+}
+
+AGAIN: Respond ONLY with valid JSON. Do not include any commentary, explanation, or text outside the JSON object.`,
             messages: [
               {
                 role: 'user',
@@ -1701,6 +2158,13 @@ async function generateSuggestions(transcript: string, context: string, user: an
 
 IMPORTANT: Respond with ONLY valid JSON. No additional text or formatting.
 
+CRITICAL JSON FORMATTING RULES:
+- All string values MUST escape any double quotes inside them as \\".
+- Do NOT use unescaped double quotes inside any string value.
+- Do NOT include comments or extra text—output ONLY valid JSON.
+- Example: "description": "This is a string with an escaped quote: \\\"example\\\"."
+- If a string contains a newline, escape it as \\n.
+
 Response Format:
 {
   "suggestions": [
@@ -1712,7 +2176,9 @@ Response Format:
       "implementation_difficulty": "easy|medium|hard"
     }
   ]
-}`,
+}
+
+AGAIN: Respond ONLY with valid JSON. Do not include any commentary, explanation, or text outside the JSON object.`,
             messages: [
               {
                 role: 'user',
@@ -1771,11 +2237,24 @@ export interface ContentClassification {
   engagement_level: string;
 }
 
+export interface RiskSpan {
+  text: string;
+  start_index?: number;
+  end_index?: number;
+  risk_level: 'LOW' | 'MEDIUM' | 'HIGH';
+  policy_category: string;
+  explanation: string;
+}
+
 export interface RiskAssessment {
   overall_risk_score: number;
   flagged_section: string;
   risk_factors: string[];
   severity_level: 'LOW' | 'MEDIUM' | 'HIGH';
+  risky_phrases_by_category?: {
+    [category: string]: string[]; // List of risky words/phrases for this category
+  };
+  risky_spans?: RiskSpan[]; // Optionally, for context
 }
 
 export interface ConfidenceAnalysis {

@@ -60,12 +60,7 @@ export async function GET(req: NextRequest) {
         const limits = getTierLimits(userTier as SubscriptionTier);
         if (scanData?.analysisResult?.suggestions) {
           allSuggestionsCount = scanData.analysisResult.suggestions.length;
-          if (limits.suggestionsPerScan !== 'all') {
-            const maxSuggestions = limits.suggestionsPerScan;
-            if (scanData.analysisResult.suggestions.length > maxSuggestions) {
-              scanData.analysisResult.suggestions = scanData.analysisResult.suggestions.slice(0, maxSuggestions);
-            }
-          }
+          // REMOVED: Do not slice suggestions array here; let frontend handle upsell/blur logic
           scanData.analysisResult.allSuggestionsCount = allSuggestionsCount;
         }
 

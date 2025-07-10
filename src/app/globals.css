@@ -3,6 +3,10 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+html, body {
+  background: #fff !important;
+}
+
 body {
   font-family: 'Archivo', 'Satoshi', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
 }
