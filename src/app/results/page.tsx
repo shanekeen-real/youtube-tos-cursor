@@ -259,7 +259,7 @@ function ResultsPageContent() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Loading analysis results...</p>
@@ -270,7 +270,7 @@ function ResultsPageContent() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-4">
           <div className="bg-white rounded-xl border border-gray-200 p-8">
             <AlertTriangle className="w-12 h-12 text-risk mx-auto mb-4" />
@@ -295,7 +295,7 @@ function ResultsPageContent() {
 
   if (!data) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-4">
           <div className="bg-white rounded-xl border border-gray-200 p-8">
             <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -319,7 +319,7 @@ function ResultsPageContent() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-display font-bold text-gray-800 mb-2">
-            Analysis <span className="text-yellow-500">Results</span>
+            Analysis Results
           </h1>
           <p className="text-subtitle text-gray-600">
             Detailed analysis results for your content
@@ -675,7 +675,7 @@ function ResultsPageContent() {
                           <h3 className="text-body font-semibold text-gray-800">Content Analysis</h3>
                         </div>
                         
-                        <div className="mb-4">
+                        <div className="mb-4 min-h-[400px] lg:min-h-[600px] flex flex-col">
                           {/* Highlighted transcript with risky sections */}
                           <HighlightedTranscript 
                             content={data.analyzed_content || ''} 
@@ -683,6 +683,7 @@ function ResultsPageContent() {
                             riskyPhrasesByCategory={data.risky_phrases_by_category || {}}
                             policyCategories={data.policy_categories || {}}
                             contextAnalysis={data.context_analysis}
+                            className="flex-1 min-h-[300px] lg:min-h-[500px] max-h-[700px] overflow-auto"
                           />
                         </div>
                         
@@ -724,92 +725,6 @@ function ResultsPageContent() {
                       </Card>
                     )}
                     
-                    {/* Highlights Card */}
-                    {data.highlights && data.highlights.length > 0 && (
-                      <Card>
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
-                            <Zap className="w-4 h-4 text-yellow-600" />
-                          </div>
-                          <h3 className="text-body font-semibold text-gray-800">Top Risk Highlights</h3>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 gap-3">
-                          {data.highlights.map((h, i) => (
-                            <div key={i} className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                              <div className="font-semibold text-yellow-800 mb-2">{h.category}</div>
-                              <div className="grid grid-cols-3 gap-2 text-caption text-gray-600">
-                                <div>Risk: <span className="font-medium">{h.risk}</span></div>
-                                <div>Score: <span className="font-medium">{h.score}</span></div>
-                                <div>Confidence: <span className="font-medium">{h.confidence}%</span></div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </Card>
-                    )}
-                    
-                    {/* Analyzed Content Card */}
-                    {data.analyzed_content && (
-                      <Card>
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <FileText className="w-4 h-4 text-gray-600" />
-                          </div>
-                          <h3 className="text-body font-semibold text-gray-800">Analyzed Content</h3>
-                        </div>
-                        <div className="mb-2 text-caption text-gray-600 font-semibold">Transcript</div>
-                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-caption text-gray-800 max-h-48 overflow-auto">
-                          {(() => {
-                            const decoded = he.decode(he.decode(data.analyzed_content || ''));
-                            const paragraphs = decoded
-                              .split(/\n\s*\n|(?<=[.!?])\s+(?=[A-Z])/g)
-                              .map((p: string) => p.trim())
-                              .filter((p: string) => Boolean(p));
-                            return (
-                              paragraphs.map((para: string, idx: number) => (
-                                <p key={idx} style={{ marginBottom: '1em' }}>{para}</p>
-                              ))
-                            );
-                          })()}
-                        </div>
-                      </Card>
-                    )}
-                    
-                    {/* Metadata Card (mobile only) */}
-                    {data.analysis_metadata && (
-                      <Card className="lg:hidden">
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <Settings className="w-4 h-4 text-gray-600" />
-                          </div>
-                          <h3 className="text-body font-semibold text-gray-800">Analysis Metadata</h3>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 gap-3 text-caption text-gray-600">
-                          <div className="flex items-center gap-2">
-                            <Settings className="w-3 h-3" />
-                            <span>Model: <span className="font-medium">{data.analysis_metadata.model_used}</span></span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-3 h-3" />
-                            <span>Timestamp: <span className="font-medium">{new Date(data.analysis_metadata.analysis_timestamp).toLocaleString()}</span></span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Zap className="w-3 h-3" />
-                            <span>Processing: <span className="font-medium">{data.analysis_metadata.processing_time_ms} ms</span></span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <FileText className="w-3 h-3" />
-                            <span>Length: <span className="font-medium">{data.analysis_metadata.content_length} chars</span></span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <BarChart3 className="w-3 h-3" />
-                            <span>Mode: <span className="font-medium">{data.analysis_metadata.analysis_mode}</span></span>
-                          </div>
-                        </div>
-                      </Card>
-                    )}
                   </div>
                   
                   {/* Right column: Policy Category Analysis + Metadata (desktop) */}
@@ -864,38 +779,26 @@ function ResultsPageContent() {
                         </div>
                       </Card>
                     )}
-                    
-                    {/* Metadata Card (desktop only) */}
-                    {data.analysis_metadata && (
-                      <Card className="hidden lg:block">
+                    {/* Highlights Card (now in right column) */}
+                    {data.highlights && data.highlights.length > 0 && (
+                      <Card>
                         <div className="flex items-center gap-3 mb-4">
-                          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <Settings className="w-4 h-4 text-gray-600" />
+                          <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
+                            <Zap className="w-4 h-4 text-yellow-600" />
                           </div>
-                          <h3 className="text-body font-semibold text-gray-800">Analysis Metadata</h3>
+                          <h3 className="text-body font-semibold text-gray-800">Top Risk Highlights</h3>
                         </div>
-                        
-                        <div className="space-y-3 text-caption text-gray-600">
-                          <div className="flex items-center gap-2">
-                            <Settings className="w-3 h-3" />
-                            <span>Model: <span className="font-medium">{data.analysis_metadata.model_used}</span></span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-3 h-3" />
-                            <span>Timestamp: <span className="font-medium">{new Date(data.analysis_metadata.analysis_timestamp).toLocaleString()}</span></span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Zap className="w-3 h-3" />
-                            <span>Processing: <span className="font-medium">{data.analysis_metadata.processing_time_ms} ms</span></span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <FileText className="w-3 h-3" />
-                            <span>Length: <span className="font-medium">{data.analysis_metadata.content_length} chars</span></span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <BarChart3 className="w-3 h-3" />
-                            <span>Mode: <span className="font-medium">{data.analysis_metadata.analysis_mode}</span></span>
-                          </div>
+                        <div className="grid grid-cols-1 gap-3">
+                          {data.highlights.map((h, i) => (
+                            <div key={i} className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                              <div className="font-semibold text-yellow-800 mb-2">{h.category}</div>
+                              <div className="grid grid-cols-3 gap-2 text-caption text-gray-600">
+                                <div>Risk: <span className="font-medium">{h.risk}</span></div>
+                                <div>Score: <span className="font-medium">{h.score}</span></div>
+                                <div>Confidence: <span className="font-medium">{h.confidence}%</span></div>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </Card>
                     )}
@@ -992,7 +895,7 @@ function ResultsPageContent() {
 export default function ResultsPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Loading...</p>

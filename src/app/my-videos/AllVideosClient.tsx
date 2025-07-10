@@ -392,7 +392,7 @@ export default function AllVideosClient() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-display font-bold text-gray-800">
-                My <span className="text-yellow-500">Videos</span>
+                My Videos
               </h1>
               <p className="text-subtitle text-gray-600 mt-2">
                 {pagination.totalResults ? `${pagination.totalResults} videos found` : 'Loading videos...'}

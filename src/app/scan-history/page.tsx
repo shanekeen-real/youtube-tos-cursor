@@ -151,7 +151,7 @@ export default function ScanHistoryPage() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-display font-bold text-gray-800 mb-2">
-            Scan <span className="text-yellow-500">History</span>
+            Scan History
           </h1>
           <p className="text-subtitle text-gray-600">
             View all your previous content scans and their analysis results.

@@ -116,7 +116,7 @@ export default function PricingPage() {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-display font-bold text-gray-800 mb-4">
-            Choose Your <span className="text-yellow-500">Plan</span>
+            Choose Your Plan
           </h1>
           <p className="text-subtitle text-gray-600 max-w-2xl mx-auto">
             Select the perfect plan for your YouTube channel. Start free and upgrade as you grow.
