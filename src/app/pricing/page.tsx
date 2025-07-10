@@ -44,7 +44,7 @@ export default function PricingPage() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingTier, setLoadingTier] = useState('');
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('annual');
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -70,6 +70,18 @@ export default function PricingPage() {
 
     fetchUserProfile();
   }, [session?.user?.id]);
+
+  // Helper function to calculate display price
+  const getDisplayPrice = (tier: SubscriptionTier, cycle: 'monthly' | 'annual') => {
+    const tierData = SUBSCRIPTION_TIERS[tier];
+    if (tierData.price === 0 || tierData.price === 'contact') return tierData.price;
+    
+    if (cycle === 'annual') {
+      const annualPrice = tier === 'pro' ? 149.99 : tier === 'advanced' ? 489.99 : tierData.price;
+      return (annualPrice / 12).toFixed(2); // Show as monthly equivalent
+    }
+    return tierData.price;
+  };
 
   const handleUpgrade = async (tier: SubscriptionTier) => {
     if (!session?.user?.id) {
@@ -144,7 +156,7 @@ export default function PricingPage() {
               }`}
               onClick={() => setBillingCycle('annual')}
             >
-              Annual <span className="ml-1 text-xs">(2 months free!)</span>
+              Annual
             </button>
           </div>
         </div>
@@ -156,10 +168,7 @@ export default function PricingPage() {
             const isPopular = tier === 'pro';
             const tierData = SUBSCRIPTION_TIERS[tier];
             
-            let price = tierData.price;
-            if (tierData.price !== 0 && tierData.price !== 'contact' && billingCycle === 'annual') {
-              price = tier === 'pro' ? 149.99 : tier === 'advanced' ? 489.99 : tierData.price;
-            }
+            const displayPrice = getDisplayPrice(tier, billingCycle);
 
             return (
               <div key={tier} className={`relative ${isPopular ? 'lg:scale-105' : ''}`}>
@@ -179,20 +188,23 @@ export default function PricingPage() {
                   {/* Tier Header */}
                   <div className="text-center mb-6">
                     <div className="flex items-center justify-center gap-2 mb-2">
-                      {tier === 'free' && <Shield className="w-5 h-5 text-gray-500" />}
-                      {tier === 'pro' && <Star className="w-5 h-5 text-yellow-500" />}
-                      {tier === 'advanced' && <Zap className="w-5 h-5 text-yellow-500" />}
-                      {tier === 'enterprise' && <Crown className="w-5 h-5 text-yellow-500" />}
-                      <h3 className="text-title font-semibold text-gray-800">{tierData.name}</h3>
+                      {tier === 'free' && <Shield className="w-4 h-4 text-gray-500" />}
+                      {tier === 'pro' && <Star className="w-4 h-4 text-yellow-500" />}
+                      {tier === 'advanced' && <Zap className="w-4 h-4 text-yellow-500" />}
+                      {tier === 'enterprise' && <Crown className="w-4 h-4 text-yellow-500" />}
+                      <h3 className="text-subtitle font-semibold text-gray-800">{tierData.name}</h3>
                     </div>
                     
                     <div className="mb-2">
                       <span className="text-3xl font-bold text-gray-800">
-                        {price === 0 ? '$0' : price === 'contact' ? 'Contact' : `$${price}`}
+                        {displayPrice === 0 ? '$0' : displayPrice === 'contact' ? 'Contact' : `$${displayPrice}`}
                       </span>
-                      {price !== 0 && price !== 'contact' && (
+                      {displayPrice !== 0 && displayPrice !== 'contact' && (
                         <span className="text-gray-600 ml-1">
-                          /{billingCycle === 'monthly' ? 'mo' : 'yr'}
+                          /mo
+                          {billingCycle === 'annual' && (
+                            <span className="text-xs block mt-1 text-gray-500">billed annually</span>
+                          )}
                         </span>
                       )}
                     </div>
