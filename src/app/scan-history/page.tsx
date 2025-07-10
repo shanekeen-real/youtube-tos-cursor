@@ -266,13 +266,6 @@ export default function ScanHistoryPage() {
                             {scan.riskLevel} Risk
                           </Badge>
                           
-                          <Badge variant={getStatusBadgeVariant(scan.status)}>
-                            <div className="flex items-center gap-1">
-                              {getStatusIcon(scan.status)}
-                              <span className="capitalize">{scan.status}</span>
-                            </div>
-                          </Badge>
-                          
                           {scan.riskScore && (
                             <div className="flex items-center gap-1 text-caption text-gray-500">
                               <span>Score:</span>

@@ -6,6 +6,7 @@ import Button from './Button';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { Shield } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 
 export const AuthContext = createContext<{
   user: any;
@@ -15,6 +16,7 @@ export const AuthContext = createContext<{
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [authOpen, setAuthOpen] = useState(false);
   const { data: session, status } = useSession();
+  const pathname = usePathname();
 
   return (
     <AuthContext.Provider value={{ user: session?.user || null, setAuthOpen }}>
@@ -66,7 +68,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       </header>
 
       {/* Main Content */}
-      <div className="w-full flex flex-col items-center pt-8">
+      <div className={`w-full flex flex-col items-center${pathname === '/dashboard' ? '' : ' pt-8'}`}>
         {children}
       </div>
       

@@ -289,30 +289,7 @@ export default function PricingPage() {
           </div>
         </div>
 
-        {/* FAQ Section */}
-        <div className="mt-16 text-center">
-          <h2 className="text-title font-semibold text-gray-800 mb-4">Frequently Asked Questions</h2>
-          <p className="text-gray-600 mb-8">Have questions? We're here to help.</p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-            <div className="text-left">
-              <h3 className="font-semibold text-gray-800 mb-2">Can I change plans anytime?</h3>
-              <p className="text-sm text-gray-600">Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately.</p>
-            </div>
-            <div className="text-left">
-              <h3 className="font-semibold text-gray-800 mb-2">Is there a free trial?</h3>
-              <p className="text-sm text-gray-600">Yes! Start with our free plan and upgrade when you need more features.</p>
-            </div>
-            <div className="text-left">
-              <h3 className="font-semibold text-gray-800 mb-2">What payment methods do you accept?</h3>
-              <p className="text-sm text-gray-600">We accept all major credit cards and PayPal. All payments are processed securely through Stripe.</p>
-            </div>
-            <div className="text-left">
-              <h3 className="font-semibold text-gray-800 mb-2">Can I cancel anytime?</h3>
-              <p className="text-sm text-gray-600">Absolutely. You can cancel your subscription at any time with no cancellation fees.</p>
-            </div>
-          </div>
-        </div>
+
       </div>
     </main>
   );

@@ -359,7 +359,7 @@ export default function AllVideosClient() {
   // Loading states
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Loading your videos...</p>
@@ -370,7 +370,7 @@ export default function AllVideosClient() {
 
   if (!session?.user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-4">
           <div className="bg-white rounded-xl border border-gray-200 p-8">
             <h2 className="text-title font-semibold text-gray-800 mb-2">Sign In Required</h2>
@@ -385,7 +385,7 @@ export default function AllVideosClient() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
@@ -408,7 +408,7 @@ export default function AllVideosClient() {
           </div>
 
           {/* Search and Filters */}
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Search */}
               <div className="flex-1 relative">
@@ -520,7 +520,7 @@ export default function AllVideosClient() {
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-lg shadow-sm p-4 animate-pulse">
+              <div key={i} className="bg-white rounded-lg border border-gray-200 p-4 animate-pulse">
                 <div className="bg-gray-200 h-32 rounded mb-4"></div>
                 <div className="bg-gray-200 h-4 rounded mb-2"></div>
                 <div className="bg-gray-200 h-3 rounded w-2/3"></div>
