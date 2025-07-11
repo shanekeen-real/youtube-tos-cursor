@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { performAnalysis, performEnhancedAnalysis } from '@/lib/ai-analysis';
+import { getChannelContext } from '@/lib/channel-context';
 import axios from 'axios';
 import { adminDb } from '@/lib/firebase-admin'; // Correctly import adminDb
 import { createHash } from 'crypto';
@@ -348,7 +349,22 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const analysisResult = await performEnhancedAnalysis(contentToAnalyze);
+    // Get channel context for AI detection if user has connected YouTube
+    let channelContext = null;
+    try {
+      const userDoc = await adminDb.collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        const userData = userDoc.data();
+        if (userData?.youtube?.channel?.id && (session as any).accessToken) {
+          channelContext = await getChannelContext(userData.youtube.channel.id, (session as any).accessToken);
+        }
+      }
+    } catch (contextError) {
+      console.warn('Failed to get channel context for AI detection:', contextError);
+      // Continue without context - this is not critical
+    }
+
+    const analysisResult = await performEnhancedAnalysis(contentToAnalyze, channelContext);
     console.log('AI analysisResult:', analysisResult);
 
     // Normalize output for frontend compatibility

@@ -102,6 +102,10 @@ export default function SettingsPage() {
         youtube: null
       });
       setYtChannel(null);
+      // Clear the welcome modal session flag so it will show again on reconnect
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('ytWelcomeModalShown');
+      }
     } catch (err) {
       alert('Failed to unlink YouTube channel. Please try again.');
     }

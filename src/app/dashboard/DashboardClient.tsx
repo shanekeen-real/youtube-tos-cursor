@@ -15,6 +15,7 @@ import { Calendar, TrendingUp, Users, Video, AlertTriangle, CheckCircle, Clock, 
 import VideoReportsModal from '@/components/VideoReportsModal';
 import CPMSetupModal from '@/components/CPMSetupModal';
 import * as Tooltip from '@radix-ui/react-tooltip';
+import YouTubeWelcomeModal from '@/components/YouTubeWelcomeModal';
 
 // Define the structure of a user's profile data
 interface UserProfile {
@@ -39,6 +40,7 @@ export default function DashboardClient() {
   const [ytChannel, setYtChannel] = useState<any>(null);
   const [ytLoading, setYtLoading] = useState(false);
   const [ytFetching, setYtFetching] = useState(false);
+  const [channelContext, setChannelContext] = useState<any>(null);
   const [recentVideos, setRecentVideos] = useState<any[]>([]);
   const [videosLoading, setVideosLoading] = useState(false);
   const [videosError, setVideosError] = useState<string | null>(null);
@@ -67,6 +69,7 @@ export default function DashboardClient() {
   const [revenueError, setRevenueError] = useState<string | null>(null);
   const [cpmSetupModalOpen, setCpmSetupModalOpen] = useState(false);
   const [canBatchScan, setCanBatchScan] = useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
   // Log user ID to browser console for testing
   useEffect(() => {
@@ -134,9 +137,14 @@ export default function DashboardClient() {
         const userDoc = await getDoc(userRef);
         if (userDoc.exists() && userDoc.data().youtube?.channel) {
           setYtChannel(userDoc.data().youtube.channel);
+          // Also get channel context if available
+          if (userDoc.data().youtube?.channelContext) {
+            setChannelContext(userDoc.data().youtube.channelContext);
+          }
         } else {
           // No channel data found, set to null (don't auto-reconnect)
             setYtChannel(null);
+            setChannelContext(null);
         }
       } catch {
         setYtChannel(null);
@@ -332,6 +340,14 @@ export default function DashboardClient() {
     fetchRevenue();
   };
 
+  // Show welcome modal on first connection
+  useEffect(() => {
+    if (channelContext && channelContext.channelData && !window.sessionStorage.getItem('ytWelcomeModalShown')) {
+      setShowWelcomeModal(true);
+      window.sessionStorage.setItem('ytWelcomeModalShown', '1');
+    }
+  }, [channelContext]);
+
   if (status === 'loading' || loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -371,6 +387,12 @@ export default function DashboardClient() {
 
   return (
     <main className="w-full flex flex-col bg-white pt-0">
+      {/* Welcome Modal */}
+      <YouTubeWelcomeModal
+        open={showWelcomeModal}
+        channelData={channelContext?.channelData || {}}
+        onClose={() => setShowWelcomeModal(false)}
+      />
       {/* Header Section */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
@@ -390,10 +412,13 @@ export default function DashboardClient() {
                       },
                     });
                     
-                    if (response.ok) {
-                      const data = await response.json();
-                      setYtChannel(data.channel);
-                    } else {
+                                          if (response.ok) {
+                        const data = await response.json();
+                        setYtChannel(data.channel);
+                        if (data.channelContext) {
+                          setChannelContext(data.channelContext);
+                        }
+                      } else {
                       const errorData = await response.json();
                       console.error('Failed to connect YouTube:', errorData.error);
                       alert('Failed to connect YouTube channel. Please try again.');
@@ -409,10 +434,51 @@ export default function DashboardClient() {
                 {ytFetching ? 'Connecting...' : 'Connect YouTube'}
               </Button>
             ) : (
-              <span className="flex items-center gap-2 text-safe font-medium text-sm">
-                <CheckCircle className="w-4 h-4" />
-                YouTube Connected
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-2 text-safe font-medium text-sm">
+                  <CheckCircle className="w-4 h-4" />
+                  YouTube Connected
+                </span>
+                {channelContext && (
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${
+                      channelContext.aiIndicators?.aiProbability > 70 ? 'bg-red-500' : 
+                      channelContext.aiIndicators?.aiProbability > 40 ? 'bg-yellow-500' : 'bg-green-500'
+                    }`} />
+                    <span className="text-xs text-gray-600">
+                      AI Detection: {channelContext.aiIndicators?.aiProbability || 0}% confidence
+                    </span>
+                    <Tooltip.Provider>
+                      <Tooltip.Root>
+                        <Tooltip.Trigger asChild>
+                          <button className="text-xs text-gray-400 hover:text-gray-600">
+                            ℹ️
+                          </button>
+                        </Tooltip.Trigger>
+                        <Tooltip.Portal>
+                          <Tooltip.Content
+                            className="bg-gray-900 text-white px-3 py-2 rounded-lg text-sm max-w-xs z-50"
+                            sideOffset={5}
+                          >
+                            <div className="flex flex-col gap-1">
+                              <span><strong>AI Detection Score:</strong> {channelContext.aiIndicators?.aiProbability || 0}%</span>
+                              <span><strong>Confidence:</strong> {channelContext.aiIndicators?.confidence || 0}%</span>
+                              <span><strong>Channel Age:</strong> {channelContext.channelData?.accountDate ? 
+                                ((new Date().getTime() - new Date(channelContext.channelData.accountDate).getTime()) / (1000 * 60 * 60 * 24 * 365)).toFixed(1) : 'Unknown'} years</span>
+                              <span><strong>Videos:</strong> {channelContext.channelData?.videoCount || 0}</span>
+                              <span><strong>Subscribers:</strong> {channelContext.channelData?.subscriberCount?.toLocaleString() || 0}</span>
+                              <span className="text-xs text-gray-300 mt-1">
+                                Lower scores indicate more human-like content patterns
+                              </span>
+                            </div>
+                            <Tooltip.Arrow className="fill-gray-900" />
+                          </Tooltip.Content>
+                        </Tooltip.Portal>
+                      </Tooltip.Root>
+                    </Tooltip.Provider>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -500,33 +566,7 @@ export default function DashboardClient() {
                   <p className="text-gray-600 mb-6 max-w-md">
                     The Revenue at Risk calculator helps you estimate how much of your YouTube earnings could be at risk due to TOS violations. Connect your YouTube channel to unlock this feature and get personalized insights.
                   </p>
-                  <Button disabled={ytFetching} onClick={async () => {
-                    setYtFetching(true);
-                    try {
-                      const response = await fetch('/api/fetch-youtube-channel', {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                        },
-                      });
-                      
-                      if (response.ok) {
-                        const data = await response.json();
-                        setYtChannel(data.channel);
-                      } else {
-                        const errorData = await response.json();
-                        console.error('Failed to connect YouTube:', errorData.error);
-                        alert('Failed to connect YouTube channel. Please try again.');
-                      }
-                    } catch (error) {
-                      console.error('Error connecting YouTube:', error);
-                      alert('Failed to connect YouTube channel. Please try again.');
-                    } finally {
-                      setYtFetching(false);
-                    }
-                  }}>
-                    {ytFetching ? 'Connecting...' : 'Connect YouTube'}
-                  </Button>
+                  {/* Connect YouTube button removed as it is now only in the top right */}
                 </div>
               ) : (ytChannel && revenueError) ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">

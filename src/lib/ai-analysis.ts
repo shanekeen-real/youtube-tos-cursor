@@ -156,6 +156,19 @@ export interface EnhancedAnalysisResult {
   risky_spans?: RiskSpan[];
   risky_phrases?: string[]; // Added for frontend highlighting
   risky_phrases_by_category?: { [category: string]: string[] }; // Added for categorized highlighting
+  ai_detection?: {
+    probability: number;
+    confidence: number;
+    patterns: string[];
+    indicators: {
+      repetitive_language: number;
+      structured_content: number;
+      personal_voice: number;
+      grammar_consistency: number;
+      natural_flow: number;
+    };
+    explanation: string;
+  } | null;
   analysis_metadata: {
     model_used: string;
     analysis_timestamp: string;
@@ -229,7 +242,7 @@ function getModelWithFallback(): AIModel {
 }
 
 // Multi-stage analysis pipeline with fallback
-export async function performEnhancedAnalysis(text: string): Promise<EnhancedAnalysisResult> {
+export async function performEnhancedAnalysis(text: string, channelContext?: any): Promise<EnhancedAnalysisResult> {
   const startTime = Date.now();
   
   if (!text || text.trim().length === 0) {
@@ -272,6 +285,12 @@ export async function performEnhancedAnalysis(text: string): Promise<EnhancedAna
     // Stage 1: Content Classification
     await rateLimiter.waitIfNeeded();
     const contextAnalysis = await performContextAnalysis(decodedText, model);
+    
+    // Stage 1.5: AI Detection (if channel context available)
+    let aiDetectionResult = null;
+    if (channelContext) {
+      aiDetectionResult = await performAIDetection(decodedText, model, channelContext);
+    }
     
     // Stage 2: Policy Category Analysis (with batching)
     const policyAnalysis = await performPolicyCategoryAnalysisBatched(decodedText, model, contextAnalysis);
@@ -404,6 +423,17 @@ export async function performEnhancedAnalysis(text: string): Promise<EnhancedAna
     // Remove any accidental 'categories' key from policyAnalysis (artifact of fallback parsing)
     delete policyAnalysis['categories'];
     
+    // Add AI detection to policy categories if available
+    if (aiDetectionResult) {
+      policyAnalysis["AI_GENERATED_CONTENT"] = {
+        risk_score: aiDetectionResult.ai_probability,
+        confidence: aiDetectionResult.confidence,
+        violations: aiDetectionResult.patterns,
+        severity: aiDetectionResult.ai_probability > 70 ? 'HIGH' : aiDetectionResult.ai_probability > 40 ? 'MEDIUM' : 'LOW',
+        explanation: aiDetectionResult.explanation
+      };
+    }
+    
     return {
       risk_score: overallRiskScore,
       risk_level: riskLevel,
@@ -422,6 +452,13 @@ export async function performEnhancedAnalysis(text: string): Promise<EnhancedAna
       risky_spans: allRiskySpans,
       risky_phrases: allRiskyPhrases,
       risky_phrases_by_category: riskAssessment.risky_phrases_by_category || {},
+      ai_detection: aiDetectionResult ? {
+        probability: aiDetectionResult.ai_probability,
+        confidence: aiDetectionResult.confidence,
+        patterns: aiDetectionResult.patterns,
+        indicators: aiDetectionResult.indicators,
+        explanation: aiDetectionResult.explanation
+      } : null,
       analysis_metadata: {
         model_used: model.name,
         analysis_timestamp: new Date().toISOString(),
@@ -2299,4 +2336,170 @@ export interface Suggestion {
   text: string;
   priority: 'HIGH' | 'MEDIUM' | 'LOW';
   impact_score: number;
+}
+
+/**
+ * Perform AI detection analysis using channel context and content analysis
+ */
+async function performAIDetection(text: string, model: AIModel, channelContext: any): Promise<any> {
+  try {
+    // First, analyze the content type to adjust detection sensitivity
+    const contentAnalysis = await performContextAnalysis(text, model);
+    const contentType = contentAnalysis.content_type?.toLowerCase() || 'general';
+    
+    // Adjust AI detection sensitivity based on content type
+    const contentTypeMultipliers = {
+      'gaming': 0.6,        // Gaming content often has structure - be more lenient
+      'vlog': 0.4,          // Vlogs are personal - very lenient
+      'entertainment': 0.7, // Entertainment can be scripted - moderate leniency
+      'educational': 0.8,   // Educational content is often structured - some leniency
+      'tutorial': 0.8,      // Tutorials are structured - some leniency
+      'review': 0.7,        // Reviews can be structured - moderate leniency
+      'news': 0.9,          // News is formal - less lenient
+      'general': 0.8        // Default - moderate leniency
+    };
+    
+    const sensitivityMultiplier = contentTypeMultipliers[contentType as keyof typeof contentTypeMultipliers] || 0.8;
+    
+    // Adjust channel context influence based on channel age and size
+    const channelAge = channelContext.channelData?.accountDate ? 
+      (new Date().getTime() - new Date(channelContext.channelData.accountDate).getTime()) / (1000 * 60 * 60 * 24 * 365) : 1;
+    const isEstablishedChannel = channelAge > 1 || (channelContext.channelData?.subscriberCount || 0) > 10000;
+    
+    const prompt = `
+      Analyze this YouTube video transcript for AI generation patterns, considering the channel context and content type.
+      
+      Channel Context:
+      - Channel Age: ${channelAge.toFixed(1)} years
+      - Established Channel: ${isEstablishedChannel ? 'Yes' : 'No'}
+      - Subscriber Count: ${channelContext.channelData?.subscriberCount || 0}
+      - Video Count: ${channelContext.channelData?.videoCount || 0}
+      - AI Probability (Channel Level): ${channelContext.aiIndicators?.aiProbability || 0}%
+      
+      Content Type: ${contentType}
+      Content Length: ${text.length} characters
+      
+      Content to Analyze:
+      "${text.substring(0, 2000)}${text.length > 2000 ? '...' : ''}"
+      
+      IMPORTANT: Be VERY conservative in AI detection. Only flag content that has CLEAR, OBVIOUS AI generation patterns. Consider these factors:
+      
+      CONTENT TYPE ADJUSTMENTS:
+      - Gaming content: Allow for structured narratives, repetitive gaming terms, consistent grammar
+      - Vlog content: Allow for personal storytelling, natural speech patterns, casual language
+      - Educational content: Allow for structured explanations, formal language, consistent terminology
+      - Entertainment content: Allow for scripted elements, professional presentation
+      
+      ESTABLISHED CHANNEL BENEFITS:
+      - Older channels with many videos are less likely to be AI-generated
+      - High subscriber counts suggest human-created content
+      - Consistent upload patterns are normal for human creators
+      
+      ONLY flag as AI-generated if you detect MULTIPLE of these CLEAR indicators:
+      1. Unnaturally perfect grammar with ZERO errors in casual speech
+      2. Complete absence of personal pronouns (I, me, my, we, our) in personal content
+      3. Overly formal academic tone in casual/entertainment content
+      4. Exact repetitive sentence structures (not just similar topics)
+      5. Complete lack of current slang, cultural references, or timely mentions
+      6. Unnatural topic transitions that don't follow human thought patterns
+      7. Perfect spelling with no typos in conversational content
+      8. Template-like structure that's too rigid for human storytelling
+      
+      DO NOT flag for:
+      - Structured narratives (normal for storytelling)
+      - Repetitive terminology (normal for specialized content)
+      - Consistent grammar (normal for professional content)
+      - Template intros/outros (standard YouTube format)
+      - Personal anecdotes (indicates human content)
+      - Natural speech patterns with minor errors
+      
+      Return analysis in JSON format:
+      {
+        "ai_probability": "number (0-100, overall AI generation probability)",
+        "confidence": "number (0-100, confidence in this assessment)",
+        "patterns": ["pattern1", "pattern2", "pattern3"],
+        "indicators": {
+          "repetitive_language": "number (0-100)",
+          "structured_content": "number (0-100)",
+          "personal_voice": "number (0-100, low = AI indicator)",
+          "grammar_consistency": "number (0-100, perfect = AI indicator)",
+          "natural_flow": "number (0-100, low = AI indicator)"
+        },
+        "explanation": "string (brief explanation of findings)",
+        "content_type_adjustment": "string (how content type affected detection)"
+      }
+      
+      IMPORTANT: Respond ONLY with valid JSON. Do not include any commentary, explanation, or text outside the JSON object.
+    `;
+
+    const result = await callAIWithRetry((model: AIModel) => model.generateContent(prompt));
+    const response = result;
+    
+    // Extract JSON from response
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('Failed to parse AI detection response');
+    }
+    
+    try {
+      const aiData = JSON.parse(jsonMatch[0]);
+      
+      // Apply content-type sensitivity adjustment
+      let adjustedProbability = Math.min(100, Math.max(0, aiData.ai_probability || 0));
+      adjustedProbability = adjustedProbability * sensitivityMultiplier;
+      
+      // Apply established channel bonus (reduce AI probability for established channels)
+      if (isEstablishedChannel) {
+        adjustedProbability = adjustedProbability * 0.7; // 30% reduction for established channels
+      }
+      
+      // Validate and normalize the data
+      return {
+        ai_probability: Math.round(adjustedProbability),
+        confidence: Math.min(100, Math.max(0, aiData.confidence || 0)),
+        patterns: Array.isArray(aiData.patterns) ? aiData.patterns : [],
+        indicators: {
+          repetitive_language: Math.min(100, Math.max(0, aiData.indicators?.repetitive_language || 0)),
+          structured_content: Math.min(100, Math.max(0, aiData.indicators?.structured_content || 0)),
+          personal_voice: Math.min(100, Math.max(0, aiData.indicators?.personal_voice || 0)),
+          grammar_consistency: Math.min(100, Math.max(0, aiData.indicators?.grammar_consistency || 0)),
+          natural_flow: Math.min(100, Math.max(0, aiData.indicators?.natural_flow || 0)),
+        },
+        explanation: aiData.explanation || 'AI detection analysis completed',
+        content_type_adjustment: aiData.content_type_adjustment || `Applied ${contentType} sensitivity multiplier (${sensitivityMultiplier})`,
+      };
+    } catch (parseError) {
+      console.error('AI detection parse error:', parseError);
+      return {
+        ai_probability: 0,
+        confidence: 0,
+        patterns: [],
+        indicators: {
+          repetitive_language: 0,
+          structured_content: 0,
+          personal_voice: 0,
+          grammar_consistency: 0,
+          natural_flow: 0,
+        },
+        explanation: 'AI detection analysis failed',
+        content_type_adjustment: 'Analysis failed - defaulting to 0%',
+      };
+    }
+  } catch (error) {
+    console.error('Error performing AI detection:', error);
+    return {
+      ai_probability: 0,
+      confidence: 0,
+      patterns: [],
+      indicators: {
+        repetitive_language: 0,
+        structured_content: 0,
+        personal_voice: 0,
+        grammar_consistency: 0,
+        natural_flow: 0,
+      },
+      explanation: 'AI detection analysis failed',
+      content_type_adjustment: 'Analysis failed - defaulting to 0%',
+    };
+  }
 } 

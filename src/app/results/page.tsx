@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { Suspense } from "react";
 import ExportModal from '@/components/ExportModal';
 import HighlightedTranscript from '@/components/HighlightedTranscript';
-import { Download, Lock, AlertTriangle, CheckCircle, Clock, BarChart3, FileText, Target, Globe, Zap, Calendar, Settings, ArrowLeft, ExternalLink, ArrowRight, Shield, Check } from 'lucide-react';
+import { Download, Lock, AlertTriangle, CheckCircle, Clock, BarChart3, FileText, Target, Globe, Zap, Calendar, Settings, ArrowLeft, ExternalLink, ArrowRight, Shield, Check, Brain } from 'lucide-react';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { app } from '@/lib/firebase';
 import { checkUserCanExport } from '@/lib/subscription-utils';
@@ -72,6 +72,18 @@ interface ScanData {
   allSuggestionsCount?: number;
   risky_phrases?: string[]; // Added risky_phrases to ScanData interface
   risky_phrases_by_category?: { [category: string]: string[] }; // Added risky_phrases_by_category to ScanData interface
+  ai_detection?: {
+    probability: number;
+    confidence: number;
+    patterns: string[];
+    indicators: {
+      personal_voice: number;
+      natural_flow: number;
+      grammar_consistency: number;
+      structured_content: number;
+    };
+    explanation: string;
+  };
 }
 
 function toArray(val: any): any[] {
@@ -725,6 +737,85 @@ function ResultsPageContent() {
                       </Card>
                     )}
                     
+                    {/* AI Detection Card */}
+                    {data.ai_detection && (
+                      <Card>
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <Brain className="w-4 h-4 text-purple-600" />
+                          </div>
+                          <h3 className="text-body font-semibold text-gray-800">AI Content Detection</h3>
+                        </div>
+                        
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <span className="text-caption text-gray-600">AI Generation Probability</span>
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full transition-all duration-300 ${
+                                    data.ai_detection.probability > 70 ? 'bg-red-500' :
+                                    data.ai_detection.probability > 40 ? 'bg-yellow-500' : 'bg-green-500'
+                                  }`}
+                                  style={{ width: `${data.ai_detection.probability}%` }}
+                                />
+                              </div>
+                              <span className="text-body font-semibold text-gray-800">
+                                {data.ai_detection.probability}%
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4 text-caption text-gray-600">
+                            <div>Confidence: <span className="font-medium text-gray-800">{data.ai_detection.confidence}%</span></div>
+                            <div>Content Type: <span className="font-medium text-gray-800">{data.context_analysis?.content_type || 'Unknown'}</span></div>
+                          </div>
+                          
+                          {data.ai_detection.patterns && data.ai_detection.patterns.length > 0 && (
+                            <div>
+                              <div className="text-caption text-gray-600 mb-2">Detected Patterns:</div>
+                              <div className="flex flex-wrap gap-1">
+                                {data.ai_detection.patterns.map((pattern: string, index: number) => (
+                                  <Badge key={index} variant="neutral" className="text-xs">
+                                    {pattern}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {data.ai_detection.indicators && (
+                            <div>
+                              <div className="text-caption text-gray-600 mb-2">Analysis Indicators:</div>
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div>Personal Voice: <span className="font-medium">{data.ai_detection.indicators.personal_voice}%</span></div>
+                                <div>Natural Flow: <span className="font-medium">{data.ai_detection.indicators.natural_flow}%</span></div>
+                                <div>Grammar Consistency: <span className="font-medium">{data.ai_detection.indicators.grammar_consistency}%</span></div>
+                                <div>Structured Content: <span className="font-medium">{data.ai_detection.indicators.structured_content}%</span></div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">
+                            <div className="font-medium mb-1">Analysis Summary:</div>
+                            <div className="text-caption">{data.ai_detection.explanation}</div>
+                          </div>
+                          
+                          {data.ai_detection.probability > 40 && (
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                              <div className="flex items-center gap-2 text-yellow-800 mb-1">
+                                <AlertTriangle className="w-4 h-4" />
+                                <span className="text-sm font-medium">AI Content Detected</span>
+                              </div>
+                              <p className="text-sm text-yellow-700">
+                                This content shows some AI generation patterns. Consider adding more personal anecdotes, 
+                                natural speech patterns, or current references to make it more human-like.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </Card>
+                    )}
                   </div>
                   
                   {/* Right column: Policy Category Analysis + Metadata (desktop) */}

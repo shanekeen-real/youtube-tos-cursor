@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { adminDb } from '@/lib/firebase-admin';
+import { getChannelContext } from '@/lib/channel-context';
 import * as Sentry from "@sentry/nextjs";
 
 export async function POST(req: NextRequest) {
@@ -48,6 +49,16 @@ export async function POST(req: NextRequest) {
         }
 
         const channel = data.items[0];
+        const channelId = channel.id;
+
+        // Get channel context with AI detection
+        let channelContext = null;
+        try {
+          channelContext = await getChannelContext(channelId, (session as any).accessToken);
+        } catch (contextError) {
+          console.warn('Failed to get channel context:', contextError);
+          // Continue without context - this is not critical
+        }
 
         // Store channel data in Firestore
         const userRef = adminDb.collection('users').doc(session.user.id);
@@ -55,12 +66,36 @@ export async function POST(req: NextRequest) {
           youtube: {
             channel: channel,
             connectedAt: new Date().toISOString(),
+            channelContext: channelContext ? {
+              channelData: channelContext.channelData,
+              aiIndicators: {
+                aiProbability: channelContext.aiIndicators.aiProbability,
+                confidence: channelContext.aiIndicators.confidence,
+                uploadConsistency: channelContext.aiIndicators.uploadConsistency,
+                titleVariation: channelContext.aiIndicators.titleVariation,
+                subToVideoRatio: channelContext.aiIndicators.subToVideoRatio,
+                videosPerDay: channelContext.aiIndicators.videosPerDay,
+              },
+              lastUpdated: channelContext.lastUpdated,
+            } : null,
           }
         });
 
         return NextResponse.json({ 
           success: true, 
-          channel: channel 
+          channel: channel,
+          channelContext: channelContext ? {
+            channelData: channelContext.channelData,
+            aiIndicators: {
+              aiProbability: channelContext.aiIndicators.aiProbability,
+              confidence: channelContext.aiIndicators.confidence,
+              uploadConsistency: channelContext.aiIndicators.uploadConsistency,
+              titleVariation: channelContext.aiIndicators.titleVariation,
+              subToVideoRatio: channelContext.aiIndicators.subToVideoRatio,
+              videosPerDay: channelContext.aiIndicators.videosPerDay,
+            },
+            lastUpdated: channelContext.lastUpdated,
+          } : null
         });
 
       } catch (error: any) {
