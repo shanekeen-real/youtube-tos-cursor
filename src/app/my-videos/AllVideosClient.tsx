@@ -675,58 +675,62 @@ function VideoCard({ video, viewType, onAnalyze, formatViewCount, analyzingVideo
     );
   }
 
+  // Redesigned grid card layout
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-200 flex flex-col h-full">
-      <div className="relative">
+    <Card className="overflow-hidden flex flex-col h-full border border-gray-200 rounded-xl bg-white p-0">
+      {/* Thumbnail */}
+      <div className="relative w-full h-48 bg-light-gray-100">
         <img 
           src={video.snippet.thumbnails.medium?.url || video.snippet.thumbnails.default?.url} 
           alt={video.snippet.title}
-          className="w-full h-48 object-cover"
+          className="w-full h-48 object-cover rounded-t-xl"
           loading="lazy"
         />
       </div>
-      <div className="flex flex-col flex-1 p-4">
-        <div className="mb-3" style={{ minHeight: '3.5em' }}>
-          <div className="flex items-center">
-            <h3 className="font-semibold text-lg mb-1 line-clamp-2" style={{ minHeight: '2.5em' }}>{video.snippet.title}</h3>
+      {/* Card Content */}
+      <div className="flex flex-col flex-1 p-6 pb-4">
+        {/* Title & Description Block with fixed height */}
+        <div className="mb-2" style={{ minHeight: '84px', maxHeight: '84px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
+          <div className="flex items-start min-h-[2.5em] mb-1">
+            <h3 className="font-bold text-lg text-gray-900 leading-tight line-clamp-2 flex-1" style={{fontFamily:'Archivo, Satoshi, system-ui'}}>{video.snippet.title}</h3>
             {privacyBadge}
           </div>
-          <p className="text-gray-600 text-sm line-clamp-2" style={{ minHeight: '1.5em' }}>{video.snippet.description}</p>
+          <p className="text-gray-600 text-sm line-clamp-2" style={{fontFamily:'Archivo, Satoshi, system-ui'}}>{video.snippet.description}</p>
         </div>
-        {/* Spacer to push stats/buttons to bottom */}
-        <div className="flex-1" />
-        {/* Risk Level Badge */}
-        <div className="flex items-center gap-2 mb-3">
-          <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${riskBadgeColor}`}>
+        {/* Risk Tag */}
+        <div className="mb-2">
+          <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${riskBadgeColor} border`} style={{fontFamily:'Archivo, Satoshi, system-ui'}}>
             {riskBadgeText}
           </span>
         </div>
-        {/* Date and buttons row */}
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-1 text-sm text-gray-500">
-            <Calendar className="h-4 w-4" />
-            {format(new Date(video.snippet.publishedAt), 'MMM d, yyyy')}
-          </span>
-          <div className="flex gap-2">
-            <Button 
-              onClick={() => onAnalyze(video.id.videoId)}
-              disabled={isAnalyzing}
-            >
-              {isAnalyzing ? (
-                <span className="flex items-center gap-2"><span className="animate-spin h-4 w-4 border-b-2 border-white rounded-full"></span>Analyzing...</span>
-              ) : riskData ? 'Re-analyze' : 'Analyze'}
-            </Button>
-            {riskData && (
-              <Button 
-                variant="outlined"
-                onClick={() => onViewReports(video.id.videoId, video.snippet.title)}
-              >
-                View Reports
-              </Button>
-            )}
-          </div>
+        {/* Date */}
+        <div className="text-xs text-gray-500 mb-4 flex items-center gap-1" style={{fontFamily:'Archivo, Satoshi, system-ui'}}>
+          <Calendar className="h-4 w-4" />
+          {format(new Date(video.snippet.publishedAt), 'MMM d, yyyy')}
         </div>
-        
+        {/* Spacer to push actions to bottom */}
+        <div className="flex-1" />
+        {/* Actions Row */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:gap-3 w-full mt-2">
+          <Button 
+            className="flex-1 min-w-0" 
+            onClick={() => onAnalyze(video.id.videoId)}
+            disabled={isAnalyzing}
+          >
+            {isAnalyzing ? (
+              <span className="flex items-center gap-2"><span className="animate-spin h-4 w-4 border-b-2 border-white rounded-full"></span>Analyzing...</span>
+            ) : riskData ? 'Re-analyze' : 'Analyze'}
+          </Button>
+          {riskData && (
+            <Button 
+              variant="outlined"
+              className="flex-1 min-w-0"
+              onClick={() => onViewReports(video.id.videoId, video.snippet.title)}
+            >
+              View Reports
+            </Button>
+          )}
+        </div>
         {analyzeError && analyzingVideoId === video.id.videoId && (
           <div className="mt-2 text-xs text-red-600">{analyzeError}</div>
         )}

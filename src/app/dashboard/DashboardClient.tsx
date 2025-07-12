@@ -140,6 +140,8 @@ export default function DashboardClient() {
           // Also get channel context if available
           if (userDoc.data().youtube?.channelContext) {
             setChannelContext(userDoc.data().youtube.channelContext);
+          } else {
+            console.log('No channel context in response');
           }
         } else {
           // No channel data found, set to null (don't auto-reconnect)
@@ -816,7 +818,12 @@ export default function DashboardClient() {
                             loading="lazy"
                           />
                           <div className="p-3 space-y-2">
-                            <div className="font-semibold text-sm text-gray-800 line-clamp-2">{video.snippet?.title}</div>
+                            {/* Title & Description Block with fixed height */}
+                            <div style={{ minHeight: '48px', maxHeight: '48px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
+                              <div className="font-semibold text-sm text-gray-800 line-clamp-2">{video.snippet?.title}</div>
+                              {/* If you want to add description, uncomment below and adjust height accordingly */}
+                              {/* <div className="text-xs text-gray-600 line-clamp-1">{video.snippet?.description}</div> */}
+                            </div>
                             <div className="flex items-center gap-2">
                               <span className={`px-2 py-1 rounded-full text-xs font-semibold ${riskBadgeColor}`}>
                                 {riskBadgeText}

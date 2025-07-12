@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { Suspense } from "react";
 import ExportModal from '@/components/ExportModal';
 import HighlightedTranscript from '@/components/HighlightedTranscript';
-import { Download, Lock, AlertTriangle, CheckCircle, Clock, BarChart3, FileText, Target, Globe, Zap, Calendar, Settings, ArrowLeft, ExternalLink, ArrowRight, Shield, Check, Brain } from 'lucide-react';
+import { Download, Lock, AlertTriangle, CheckCircle, Clock, BarChart3, FileText, Target, Globe, Zap, Calendar, Settings, ArrowLeft, ExternalLink, ArrowRight, Shield, Check, Brain, Info } from 'lucide-react';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { app } from '@/lib/firebase';
 import { checkUserCanExport } from '@/lib/subscription-utils';
@@ -973,107 +973,261 @@ function ResultsPageContent() {
                   <div className="space-y-6">
                     {/* AI Detection Overview Card */}
                     <Card>
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                          <Brain className="w-4 h-4 text-purple-600" />
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl flex items-center justify-center">
+                          <Brain className="w-5 h-5 text-purple-600" />
                         </div>
-                        <h3 className="text-body font-semibold text-gray-800">AI Content Detection Analysis</h3>
+                        <div>
+                          <h3 className="text-title font-semibold text-gray-800">AI Content Detection Analysis</h3>
+                          <p className="text-caption text-gray-600">Advanced machine learning analysis of content authenticity</p>
+                        </div>
                       </div>
                       
-                      <div className="space-y-6">
-                        {/* AI Generation Probability */}
-                        <div className="space-y-3">
+                      <div className="space-y-8">
+                        {/* AI Generation Probability - Enhanced */}
+                        <div className="space-y-4">
                           <div className="flex items-center justify-between">
-                            <span className="text-body font-medium text-gray-800">AI Generation Probability</span>
-                            <div className="flex items-center gap-3">
-                              <div className="w-32 h-3 bg-gray-200 rounded-full overflow-hidden">
-                                <div 
-                                  className={`h-full transition-all duration-300 ${
-                                    data.ai_detection.probability > 70 ? 'bg-red-500' :
-                                    data.ai_detection.probability > 40 ? 'bg-yellow-500' : 'bg-green-500'
-                                  }`}
-                                  style={{ width: `${data.ai_detection.probability}%` }}
-                                />
-                              </div>
-                              <span className="text-title font-bold text-gray-800 min-w-[3rem]">
+                            <div>
+                              <h4 className="text-body font-semibold text-gray-800">AI Generation Probability</h4>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-2xl font-bold text-gray-800">
                                 {data.ai_detection.probability}%
-                              </span>
+                              </div>
+                              <div className="text-caption text-gray-600">
+                                Confidence: {data.ai_detection.confidence}%
+                              </div>
                             </div>
                           </div>
                           
-                          <div className="grid grid-cols-2 gap-4 text-caption text-gray-600">
-                            <div>Confidence: <span className="font-medium text-gray-800">{data.ai_detection.confidence}%</span></div>
-                            <div>Content Type: <span className="font-medium text-gray-800">{data.context_analysis?.content_type || 'Unknown'}</span></div>
+                          {/* Enhanced Probability Meter */}
+                          <div className="relative">
+                            <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full transition-all duration-500 ease-out rounded-full ${
+                                  data.ai_detection.probability > 70 ? 'bg-gradient-to-r from-red-400 to-red-600' :
+                                  data.ai_detection.probability > 40 ? 'bg-gradient-to-r from-yellow-400 to-yellow-600' : 
+                                  'bg-gradient-to-r from-green-400 to-green-600'
+                                }`}
+                                style={{ width: `${data.ai_detection.probability}%` }}
+                              />
+                            </div>
+                            {/* Threshold markers */}
+                            <div className="flex justify-between mt-2 text-xs text-gray-500">
+                              <span>Human-like</span>
+                              <span>Mixed</span>
+                              <span>AI-like</span>
+                            </div>
+                            <div className="flex justify-between mt-1">
+                              <div className="w-px h-2 bg-gray-300"></div>
+                              <div className="w-px h-2 bg-gray-300"></div>
+                              <div className="w-px h-2 bg-gray-300"></div>
+                            </div>
+                          </div>
+
+                          {/* YouTube AI Content Policy Update */}
+                          <div className="bg-gradient-to-br from-orange-50 to-red-50 border border-orange-200 rounded-xl p-6">
+                            <div className="flex items-start gap-4">
+                              <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <AlertTriangle className="w-4 h-4 text-orange-600" />
+                              </div>
+                              <div className="space-y-3">
+                                <div>
+                                  <h5 className="text-body font-semibold text-orange-800 mb-2">Important: YouTube's AI Content & Monetization Policies</h5>
+                                  <p className="text-sm text-orange-700 mb-4">
+                                    YouTube has implemented stricter content policies that directly impact monetization eligibility and channel compliance, particularly regarding AI-generated content.
+                                  </p>
+                                </div>
+                                <div className="space-y-2">
+                                  <div className="flex items-start gap-2">
+                                    <div className="w-1.5 h-1.5 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
+                                    <p className="text-sm text-orange-700">
+                                      <strong>Content Authenticity:</strong> YouTube prioritizes original, authentic content and may limit monetization for heavily AI-generated material
+                                    </p>
+                                  </div>
+                                  <div className="flex items-start gap-2">
+                                    <div className="w-1.5 h-1.5 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
+                                    <p className="text-sm text-orange-700">
+                                      <strong>Advertiser-Friendly Guidelines:</strong> AI-generated content may not meet advertiser-friendly criteria, affecting ad revenue
+                                    </p>
+                                  </div>
+                                  <div className="flex items-start gap-2">
+                                    <div className="w-1.5 h-1.5 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
+                                    <p className="text-sm text-orange-700">
+                                      <strong>Monetization Eligibility:</strong> Channels with primarily AI-generated content may face restrictions on monetization features
+                                    </p>
+                                  </div>
+                                  <div className="flex items-start gap-2">
+                                    <div className="w-1.5 h-1.5 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
+                                    <p className="text-sm text-orange-700">
+                                      <strong>Policy Compliance:</strong> Violations of content policies can result in demonetization, channel strikes, or termination
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="pt-2">
+                                  <a 
+                                    href="https://support.google.com/youtube/answer/1311392?hl=en" 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 text-sm font-medium text-orange-700 hover:text-orange-800 transition-colors"
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                    Read YouTube's Official Monetization Policies
+                                  </a>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Quick Assessment */}
+                          <div className={`p-4 rounded-xl border ${
+                            data.ai_detection.probability > 70 ? 'bg-red-50 border-red-200' :
+                            data.ai_detection.probability > 40 ? 'bg-yellow-50 border-yellow-200' : 
+                            'bg-green-50 border-green-200'
+                          }`}>
+                            <div className="flex items-center gap-3">
+                              {data.ai_detection.probability > 70 ? (
+                                <AlertTriangle className="w-5 h-5 text-red-600" />
+                              ) : data.ai_detection.probability > 40 ? (
+                                <AlertTriangle className="w-5 h-5 text-yellow-600" />
+                              ) : (
+                                <CheckCircle className="w-5 h-5 text-green-600" />
+                              )}
+                              <div>
+                                <div className={`font-semibold ${
+                                  data.ai_detection.probability > 70 ? 'text-red-800' :
+                                  data.ai_detection.probability > 40 ? 'text-yellow-800' : 
+                                  'text-green-800'
+                                }`}>
+                                  {data.ai_detection.probability > 70 ? 'High AI Probability Detected' :
+                                   data.ai_detection.probability > 40 ? 'Moderate AI Indicators' : 
+                                   'Human-Like Content Confirmed'}
+                                </div>
+                                <div className={`text-sm ${
+                                  data.ai_detection.probability > 70 ? 'text-red-700' :
+                                  data.ai_detection.probability > 40 ? 'text-yellow-700' : 
+                                  'text-green-700'
+                                }`}>
+                                  {data.ai_detection.probability > 70 ? 'Content shows clear AI generation patterns' :
+                                   data.ai_detection.probability > 40 ? 'Some AI patterns detected, but may be acceptable' : 
+                                   'Content appears naturally human-generated'}
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
 
-                        {/* Analysis Indicators */}
+                        {/* Analysis Indicators - Enhanced */}
                         {data.ai_detection.indicators && (
-                          <div className="space-y-3">
-                            <h4 className="text-body font-semibold text-gray-800">Analysis Indicators</h4>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <div className="flex justify-between text-caption">
-                                  <span className="text-gray-600">Personal Voice</span>
-                                  <span className="font-medium text-gray-800">{data.ai_detection.indicators.personal_voice}%</span>
+                          <div className="space-y-4">
+                            <div>
+                              <h4 className="text-body font-semibold text-gray-800 mb-2">Content Analysis Indicators</h4>
+                              <p className="text-caption text-gray-600">Detailed breakdown of content characteristics</p>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                              {/* Personal Voice */}
+                              <div className="bg-gray-50 rounded-xl p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                                    <span className="text-body font-medium text-gray-800">Personal Voice</span>
+                                  </div>
+                                  <span className="text-title font-bold text-gray-800">{data.ai_detection.indicators.personal_voice}%</span>
                                 </div>
-                                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden mb-2">
                                   <div 
-                                    className="h-full bg-blue-500 transition-all duration-300"
+                                    className="h-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-300 rounded-full"
                                     style={{ width: `${data.ai_detection.indicators.personal_voice}%` }}
                                   />
                                 </div>
+                                <p className="text-xs text-gray-600">
+                                  {data.ai_detection.indicators.personal_voice > 70 ? 'Strong personal voice detected' :
+                                   data.ai_detection.indicators.personal_voice > 40 ? 'Moderate personal elements' : 
+                                   'Limited personal voice indicators'}
+                                </p>
                               </div>
-                              
-                              <div className="space-y-2">
-                                <div className="flex justify-between text-caption">
-                                  <span className="text-gray-600">Natural Flow</span>
-                                  <span className="font-medium text-gray-800">{data.ai_detection.indicators.natural_flow}%</span>
+
+                              {/* Natural Flow */}
+                              <div className="bg-gray-50 rounded-xl p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                                    <span className="text-body font-medium text-gray-800">Natural Flow</span>
+                                  </div>
+                                  <span className="text-title font-bold text-gray-800">{data.ai_detection.indicators.natural_flow}%</span>
                                 </div>
-                                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden mb-2">
                                   <div 
-                                    className="h-full bg-green-500 transition-all duration-300"
+                                    className="h-full bg-gradient-to-r from-green-400 to-green-600 transition-all duration-300 rounded-full"
                                     style={{ width: `${data.ai_detection.indicators.natural_flow}%` }}
                                   />
                                 </div>
+                                <p className="text-xs text-gray-600">
+                                  {data.ai_detection.indicators.natural_flow > 70 ? 'Natural conversational flow' :
+                                   data.ai_detection.indicators.natural_flow > 40 ? 'Some natural transitions' : 
+                                   'Structured or rigid flow patterns'}
+                                </p>
                               </div>
-                              
-                              <div className="space-y-2">
-                                <div className="flex justify-between text-caption">
-                                  <span className="text-gray-600">Grammar Consistency</span>
-                                  <span className="font-medium text-gray-800">{data.ai_detection.indicators.grammar_consistency}%</span>
+
+                              {/* Grammar Consistency */}
+                              <div className="bg-gray-50 rounded-xl p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                                    <span className="text-body font-medium text-gray-800">Grammar Consistency</span>
+                                  </div>
+                                  <span className="text-title font-bold text-gray-800">{data.ai_detection.indicators.grammar_consistency}%</span>
                                 </div>
-                                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden mb-2">
                                   <div 
-                                    className="h-full bg-purple-500 transition-all duration-300"
+                                    className="h-full bg-gradient-to-r from-purple-400 to-purple-600 transition-all duration-300 rounded-full"
                                     style={{ width: `${data.ai_detection.indicators.grammar_consistency}%` }}
                                   />
                                 </div>
+                                <p className="text-xs text-gray-600">
+                                  {data.ai_detection.indicators.grammar_consistency > 90 ? 'Perfect grammar (AI indicator)' :
+                                   data.ai_detection.indicators.grammar_consistency > 70 ? 'Good grammar consistency' : 
+                                   'Natural grammar variations'}
+                                </p>
                               </div>
-                              
-                              <div className="space-y-2">
-                                <div className="flex justify-between text-caption">
-                                  <span className="text-gray-600">Structured Content</span>
-                                  <span className="font-medium text-gray-800">{data.ai_detection.indicators.structured_content}%</span>
+
+                              {/* Structured Content */}
+                              <div className="bg-gray-50 rounded-xl p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                                    <span className="text-body font-medium text-gray-800">Structured Content</span>
+                                  </div>
+                                  <span className="text-title font-bold text-gray-800">{data.ai_detection.indicators.structured_content}%</span>
                                 </div>
-                                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden mb-2">
                                   <div 
-                                    className="h-full bg-orange-500 transition-all duration-300"
+                                    className="h-full bg-gradient-to-r from-orange-400 to-orange-600 transition-all duration-300 rounded-full"
                                     style={{ width: `${data.ai_detection.indicators.structured_content}%` }}
                                   />
                                 </div>
+                                <p className="text-xs text-gray-600">
+                                  {data.ai_detection.indicators.structured_content > 80 ? 'Highly structured (AI indicator)' :
+                                   data.ai_detection.indicators.structured_content > 50 ? 'Moderate structure' : 
+                                   'Natural, unstructured flow'}
+                                </p>
                               </div>
                             </div>
                           </div>
                         )}
 
-                        {/* Detected Patterns */}
+                        {/* Detected Patterns - Enhanced */}
                         {data.ai_detection.patterns && data.ai_detection.patterns.length > 0 && (
-                          <div className="space-y-3">
-                            <h4 className="text-body font-semibold text-gray-800">Detected Patterns</h4>
+                          <div className="space-y-4">
+                            <div>
+                              <h4 className="text-body font-semibold text-gray-800 mb-2">Detected AI Patterns</h4>
+                              <p className="text-caption text-gray-600">Specific patterns that suggest AI generation</p>
+                            </div>
                             <div className="flex flex-wrap gap-2">
                               {data.ai_detection.patterns.map((pattern: string, index: number) => (
-                                <Badge key={index} variant="neutral" className="text-sm">
+                                <Badge key={index} variant="neutral" className="text-sm bg-red-50 text-red-700 border-red-200">
+                                  <AlertTriangle className="w-3 h-3 mr-1" />
                                   {pattern}
                                 </Badge>
                               ))}
@@ -1081,52 +1235,45 @@ function ResultsPageContent() {
                           </div>
                         )}
 
-                        {/* Analysis Summary */}
-                        <div className="space-y-3">
-                          <h4 className="text-body font-semibold text-gray-800">Analysis Summary</h4>
-                          <div className="text-sm text-gray-700 bg-gray-50 p-4 rounded-lg leading-relaxed">
-                            {data.ai_detection.explanation.split('\n').map((line: string, index: number) => (
-                              <p key={index} className={line.trim() ? 'mb-3' : 'mb-2'}>
-                                {line.trim() || '\u00A0'}
-                              </p>
-                            ))}
+                        {/* Analysis Summary - Enhanced */}
+                        <div className="space-y-4">
+                          <div>
+                            <h4 className="text-body font-semibold text-gray-800 mb-2">Detailed Analysis</h4>
+                            <p className="text-caption text-gray-600">Comprehensive breakdown of the AI detection results</p>
+                          </div>
+                          <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-xl border border-gray-200">
+                            <div className="prose prose-sm max-w-none">
+                              {data.ai_detection.explanation.split('\n').map((line: string, index: number) => (
+                                <p key={index} className={`text-gray-700 leading-relaxed ${line.trim() ? 'mb-3' : 'mb-2'}`}>
+                                  {line.trim() || '\u00A0'}
+                                </p>
+                              ))}
+                            </div>
                           </div>
                         </div>
 
-                        {/* Warning/Recommendation */}
-                        {data.ai_detection.probability > 40 && (
-                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                            <div className="flex items-center gap-2 text-yellow-800 mb-2">
-                              <AlertTriangle className="w-5 h-5" />
-                              <span className="text-body font-medium">AI Content Detected</span>
-                            </div>
-                            <p className="text-sm text-yellow-700">
-                              This content shows some AI generation patterns. Consider adding more personal anecdotes, 
-                              natural speech patterns, or current references to make it more human-like and engaging for your audience.
-                            </p>
-                          </div>
-                        )}
 
-                        {/* Low AI Probability Success */}
-                        {data.ai_detection.probability <= 40 && (
-                          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                            <div className="flex items-center gap-2 text-green-800 mb-2">
-                              <CheckCircle className="w-5 h-5" />
-                              <span className="text-body font-medium">Human-Like Content Detected</span>
-                            </div>
-                            <p className="text-sm text-green-700">
-                              Great! This content appears to be naturally human-generated with authentic voice and flow patterns.
-                            </p>
-                          </div>
-                        )}
                       </div>
                     </Card>
                   </div>
                 ) : (
-                  <div className="text-center py-8">
-                    <Brain className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-body font-semibold text-gray-800 mb-2">No AI Detection Data</h3>
-                    <p className="text-gray-600">AI content detection analysis was not performed for this scan.</p>
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                      <Brain className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No AI Detection Data</h3>
+                    <p className="text-gray-600 mb-4 max-w-md mx-auto">
+                      AI content detection analysis was not performed for this scan. This feature requires Advanced membership and channel context data.
+                    </p>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 max-w-md mx-auto">
+                      <div className="flex items-center gap-2 text-gray-700 mb-2">
+                        <Info className="w-4 h-4" />
+                        <span className="font-medium">Why is this empty?</span>
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        AI detection requires YouTube channel connection and Advanced membership to analyze content patterns and provide detailed insights.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>

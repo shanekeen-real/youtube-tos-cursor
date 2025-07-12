@@ -15,7 +15,8 @@ import {
   History,
   Crown,
   Star,
-  Zap
+  Zap,
+  Video
 } from 'lucide-react';
 
 interface UserMenuProps {
@@ -181,6 +182,15 @@ export default function UserMenu({ user }: UserMenuProps) {
             >
               <BarChart3 className="w-4 h-4 text-gray-500" />
               <span className="font-medium">Dashboard</span>
+            </Link>
+            
+            <Link 
+              href="/my-videos" 
+              className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors"
+              onClick={() => setOpen(false)}
+            >
+              <Video className="w-4 h-4 text-gray-500" />
+              <span className="font-medium">My Videos</span>
             </Link>
             
             <Link 
