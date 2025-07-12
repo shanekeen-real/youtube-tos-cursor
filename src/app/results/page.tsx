@@ -247,6 +247,59 @@ function ResultsPageContent() {
 
   const severityOrder = { HIGH: 2, MEDIUM: 1, LOW: 0 };
 
+  // Generate analysis summary based on risk level
+  const generateAnalysisSummary = () => {
+    if (!data) {
+      return {
+        title: 'Analysis complete',
+        summary: 'Your content has been analyzed. Review the details and suggestions to optimize your content for monetization.',
+        icon: Info,
+        variant: 'neutral' as const,
+        bgColor: 'bg-gray-100',
+        iconColor: 'text-gray-600'
+      };
+    }
+    
+    switch (data.riskLevel) {
+      case 'LOW':
+        return {
+          title: 'Your content appears safe for monetization',
+          summary: `Great news! Your content shows minimal risk with a score of ${data.riskScore}/100. Your video should be fine for monetization. Continue creating content while maintaining these standards.`,
+          icon: CheckCircle,
+          variant: 'safe' as const,
+          bgColor: 'bg-safe/10',
+          iconColor: 'text-safe'
+        };
+      case 'MEDIUM':
+        return {
+          title: 'Moderate risk detected - review recommended',
+          summary: `Your content has a moderate risk score of ${data.riskScore}/100. This level of risk does put your revenue and monetization at risk. We recommend reviewing the suggestions provided to improve your content's safety and protect your earnings.`,
+          icon: AlertTriangle,
+          variant: 'yellow' as const,
+          bgColor: 'bg-yellow-100',
+          iconColor: 'text-yellow-600'
+        };
+      case 'HIGH':
+        return {
+          title: 'High risk detected - immediate action required',
+          summary: `Your content has a high risk score of ${data.riskScore}/100. This poses a significant threat to your monetization. Please urgently review the suggested changes to protect your revenue and avoid potential demonetization.`,
+          icon: AlertTriangle,
+          variant: 'risk' as const,
+          bgColor: 'bg-risk/10',
+          iconColor: 'text-risk'
+        };
+      default:
+        return {
+          title: 'Analysis complete',
+          summary: `Your content has been analyzed with a risk score of ${data.riskScore}/100. Review the details and suggestions to optimize your content for monetization.`,
+          icon: Info,
+          variant: 'neutral' as const,
+          bgColor: 'bg-gray-100',
+          iconColor: 'text-gray-600'
+        };
+    }
+  };
+
   // Utility function to check for English language
   const isEnglish = (lang: string | undefined) => {
     if (!lang) return false;
@@ -568,6 +621,29 @@ function ResultsPageContent() {
                           </div>
                         </div>
                       </div>
+                    </Card>
+
+                    {/* Analysis Summary Card */}
+                    <Card>
+                      {(() => {
+                        const analysisSummary = generateAnalysisSummary();
+                        const IconComponent = analysisSummary.icon;
+                        return (
+                          <>
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className={`w-8 h-8 ${analysisSummary.bgColor} rounded-lg flex items-center justify-center`}>
+                                <IconComponent className={`w-4 h-4 ${analysisSummary.iconColor}`} />
+                              </div>
+                              <h4 className="text-body font-semibold text-gray-800">Analysis Summary</h4>
+                            </div>
+                            
+                            <div className="space-y-3">
+                              <h5 className="text-body font-medium text-gray-800">{analysisSummary.title}</h5>
+                              <p className="text-caption text-gray-600 leading-relaxed">{analysisSummary.summary}</p>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </Card>
 
                     {/* Quick Stats Grid */}

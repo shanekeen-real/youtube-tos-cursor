@@ -233,8 +233,8 @@ export default function SettingsPage() {
 
   return (
     <TwoFactorWrapper>
-      <main className="min-h-screen bg-white">
-        <div className="max-w-4xl mx-auto px-4 py-8">
+    <main className="min-h-screen bg-white">
+      <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-title font-semibold text-gray-800 mb-2">Settings</h1>
@@ -601,8 +601,8 @@ export default function SettingsPage() {
             fetchUserProfile();
           }
         }}
-              />
-      </main>
+      />
+    </main>
     </TwoFactorWrapper>
   );
 } 
