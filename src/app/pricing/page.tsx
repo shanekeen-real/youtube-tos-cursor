@@ -110,6 +110,28 @@ export default function PricingPage() {
     }
   };
 
+  // Open Stripe customer portal for existing subscribers
+  const handleManageSubscription = async () => {
+    if (!session?.user?.id) return;
+    setLoadingTier('portal');
+    try {
+      const response = await fetch('/api/create-customer-portal-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        window.location.href = data.url;
+      } else {
+        alert('Failed to open subscription management. Please try again.');
+      }
+    } catch (error) {
+      alert('Failed to open subscription management. Please try again.');
+    } finally {
+      setLoadingTier('');
+    }
+  };
+
   const tiers = ['free', 'pro', 'advanced', 'enterprise'] as const;
 
   if (loading) {
@@ -131,9 +153,6 @@ export default function PricingPage() {
           <h1 className="text-display font-bold text-gray-800 mb-4">
             Choose Your Plan
           </h1>
-          <p className="text-subtitle text-gray-600 max-w-2xl mx-auto">
-            Select the perfect plan for your YouTube channel. Start free and upgrade as you grow.
-          </p>
         </div>
 
         {/* Billing Toggle */}
@@ -170,6 +189,23 @@ export default function PricingPage() {
             const tierData = SUBSCRIPTION_TIERS[tier];
             
             const displayPrice = getDisplayPrice(tier, billingCycle);
+
+            // Determine upgrade/downgrade logic
+            const tierOrder = ['free', 'pro', 'advanced', 'enterprise'];
+            const userTierIndex = userProfile ? tierOrder.indexOf(userProfile.subscriptionTier) : -1;
+            const cardTierIndex = tierOrder.indexOf(tier);
+            let buttonText = '';
+            if (isCurrent) {
+              buttonText = 'Current Plan';
+            } else if (cardTierIndex > userTierIndex) {
+              buttonText = `Upgrade to ${tierData.name}`;
+            } else if (cardTierIndex < userTierIndex) {
+              buttonText = `Downgrade to ${tierData.name}`;
+            } else if (tier === 'free') {
+              buttonText = 'Get Started';
+            } else if (tier === 'enterprise') {
+              buttonText = 'Contact Sales';
+            }
 
             return (
               <div key={tier} className={`relative ${isPopular ? 'lg:scale-105' : ''}`}>
@@ -229,33 +265,49 @@ export default function PricingPage() {
                   </div>
 
                   {/* CTA Button */}
-                  <Button
-                    onClick={() => handleUpgrade(tier)}
-                    disabled={isCurrent || loadingTier === tier}
-                    variant={isPopular ? "default" : "outline"}
-                    className="w-full"
-                  >
-                    {loadingTier === tier ? (
+                  {tier === 'enterprise' ? (
+                    <Button
+                      onClick={() => window.location.href = 'mailto:support@yellowdollar.com?subject=Enterprise%20Plan%20Inquiry'}
+                      variant={isPopular ? "default" : "outline"}
+                      className="w-full"
+                    >
                       <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Processing...
-                      </div>
-                    ) : isCurrent ? (
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4" />
-                        Current Plan
-                      </div>
-                    ) : tier === 'free' ? (
-                      'Get Started'
-                    ) : tier === 'enterprise' ? (
-                      'Contact Sales'
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        Upgrade to {tierData.name}
+                        Contact Sales
                         <ArrowRight className="w-4 h-4" />
                       </div>
-                    )}
-                  </Button>
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => {
+                        // If user is on a paid plan, open Stripe portal for upgrades/downgrades
+                        if (userProfile && userProfile.subscriptionTier !== 'free' && !isCurrent) {
+                          handleManageSubscription();
+                        } else {
+                          handleUpgrade(tier);
+                        }
+                      }}
+                      disabled={isCurrent || loadingTier === tier}
+                      variant={isPopular ? "default" : "outline"}
+                      className="w-full"
+                    >
+                      {loadingTier === tier || loadingTier === 'portal' ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Processing...
+                        </div>
+                      ) : isCurrent ? (
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4" />
+                          Current Plan
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          {buttonText}
+                          <ArrowRight className="w-4 h-4" />
+                        </div>
+                      )}
+                    </Button>
+                  )}
                 </div>
               </div>
             );

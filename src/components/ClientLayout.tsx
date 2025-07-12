@@ -46,6 +46,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                   >
                     Pricing
                   </Link>
+                  <div className="flex gap-2">
                   <Button 
                     variant="outlined" 
                     size="sm"
@@ -57,9 +58,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                     variant="primary" 
                     size="sm"
                     onClick={() => setAuthOpen(true)}
+                    className="ml-[10px]"
                   >
                     Get started
                   </Button>
+                  </div>
                 </>
               )}
             </nav>
