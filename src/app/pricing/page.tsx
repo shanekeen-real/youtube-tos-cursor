@@ -23,7 +23,7 @@ interface UserProfile {
 
 const featureMatrix = [
   { label: 'YouTube Channel Scans /mo', key: 'scanLimit', render: (v: any) => v === 'unlimited' ? 'Unlimited' : v === 'custom' ? 'Custom' : v },
-  { label: 'Suggestions per Scan', key: 'suggestionsPerScan', render: (v: any) => v === 'all' ? 'All (10+)' : v },
+  { label: 'Suggestions per Scan', key: 'suggestionsPerScan', render: (v: any) => v === 'all' ? 'All (10+)' : v === 5 ? '5+' : v },
   { label: 'Single Video Scan', key: 'singleScan', render: (v: any, tier: string) => '✔️' },
   { label: 'Bulk Video Scan', key: 'bulkScan', render: (v: boolean) => v ? '✔️' : '❌' },
   { label: 'Revenue at Risk Calculator', key: 'revenueCalculator', render: (v: string) => v === 'basic' ? 'Basic' : v === 'full' ? 'Full' : v === 'full+export' ? 'Full + Export' : '❌' },
@@ -37,6 +37,7 @@ const featureMatrix = [
   { label: 'White-label/Branding', key: 'whiteLabel', render: (v: boolean) => v ? '✔️' : '❌' },
   { label: 'SLA/Uptime Guarantee', key: 'sla', render: (v: boolean) => v ? '✔️' : '❌' },
   { label: 'AI-Powered Policy Analysis', key: 'aiPolicyAnalysis', render: (v: boolean) => v ? '✔️ (Advanced)' : '❌' },
+  { label: 'AI Content Detection', key: 'aiContentDetection', render: (v: boolean) => v ? '✔️' : '❌' },
 ];
 
 export default function PricingPage() {

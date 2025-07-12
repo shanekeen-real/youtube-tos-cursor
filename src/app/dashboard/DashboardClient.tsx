@@ -342,11 +342,23 @@ export default function DashboardClient() {
 
   // Show welcome modal on first connection
   useEffect(() => {
-    if (channelContext && channelContext.channelData && !window.sessionStorage.getItem('ytWelcomeModalShown')) {
+    console.log('Welcome modal trigger check:', {
+      hasChannelContext: !!channelContext,
+      hasChannelData: !!channelContext?.channelData,
+      hasYtChannel: !!ytChannel,
+      sessionStorageShown: window.sessionStorage.getItem('ytWelcomeModalShown'),
+      channelContext: channelContext
+    });
+    
+    // Show modal if we have either channel context OR YouTube channel data, and haven't shown it before
+    const shouldShowModal = (channelContext?.channelData || ytChannel) && !window.sessionStorage.getItem('ytWelcomeModalShown');
+    
+    if (shouldShowModal) {
+      console.log('Triggering welcome modal');
       setShowWelcomeModal(true);
       window.sessionStorage.setItem('ytWelcomeModalShown', '1');
     }
-  }, [channelContext]);
+  }, [channelContext, ytChannel]);
 
   if (status === 'loading' || loading) {
     return (
@@ -390,7 +402,18 @@ export default function DashboardClient() {
       {/* Welcome Modal */}
       <YouTubeWelcomeModal
         open={showWelcomeModal}
-        channelData={channelContext?.channelData || {}}
+        channelData={{
+          title: channelContext?.channelData?.title || ytChannel?.snippet?.title || 'YouTube Channel',
+          description: channelContext?.channelData?.description || ytChannel?.snippet?.description || '',
+          subscriberCount: channelContext?.channelData?.subscriberCount || ytChannel?.statistics?.subscriberCount || 0,
+          viewCount: channelContext?.channelData?.viewCount || ytChannel?.statistics?.viewCount || 0,
+          videoCount: channelContext?.channelData?.videoCount || ytChannel?.statistics?.videoCount || 0,
+          statistics: ytChannel?.statistics || {
+            subscriberCount: channelContext?.channelData?.subscriberCount || 0,
+            viewCount: channelContext?.channelData?.viewCount || 0,
+            videoCount: channelContext?.channelData?.videoCount || 0
+          }
+        }}
         onClose={() => setShowWelcomeModal(false)}
       />
       {/* Header Section */}
@@ -415,8 +438,12 @@ export default function DashboardClient() {
                                           if (response.ok) {
                         const data = await response.json();
                         setYtChannel(data.channel);
+                        console.log('YouTube connection response:', data);
                         if (data.channelContext) {
+                          console.log('Setting channel context:', data.channelContext);
                           setChannelContext(data.channelContext);
+                        } else {
+                          console.log('No channel context in response');
                         }
                       } else {
                       const errorData = await response.json();

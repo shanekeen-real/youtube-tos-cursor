@@ -8,6 +8,7 @@ import { app } from '@/lib/firebase';
 import Link from 'next/link';
 import { getTierLimits } from '@/types/subscription';
 import { Settings, User, CreditCard, Youtube, Moon, Sun, AlertTriangle, CheckCircle, Shield } from 'lucide-react';
+import YouTubeWelcomeModal from '@/components/YouTubeWelcomeModal';
 
 // Define the structure of a user's profile data
 interface UserProfile {
@@ -43,6 +44,9 @@ export default function SettingsPage() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [ytChannel, setYtChannel] = useState<YouTubeChannel | null>(null);
   const [ytConnecting, setYtConnecting] = useState(false);
+  const [ytFetching, setYtFetching] = useState(false);
+  const [channelContext, setChannelContext] = useState<any>(null);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [managingSubscription, setManagingSubscription] = useState(false);
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
   
@@ -73,8 +77,13 @@ export default function SettingsPage() {
       const userDoc = await getDoc(userRef);
       if (userDoc.exists() && userDoc.data().youtube?.channel) {
         setYtChannel(userDoc.data().youtube.channel as YouTubeChannel);
+        // Also get channel context if available
+        if (userDoc.data().youtube?.channelContext) {
+          setChannelContext(userDoc.data().youtube.channelContext);
+        }
       } else {
         setYtChannel(null);
+        setChannelContext(null);
       }
     };
     fetchYouTube();
@@ -89,6 +98,18 @@ export default function SettingsPage() {
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
   }, [session?.user?.id]);
+  
+  // Show welcome modal when YouTube is connected (same logic as Dashboard)
+  useEffect(() => {
+    // Show modal if we have either channel context OR YouTube channel data, and haven't shown it before
+    const shouldShowModal = (channelContext?.channelData || ytChannel) && !window.sessionStorage.getItem('ytWelcomeModalShown');
+    
+    if (shouldShowModal) {
+      console.log('Triggering welcome modal');
+      setShowWelcomeModal(true);
+      window.sessionStorage.setItem('ytWelcomeModalShown', '1');
+    }
+  }, [channelContext, ytChannel]);
   
   const progress = userProfile ? (userProfile.scanCount / userProfile.scanLimit) * 100 : 0;
   
@@ -113,7 +134,7 @@ export default function SettingsPage() {
 
   const handleConnectYouTube = async () => {
     if (!session?.user?.id) return;
-    setYtConnecting(true);
+    setYtFetching(true);
     try {
       const response = await fetch('/api/fetch-youtube-channel', {
         method: 'POST',
@@ -125,6 +146,13 @@ export default function SettingsPage() {
       if (response.ok) {
         const data = await response.json();
         setYtChannel(data.channel);
+        console.log('YouTube connection response:', data);
+        if (data.channelContext) {
+          console.log('Setting channel context:', data.channelContext);
+          setChannelContext(data.channelContext);
+        } else {
+          console.log('No channel context in response');
+        }
       } else {
         const errorData = await response.json();
         console.error('Failed to connect YouTube:', errorData.error);
@@ -134,7 +162,7 @@ export default function SettingsPage() {
       console.error('Error connecting YouTube:', error);
       alert('Failed to connect YouTube channel. Please try again.');
     } finally {
-      setYtConnecting(false);
+      setYtFetching(false);
     }
   };
 
@@ -401,10 +429,10 @@ export default function SettingsPage() {
                     <p className="text-gray-600 mb-4">Connect your YouTube channel to unlock advanced features like revenue analysis and bulk scanning.</p>
                     <Button 
                       onClick={handleConnectYouTube}
-                      disabled={ytConnecting}
+                      disabled={ytFetching}
                       className="w-full"
                     >
-                      {ytConnecting ? 'Connecting...' : 'Connect YouTube'}
+                      {ytFetching ? 'Connecting...' : 'Connect YouTube'}
                     </Button>
                   </div>
                 </div>
@@ -470,6 +498,24 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+      
+      {/* YouTube Welcome Modal */}
+      <YouTubeWelcomeModal
+        open={showWelcomeModal}
+        channelData={{
+          title: channelContext?.channelData?.title || ytChannel?.snippet?.title || 'YouTube Channel',
+          description: channelContext?.channelData?.description || '',
+          subscriberCount: channelContext?.channelData?.subscriberCount || ytChannel?.statistics?.subscriberCount || 0,
+          viewCount: channelContext?.channelData?.viewCount || ytChannel?.statistics?.viewCount || 0,
+          videoCount: channelContext?.channelData?.videoCount || ytChannel?.statistics?.videoCount || 0,
+          statistics: ytChannel?.statistics || {
+            subscriberCount: channelContext?.channelData?.subscriberCount || 0,
+            viewCount: channelContext?.channelData?.viewCount || 0,
+            videoCount: channelContext?.channelData?.videoCount || 0
+          }
+        }}
+        onClose={() => setShowWelcomeModal(false)}
+      />
     </main>
   );
 } 

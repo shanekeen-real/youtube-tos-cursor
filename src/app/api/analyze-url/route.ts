@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { performAnalysis, performEnhancedAnalysis } from '@/lib/ai-analysis';
+import { performEnhancedAnalysis } from '@/lib/ai-analysis';
 import { getChannelContext } from '@/lib/channel-context';
 import axios from 'axios';
 import { adminDb } from '@/lib/firebase-admin'; // Correctly import adminDb
@@ -223,7 +223,7 @@ async function getTranscriptViaWebScraping(videoId: string): Promise<string | nu
 }
 
 // YouTube Data API - Get video metadata as fallback
-async function getVideoMetadata(videoId: string): Promise<{ title: string; description: string } | null> {
+async function getVideoMetadata(videoId: string): Promise<{ title: string; description: string; channelId?: string } | null> {
   try {
     const apiKey = process.env.YOUTUBE_API_KEY;
     if (!apiKey) {
@@ -240,11 +240,33 @@ async function getVideoMetadata(videoId: string): Promise<{ title: string; descr
     
     return {
       title: video.snippet.title,
-      description: video.snippet.description
+      description: video.snippet.description,
+      channelId: video.snippet.channelId
     };
   } catch (error: any) {
     console.error('YouTube Data API fetch failed:', error.message);
     return null;
+  }
+}
+
+// Check if video belongs to user's connected YouTube channel
+async function isVideoOwnedByUser(videoId: string, userChannelId: string, accessToken: string): Promise<boolean> {
+  try {
+    // Use the existing getVideoMetadata function to get the video's channel ID
+    const metadata = await getVideoMetadata(videoId);
+    
+    if (!metadata?.channelId) {
+      console.log(`Could not determine channel ID for video ${videoId}`);
+      return false;
+    }
+    
+    const isOwned = metadata.channelId === userChannelId;
+    console.log(`Video ownership check: ${videoId} belongs to ${metadata.channelId}, user channel: ${userChannelId}, owned: ${isOwned}`);
+    
+    return isOwned;
+  } catch (error: any) {
+    console.warn('Failed to check video ownership:', error.message);
+    return false; // Default to false on error to avoid applying context incorrectly
   }
 }
 
@@ -349,14 +371,22 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Get channel context for AI detection if user has connected YouTube
+    // Get channel context for AI detection ONLY if video belongs to user's connected YouTube channel
     let channelContext = null;
     try {
       const userDoc = await adminDb.collection('users').doc(userId).get();
       if (userDoc.exists) {
         const userData = userDoc.data();
         if (userData?.youtube?.channel?.id && (session as any).accessToken) {
-          channelContext = await getChannelContext(userData.youtube.channel.id, (session as any).accessToken);
+          // Check if this video belongs to the user's channel before applying context
+          const isOwned = await isVideoOwnedByUser(videoId, userData.youtube.channel.id, (session as any).accessToken);
+          
+          if (isOwned) {
+            console.log(`Applying channel context for user's own video: ${videoId}`);
+            channelContext = await getChannelContext(userData.youtube.channel.id, (session as any).accessToken);
+          } else {
+            console.log(`Skipping channel context for external video: ${videoId}`);
+          }
         }
       }
     } catch (contextError) {

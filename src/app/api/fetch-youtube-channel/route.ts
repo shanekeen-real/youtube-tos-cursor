@@ -54,7 +54,17 @@ export async function POST(req: NextRequest) {
         // Get channel context with AI detection
         let channelContext = null;
         try {
+          console.log('Fetching channel context for channel ID:', channelId);
           channelContext = await getChannelContext(channelId, (session as any).accessToken);
+          console.log('Channel context result:', channelContext ? 'Success' : 'Failed');
+          if (channelContext) {
+            console.log('Channel context data:', {
+              channelId: channelContext.channelData?.channelId,
+              title: channelContext.channelData?.title,
+              aiProbability: channelContext.aiIndicators?.aiProbability,
+              confidence: channelContext.aiIndicators?.confidence
+            });
+          }
         } catch (contextError) {
           console.warn('Failed to get channel context:', contextError);
           // Continue without context - this is not critical

@@ -15,6 +15,7 @@ export interface SubscriptionLimits {
   whiteLabel: boolean;
   sla: boolean;
   aiPolicyAnalysis: boolean;
+  aiContentDetection: boolean;
   exportFormats?: string[];
 }
 
@@ -40,7 +41,7 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTier, PricingTier> = {
     description: 'Get started with basic YouTube channel scans and suggestions.',
     features: [
       '1 YouTube channel scan per month',
-      '3 suggestions per scan (limited)',
+      '1 suggestion per scan (limited)',
       'Single video scan',
       'Basic revenue at risk calculator',
       'Custom CPM/RPM settings',
@@ -48,7 +49,7 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTier, PricingTier> = {
     ],
     limits: {
       scanLimit: 1,
-      suggestionsPerScan: 3,
+      suggestionsPerScan: 1,
       bulkScan: false,
       revenueCalculator: 'basic',
       exportReports: false,
@@ -61,6 +62,7 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTier, PricingTier> = {
       whiteLabel: false,
       sla: false,
       aiPolicyAnalysis: true,
+      aiContentDetection: false,
     },
   },
   pro: {
@@ -71,7 +73,7 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTier, PricingTier> = {
     description: 'For creators who need more scans, suggestions, and export features.',
     features: [
       '30 YouTube channel scans per month',
-      '5 suggestions per scan',
+      '3 suggestions per scan',
       'Single video scan',
       'Full revenue at risk calculator',
       'Export reports (PDF/CSV)',
@@ -81,7 +83,7 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTier, PricingTier> = {
     ],
     limits: {
       scanLimit: 30,
-      suggestionsPerScan: 5,
+      suggestionsPerScan: 3,
       bulkScan: false,
       revenueCalculator: 'full',
       exportReports: true,
@@ -94,6 +96,7 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTier, PricingTier> = {
       whiteLabel: false,
       sla: false,
       aiPolicyAnalysis: true,
+      aiContentDetection: false,
     },
     recommended: true,
     stripePriceId: 'price_1RhMBAPkKFhdAA8L8Zu8ljE1',
@@ -107,7 +110,7 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTier, PricingTier> = {
     description: 'For teams and professionals who need unlimited scans and collaboration.',
     features: [
       'Unlimited YouTube channel scans',
-      'All suggestions per scan (10+)',
+      '5+ suggestions per scan',
       'Single & bulk video scan',
       'Full revenue at risk calculator + export',
       'Export reports (PDF/CSV)',
@@ -117,10 +120,11 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTier, PricingTier> = {
       'Team/collaborator access (3 seats)',
       'API access',
       'AI-powered policy analysis (advanced)',
+      'AI Content Detection',
     ],
     limits: {
       scanLimit: 'unlimited',
-      suggestionsPerScan: 'all',
+      suggestionsPerScan: 5,
       bulkScan: true,
       revenueCalculator: 'full+export',
       exportReports: true,
@@ -133,6 +137,7 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTier, PricingTier> = {
       whiteLabel: false,
       sla: false,
       aiPolicyAnalysis: true,
+      aiContentDetection: true,
     },
     stripePriceId: 'price_1RhMCEPkKFhdAA8Lzc1N3Uog',
     stripePriceIdAnnual: 'price_1RhN86PkKFhdAA8LLoMj7vlc',
@@ -158,6 +163,7 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTier, PricingTier> = {
       'White-label/branding',
       'SLA/Uptime guarantee',
       'AI-powered policy analysis (advanced)',
+      'AI Content Detection',
     ],
     limits: {
       scanLimit: 'custom',
@@ -174,6 +180,7 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTier, PricingTier> = {
       whiteLabel: true,
       sla: true,
       aiPolicyAnalysis: true,
+      aiContentDetection: true,
     },
   },
 };

@@ -170,4 +170,22 @@ export const checkUserCanExport = (userData: any): { canExport: boolean; reason?
   }
   
   return { canExport: true };
+};
+
+export const checkUserCanAccessAIDetection = (userData: any): { canAccess: boolean; reason?: string } => {
+  if (!userData || !userData.subscriptionTier) {
+    return { canAccess: false, reason: 'Unable to verify subscription status. Please contact support.' };
+  }
+  
+  const tier = userData.subscriptionTier;
+  const limits = getTierLimits(tier);
+  
+  if (!limits.aiContentDetection) {
+    return { 
+      canAccess: false, 
+      reason: `AI Content Detection is only available for Advanced Members. Please upgrade to Advanced or higher to access this feature.` 
+    };
+  }
+  
+  return { canAccess: true };
 }; 
