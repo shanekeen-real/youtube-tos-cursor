@@ -77,6 +77,20 @@ export default function UserMenu({ user }: UserMenuProps) {
   }, []);
 
   const handleSignOut = async () => {
+    try {
+      // Clear 2FA verification before signing out
+      if (session?.user?.id) {
+        await fetch('/api/clear-2fa-verification', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Error clearing 2FA verification:', error);
+    }
+    
     await signOut({ callbackUrl: '/' });
   };
 

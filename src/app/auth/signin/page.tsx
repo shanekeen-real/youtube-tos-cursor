@@ -22,7 +22,7 @@ export default function SignInPage() {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
-      await signIn('google', { callbackUrl: '/dashboard' });
+      await signIn('google', { callbackUrl: '/auth/2fa-verify' });
     } catch (err: any) {
       console.error('Sign in error:', err);
     } finally {

@@ -48,6 +48,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.expiresAt = token.expiresAt as number | undefined
       // Use the consistent user ID from the JWT token
       session.user.id = (token.userId as string) || token.sub || ''
+      
+      // Check if user has 2FA enabled and add to session
+      if (session.user.id && adminDb) {
+        try {
+          const userRef = adminDb.collection('users').doc(session.user.id);
+          const userDoc = await userRef.get();
+          if (userDoc.exists) {
+            const userData = userDoc.data();
+            session.twoFactorEnabled = userData?.twoFactorEnabled || false;
+            
+            // Check if 2FA has been verified recently (within 24 hours)
+            if (userData?.twoFactorVerifiedAt) {
+              const verifiedAt = new Date(userData.twoFactorVerifiedAt);
+              const now = new Date();
+              const hoursSinceVerification = (now.getTime() - verifiedAt.getTime()) / (1000 * 60 * 60);
+              session.twoFactorVerified = hoursSinceVerification < 24;
+            } else {
+              session.twoFactorVerified = false;
+            }
+          }
+        } catch (error) {
+          console.error('Error checking 2FA status in session:', error);
+          session.twoFactorEnabled = false;
+          session.twoFactorVerified = false;
+        }
+      }
+      
       return session
     },
     async signIn({ user, account, profile }) {
@@ -79,6 +106,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               googleAccountId: account.providerAccountId,
             }, { merge: true });
           }
+
+
         } catch (error) {
           console.error('Error storing user profile:', error)
         }

@@ -7,8 +7,11 @@ import { getFirestore, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { app } from '@/lib/firebase';
 import Link from 'next/link';
 import { getTierLimits } from '@/types/subscription';
-import { Settings, User, CreditCard, Youtube, Moon, Sun, AlertTriangle, CheckCircle, Shield } from 'lucide-react';
+import { Settings, User, CreditCard, Youtube, Moon, Sun, AlertTriangle, CheckCircle, Shield, Smartphone } from 'lucide-react';
 import YouTubeWelcomeModal from '@/components/YouTubeWelcomeModal';
+import TwoFactorSetupModal from '@/components/TwoFactorSetupModal';
+import TwoFactorDisableModal from '@/components/TwoFactorDisableModal';
+import TwoFactorWrapper from '@/components/TwoFactorWrapper';
 
 // Define the structure of a user's profile data
 interface UserProfile {
@@ -23,6 +26,9 @@ interface UserProfile {
     cancelledAt?: string;
     expiresAt?: string;
   };
+  twoFactorEnabled?: boolean;
+  twoFactorSetupAt?: string;
+  twoFactorEnabledAt?: string;
 }
 
 interface YouTubeChannel {
@@ -49,6 +55,8 @@ export default function SettingsPage() {
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [managingSubscription, setManagingSubscription] = useState(false);
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
+  const [showTwoFactorSetupModal, setShowTwoFactorSetupModal] = useState(false);
+  const [showTwoFactorDisableModal, setShowTwoFactorDisableModal] = useState(false);
   
   useEffect(() => {
     if (dark) {
@@ -224,8 +232,9 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-white">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+    <TwoFactorWrapper>
+      <main className="min-h-screen bg-white">
+        <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-title font-semibold text-gray-800 mb-2">Settings</h1>
@@ -459,6 +468,48 @@ export default function SettingsPage() {
                     {dark ? 'On' : 'Off'}
                   </Button>
                 </div>
+                
+                {/* Two-Factor Authentication */}
+                <div className="flex items-center justify-between py-3 border-b border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <Smartphone className="w-4 h-4 text-gray-600" />
+                    <div>
+                      <span className="text-gray-700">Two-Factor Authentication</span>
+                      <p className="text-xs text-gray-500">
+                        {userProfile?.twoFactorEnabled 
+                          ? `Enabled on ${userProfile.twoFactorEnabledAt ? new Date(userProfile.twoFactorEnabledAt).toLocaleDateString() : 'recently'}`
+                          : 'Add an extra layer of security to your account'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {userProfile?.twoFactorEnabled ? (
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 px-2 py-1 bg-safe/10 rounded-full">
+                          <CheckCircle className="w-3 h-3 text-safe" />
+                          <span className="text-xs text-safe font-medium">Enabled</span>
+                        </div>
+                        <Button 
+                          variant="outlined" 
+                          size="sm"
+                          onClick={() => setShowTwoFactorDisableModal(true)}
+                        >
+                          Disable
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button 
+                        variant="outlined" 
+                        size="sm"
+                        onClick={() => setShowTwoFactorSetupModal(true)}
+                      >
+                        Enable
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                
                 <div className="text-caption text-gray-500">
                   More settings and preferences coming soon...
                 </div>
@@ -516,6 +567,42 @@ export default function SettingsPage() {
         }}
         onClose={() => setShowWelcomeModal(false)}
       />
-    </main>
+
+      {/* Two-Factor Authentication Modals */}
+      <TwoFactorSetupModal
+        open={showTwoFactorSetupModal}
+        onClose={() => setShowTwoFactorSetupModal(false)}
+        onSuccess={() => {
+          // Refresh user profile to show updated 2FA status
+          if (session?.user?.id) {
+            const fetchUserProfile = async () => {
+              const db = getFirestore(app);
+              const userRef = doc(db, 'users', session.user.id);
+              const userDoc = await getDoc(userRef);
+              if (userDoc.exists()) setUserProfile(userDoc.data() as UserProfile);
+            };
+            fetchUserProfile();
+          }
+        }}
+      />
+
+      <TwoFactorDisableModal
+        open={showTwoFactorDisableModal}
+        onClose={() => setShowTwoFactorDisableModal(false)}
+        onSuccess={() => {
+          // Refresh user profile to show updated 2FA status
+          if (session?.user?.id) {
+            const fetchUserProfile = async () => {
+              const db = getFirestore(app);
+              const userRef = doc(db, 'users', session.user.id);
+              const userDoc = await getDoc(userRef);
+              if (userDoc.exists()) setUserProfile(userDoc.data() as UserProfile);
+            };
+            fetchUserProfile();
+          }
+        }}
+              />
+      </main>
+    </TwoFactorWrapper>
   );
 } 

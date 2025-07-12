@@ -5,6 +5,8 @@ declare module "next-auth" {
     accessToken?: string
     refreshToken?: string
     expiresAt?: number
+    twoFactorEnabled?: boolean
+    twoFactorVerified?: boolean
     user: {
       id: string
       email?: string | null
