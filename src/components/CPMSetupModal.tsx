@@ -3,6 +3,7 @@ import { X, DollarSign, TrendingUp, Shield, Calculator, Info, Zap, Settings } fr
 import Button from './Button';
 import Card from './Card';
 import * as Tooltip from '@radix-ui/react-tooltip';
+import { useToastContext } from '@/contexts/ToastContext';
 
 interface CPMSetupModalProps {
   isOpen: boolean;
@@ -35,6 +36,7 @@ function InfoTooltip({ content, children }: { content: string, children: React.R
 }
 
 export default function CPMSetupModal({ isOpen, onClose, onSetupComplete }: CPMSetupModalProps) {
+  const { showSuccess, showError } = useToastContext();
   const [cpm, setCpm] = useState<number | null>(3.0);
   const [rpm, setRpm] = useState<number | null>(null);
   const [useRpm, setUseRpm] = useState(false);
@@ -73,10 +75,13 @@ export default function CPMSetupModal({ isOpen, onClose, onSetupComplete }: CPMS
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to setup revenue calculator');
       }
+      showSuccess('Revenue Calculator Setup', 'Your CPM/RPM settings have been saved successfully!');
       onSetupComplete();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Failed to setup revenue calculator');
+      const errorMessage = err.message || 'Failed to setup revenue calculator';
+      setError(errorMessage);
+      showError('Setup Error', errorMessage);
     } finally {
       setLoading(false);
     }

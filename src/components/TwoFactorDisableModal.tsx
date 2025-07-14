@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { X, Shield, AlertTriangle, CheckCircle } from 'lucide-react';
 import Button from './Button';
+import { useToastContext } from '@/contexts/ToastContext';
 
 interface TwoFactorDisableModalProps {
   open: boolean;
@@ -10,6 +11,7 @@ interface TwoFactorDisableModalProps {
 }
 
 export default function TwoFactorDisableModal({ open, onClose, onSuccess }: TwoFactorDisableModalProps) {
+  const { showSuccess, showError } = useToastContext();
   const [token, setToken] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
@@ -33,14 +35,19 @@ export default function TwoFactorDisableModal({ open, onClose, onSuccess }: TwoF
       });
 
       if (response.ok) {
+        showSuccess('2FA Disabled', 'Two-factor authentication has been successfully disabled.');
         onSuccess();
         onClose();
       } else {
         const errorData = await response.json();
-        setError(errorData.error || 'Invalid verification code');
+        const errorMessage = errorData.error || 'Invalid verification code';
+        setError(errorMessage);
+        showError('2FA Disable Error', errorMessage);
       }
     } catch (error) {
-      setError('Failed to disable 2FA. Please try again.');
+      const errorMessage = 'Failed to disable 2FA. Please try again.';
+      setError(errorMessage);
+      showError('2FA Disable Error', errorMessage);
     } finally {
       setLoading(false);
     }

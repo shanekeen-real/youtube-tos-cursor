@@ -12,6 +12,7 @@ import YouTubeWelcomeModal from '@/components/YouTubeWelcomeModal';
 import TwoFactorSetupModal from '@/components/TwoFactorSetupModal';
 import TwoFactorDisableModal from '@/components/TwoFactorDisableModal';
 import TwoFactorWrapper from '@/components/TwoFactorWrapper';
+import { useToastContext } from '@/contexts/ToastContext';
 
 // Define the structure of a user's profile data
 interface UserProfile {
@@ -45,6 +46,7 @@ interface YouTubeChannel {
 }
 
 export default function SettingsPage() {
+  const { showSuccess, showError } = useToastContext();
   const [dark, setDark] = useState(false);
   const { data: session } = useSession();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -135,8 +137,9 @@ export default function SettingsPage() {
       if (typeof window !== 'undefined') {
         sessionStorage.removeItem('ytWelcomeModalShown');
       }
+      showSuccess('YouTube Unlinked', 'Your YouTube channel has been successfully unlinked.');
     } catch (err) {
-      alert('Failed to unlink YouTube channel. Please try again.');
+      showError('YouTube Unlink Error', 'Failed to unlink YouTube channel. Please try again.');
     }
   };
 
@@ -161,14 +164,15 @@ export default function SettingsPage() {
         } else {
           console.log('No channel context in response');
         }
+        showSuccess('YouTube Connected', 'Your YouTube channel has been successfully connected!');
       } else {
         const errorData = await response.json();
         console.error('Failed to connect YouTube:', errorData.error);
-        alert('Failed to connect YouTube channel. Please try again.');
+        showError('YouTube Connection Error', 'Failed to connect YouTube channel. Please try again.');
       }
     } catch (error) {
       console.error('Error connecting YouTube:', error);
-      alert('Failed to connect YouTube channel. Please try again.');
+      showError('YouTube Connection Error', 'Failed to connect YouTube channel. Please try again.');
     } finally {
       setYtFetching(false);
     }

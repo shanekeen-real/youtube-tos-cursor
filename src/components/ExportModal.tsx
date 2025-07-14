@@ -16,6 +16,7 @@ import {
 import { Download, FileText, FileSpreadsheet, Settings, Check, Lock, X, Shield, Zap } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import Link from 'next/link';
+import { useToastContext } from '@/contexts/ToastContext';
 
 interface ExportModalProps {
   open: boolean;
@@ -25,6 +26,7 @@ interface ExportModalProps {
 
 export default function ExportModal({ open, onClose, data }: ExportModalProps) {
   const { data: session } = useSession();
+  const { showSuccess, showError } = useToastContext();
   const [format, setFormat] = useState<'pdf' | 'csv'>('pdf');
   const [includeMetadata, setIncludeMetadata] = useState(true);
   const [includeContent, setIncludeContent] = useState(false);
@@ -127,6 +129,7 @@ export default function ExportModal({ open, onClose, data }: ExportModalProps) {
       downloadFile(content, filename, mimeType);
 
       setExportProgress('Export completed!');
+      showSuccess('Export Successful', `Your ${format.toUpperCase()} report has been downloaded successfully.`);
       setTimeout(() => {
         setIsExporting(false);
         setExportProgress('');
@@ -136,6 +139,7 @@ export default function ExportModal({ open, onClose, data }: ExportModalProps) {
     } catch (error) {
       console.error('Export failed:', error);
       setExportProgress('Export failed. Please try again.');
+      showError('Export Failed', 'Failed to generate export. Please try again.');
       setTimeout(() => {
         setIsExporting(false);
         setExportProgress('');

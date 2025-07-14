@@ -1339,7 +1339,7 @@ function ResultsPageContent() {
                     </div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">No AI Detection Data</h3>
                     <p className="text-gray-600 mb-4 max-w-md mx-auto">
-                      AI content detection analysis was not performed for this scan. This feature requires Advanced membership and channel context data.
+                      AI content detection analysis was not performed for this scan. This feature is only available for your own YouTube videos.
                     </p>
                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 max-w-md mx-auto">
                       <div className="flex items-center gap-2 text-gray-700 mb-2">
@@ -1347,7 +1347,7 @@ function ResultsPageContent() {
                         <span className="font-medium">Why is this empty?</span>
                       </div>
                       <p className="text-sm text-gray-600">
-                        AI detection requires YouTube channel connection and Advanced membership to analyze content patterns and provide detailed insights.
+                        AI detection requires analyzing your own YouTube channel's content patterns and upload history. This feature is only available for videos from your connected YouTube channel with Advanced membership.
                       </p>
                     </div>
                   </div>

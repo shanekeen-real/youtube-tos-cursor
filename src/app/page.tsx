@@ -11,6 +11,7 @@ import FeatureGrid, { FeatureSet } from '../components/FeatureGrid';
 import { SUBSCRIPTION_TIERS } from '@/types/subscription';
 import { Input } from '@/components/ui/input';
 import { Shield, AlertTriangle, CheckCircle } from 'lucide-react';
+import { useToastContext } from '@/contexts/ToastContext';
 
 const featureSets: FeatureSet[] = [
   {
@@ -50,6 +51,7 @@ const ProgressBar = ({ progress, rainbow = false }: { progress: number; rainbow?
 
 export default function Home() {
   const auth = useContext(AuthContext);
+  const { showError, showSuccess } = useToastContext();
   const [analysisType, setAnalysisType] = useState('text'); // 'text' or 'url'
   const [inputValue, setInputValue] = useState('');
   const [loadingFree, setLoadingFree] = useState(false);
@@ -108,13 +110,13 @@ export default function Home() {
       router.push(`/results?scanId=${res.data.scanId}`);
     } catch (e: any) {
        if (e.response && e.response.status === 400) {
-        alert(e.response.data.error); // Show specific error from backend
+        showError('Analysis Error', e.response.data.error);
       } else if (e.response && e.response.status === 429) {
         // Display the actual error message from the backend instead of generic message
         const errorMessage = e.response.data.error || 'Rate limit exceeded. Please try again later.';
-        alert(errorMessage);
+        showError('Rate Limit Exceeded', errorMessage);
       } else {
-        alert('Error analyzing content. Please try again.');
+        showError('Analysis Error', 'Error analyzing content. Please try again.');
       }
     } finally {
       setLoadingFull(false);
@@ -142,13 +144,13 @@ export default function Home() {
       });
     } catch (e: any) {
       if (e.response && e.response.status === 400) {
-        alert(e.response.data.error); // Show specific error from backend
+        showError('Analysis Error', e.response.data.error);
       } else if (e.response && e.response.status === 429) {
         // Display the actual error message from the backend instead of generic message
         const errorMessage = e.response.data.error || 'Rate limit exceeded. Please try again later.';
-        alert(errorMessage);
+        showError('Rate Limit Exceeded', errorMessage);
       } else {
-        alert('Error analyzing policy. Please try again.');
+        showError('Analysis Error', 'Error analyzing policy. Please try again.');
       }
     } finally {
       setLoadingFree(false);

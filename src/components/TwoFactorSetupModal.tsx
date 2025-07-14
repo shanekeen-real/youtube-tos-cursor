@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Shield, Smartphone, Copy, CheckCircle, AlertTriangle } from 'lucide-react';
 import Button from './Button';
+import { useToastContext } from '@/contexts/ToastContext';
 
 interface TwoFactorSetupModalProps {
   open: boolean;
@@ -10,6 +11,7 @@ interface TwoFactorSetupModalProps {
 }
 
 export default function TwoFactorSetupModal({ open, onClose, onSuccess }: TwoFactorSetupModalProps) {
+  const { showSuccess, showError } = useToastContext();
   const [step, setStep] = useState<'setup' | 'verify'>('setup');
   const [qrCode, setQrCode] = useState<string>('');
   const [secret, setSecret] = useState<string>('');
@@ -42,10 +44,14 @@ export default function TwoFactorSetupModal({ open, onClose, onSuccess }: TwoFac
         setSecret(data.secret);
       } else {
         const errorData = await response.json();
-        setError(errorData.error || 'Failed to setup 2FA');
+        const errorMessage = errorData.error || 'Failed to setup 2FA';
+        setError(errorMessage);
+        showError('2FA Setup Error', errorMessage);
       }
     } catch (error) {
-      setError('Failed to setup 2FA. Please try again.');
+      const errorMessage = 'Failed to setup 2FA. Please try again.';
+      setError(errorMessage);
+      showError('2FA Setup Error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -70,14 +76,19 @@ export default function TwoFactorSetupModal({ open, onClose, onSuccess }: TwoFac
       });
 
       if (response.ok) {
+        showSuccess('2FA Enabled', 'Two-factor authentication has been successfully enabled!');
         onSuccess();
         onClose();
       } else {
         const errorData = await response.json();
-        setError(errorData.error || 'Invalid verification code');
+        const errorMessage = errorData.error || 'Invalid verification code';
+        setError(errorMessage);
+        showError('2FA Verification Error', errorMessage);
       }
     } catch (error) {
-      setError('Failed to verify code. Please try again.');
+      const errorMessage = 'Failed to verify code. Please try again.';
+      setError(errorMessage);
+      showError('2FA Verification Error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -87,9 +98,12 @@ export default function TwoFactorSetupModal({ open, onClose, onSuccess }: TwoFac
     try {
       await navigator.clipboard.writeText(secret);
       setCopied(true);
+      showSuccess('Secret Copied', 'Backup code copied to clipboard');
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
-      setError('Failed to copy secret');
+      const errorMessage = 'Failed to copy secret';
+      setError(errorMessage);
+      showError('Copy Error', errorMessage);
     }
   };
 

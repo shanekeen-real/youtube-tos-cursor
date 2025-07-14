@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ClientLayout from "../components/ClientLayout";
 import SessionProvider from "../components/SessionProvider";
+import { ToastProvider } from "../contexts/ToastContext";
+import { Toaster } from "../components/ui/toaster";
 import "./block-extensions";
 
 export const metadata: Metadata = {
@@ -25,7 +27,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white font-sans`}>
         <SessionProvider>
-          <ClientLayout>{children}</ClientLayout>
+          <ToastProvider>
+            <ClientLayout>{children}</ClientLayout>
+            <Toaster />
+          </ToastProvider>
         </SessionProvider>
       </body>
     </html>
