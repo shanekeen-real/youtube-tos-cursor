@@ -14,7 +14,7 @@ import { CheckCircle, AlertTriangle, XCircle, Info } from 'lucide-react'
 export function Toaster() {
   const { toasts } = useToast()
 
-  const getIcon = (variant?: string) => {
+  const getIcon = (variant?: string | null) => {
     switch (variant) {
       case "success":
         return <CheckCircle className="h-4 w-4 text-green-600" />
