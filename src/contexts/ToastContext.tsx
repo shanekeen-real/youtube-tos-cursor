@@ -20,7 +20,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       variant: "success",
       title,
       description,
-      action,
+      ...(action ? { action: action as import("@/components/ui/toast").ToastActionElement } : {}),
       duration: 5000, // 5 seconds
     });
   };
@@ -30,7 +30,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       variant: "destructive",
       title,
       description,
-      action,
+      ...(action ? { action: action as import("@/components/ui/toast").ToastActionElement } : {}),
       duration: 7000, // 7 seconds
     });
   };
@@ -40,7 +40,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       variant: "warning",
       title,
       description,
-      action,
+      ...(action ? { action: action as import("@/components/ui/toast").ToastActionElement } : {}),
       duration: 6000, // 6 seconds
     });
   };
@@ -50,7 +50,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       variant: "default",
       title,
       description,
-      action,
+      ...(action ? { action: action as import("@/components/ui/toast").ToastActionElement } : {}),
       duration: 5000, // 5 seconds
     });
   };
