@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
         await adminDb.collection('user_export_logs').add({
           userId,
           requestedAt: new Date(),
-          ip: req.headers.get('x-forwarded-for') || req.ip || null,
+          ip: req.headers.get('x-forwarded-for') || null,
         });
 
         // Fetch all user data
