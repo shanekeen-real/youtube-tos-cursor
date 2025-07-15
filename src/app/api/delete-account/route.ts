@@ -11,7 +11,7 @@ async function deleteUserData(userId: string) {
   // Delete scans from the correct collection
   const scansSnap = await adminDb.collection('analysis_cache').where('userId', '==', userId).get();
   const batch = adminDb.batch();
-  scansSnap.docs.forEach(doc => batch.delete(doc.ref));
+  scansSnap.docs.forEach((doc: FirebaseFirestore.QueryDocumentSnapshot) => batch.delete(doc.ref));
 
   // Remove scanHistory batch delete for now (index issues)
   // Add more collections as needed
