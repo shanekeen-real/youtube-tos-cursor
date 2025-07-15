@@ -39,7 +39,7 @@ async function getUserData(userId: string) {
     .where('userId', '==', userId)
     .where('isCache', '==', false)
     .get();
-  const scans = scansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const scans = scansSnap.docs.map((doc: FirebaseFirestore.QueryDocumentSnapshot) => ({ id: doc.id, ...doc.data() }));
 
   // Remove scanHistory query for now (index issues)
   const scanHistory = [];
