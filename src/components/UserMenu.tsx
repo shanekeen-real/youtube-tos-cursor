@@ -41,16 +41,21 @@ export default function UserMenu({ user }: UserMenuProps) {
   // Fetch user profile data
   useEffect(() => {
     const fetchUserProfile = async () => {
-      if (!session?.user?.id) {
+      const { getAuth } = await import("firebase/auth");
+      const { app } = await import("@/lib/firebase");
+      const auth = getAuth(app);
+      const firebaseUid = auth.currentUser?.uid;
+      if (!firebaseUid) {
         setLoading(false);
         return;
       }
-
+      // Debug log for UID
+      console.log("[UserMenu] Fetching user profile for UID:", firebaseUid);
+      console.log("[UserMenu] Firebase Auth currentUser:", auth.currentUser?.uid, auth.currentUser?.email);
       try {
         const db = getFirestore(app);
-        const userRef = doc(db, 'users', session.user.id);
+        const userRef = doc(db, 'users', firebaseUid);
         const userDoc = await getDoc(userRef);
-
         if (userDoc.exists()) {
           setUserProfile(userDoc.data() as UserProfile);
         }
@@ -60,9 +65,8 @@ export default function UserMenu({ user }: UserMenuProps) {
         setLoading(false);
       }
     };
-
     fetchUserProfile();
-  }, [session?.user?.id]);
+  }, []);
 
   // Close menu when clicking outside
   useEffect(() => {

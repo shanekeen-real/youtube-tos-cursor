@@ -7,8 +7,10 @@ declare module "next-auth" {
     expiresAt?: number
     twoFactorEnabled?: boolean
     twoFactorVerified?: boolean
+    idToken?: string
     user: {
       id: string
+      firebaseUid?: string
       email?: string | null
       name?: string | null
       image?: string | null
@@ -22,5 +24,6 @@ declare module "next-auth/jwt" {
     refreshToken?: string
     expiresAt?: number
     userId?: string
+    idToken?: string
   }
 } 

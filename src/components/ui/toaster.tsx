@@ -11,6 +11,33 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { CheckCircle, AlertTriangle, XCircle, Info } from 'lucide-react'
 
+// Simple duration bar component with variant-specific colors
+function ToastDurationBar({ variant }: { variant?: 'default' | 'destructive' | 'success' | 'warning' }) {
+  const getBarColor = () => {
+    switch (variant) {
+      case 'destructive':
+        return 'bg-red-600' // Darker red
+      case 'success':
+        return 'bg-green-600' // Darker green
+      case 'warning':
+        return 'bg-yellow-600' // Darker yellow
+      default:
+        return 'bg-gray-600' // Darker gray for default
+    }
+  }
+
+  return (
+    <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-200 rounded-b-xl overflow-hidden">
+      <div 
+        className={`h-full ${getBarColor()} animate-duration-bar`}
+        style={{
+          animation: 'durationBar 5.4s linear forwards'
+        }}
+      />
+    </div>
+  )
+}
+
 export function Toaster() {
   const { toasts } = useToast()
 
@@ -47,10 +74,17 @@ export function Toaster() {
             </div>
             {action}
             <ToastClose />
+            <ToastDurationBar variant={variant || undefined} />
           </Toast>
         )
       })}
       <ToastViewport />
+      <style jsx>{`
+        @keyframes durationBar {
+          from { width: 100%; }
+          to { width: 0%; }
+        }
+      `}</style>
     </ToastProvider>
   )
 } 

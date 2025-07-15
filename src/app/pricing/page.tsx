@@ -10,6 +10,7 @@ import axios from 'axios';
 import type { SubscriptionTier } from '@/types/subscription';
 import { CheckCircle, Crown, Star, Zap, Shield, Users, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { getAuth } from 'firebase/auth';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
@@ -49,16 +50,16 @@ export default function PricingPage() {
 
   useEffect(() => {
     const fetchUserProfile = async () => {
-      if (!session?.user?.id) {
+      const auth = getAuth();
+      const firebaseUid = auth.currentUser?.uid;
+      if (!firebaseUid) {
         setLoading(false);
         return;
       }
-
       try {
         const db = getFirestore(app);
-        const userRef = doc(db, 'users', session.user.id);
+        const userRef = doc(db, 'users', firebaseUid);
         const userDoc = await getDoc(userRef);
-
         if (userDoc.exists()) {
           setUserProfile(userDoc.data() as UserProfile);
         }
@@ -68,9 +69,8 @@ export default function PricingPage() {
         setLoading(false);
       }
     };
-
     fetchUserProfile();
-  }, [session?.user?.id]);
+  }, []);
 
   // Helper function to calculate display price
   const getDisplayPrice = (tier: SubscriptionTier, cycle: 'monthly' | 'annual') => {

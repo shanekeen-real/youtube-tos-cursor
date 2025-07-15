@@ -38,6 +38,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.expiresAt = account.expires_at
         // Use Google account ID for consistent user identification
         token.userId = account.providerAccountId
+        token.idToken = account.id_token
       }
       return token
     },
@@ -48,7 +49,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.expiresAt = token.expiresAt as number | undefined
       // Use the consistent user ID from the JWT token
       session.user.id = (token.userId as string) || token.sub || ''
-      
+      session.idToken = token.idToken as string | undefined
+
+      // Add Firebase Auth UID from ID token (sub claim)
+      if (session.idToken) {
+        try {
+          const payload = JSON.parse(Buffer.from(session.idToken.split('.')[1], 'base64').toString());
+          session.user.firebaseUid = payload.sub;
+        } catch (e) {
+          console.error('Failed to decode Firebase UID from ID token:', e);
+        }
+      }
+
       // Check if user has 2FA enabled and add to session
       if (session.user.id && adminDb) {
         try {

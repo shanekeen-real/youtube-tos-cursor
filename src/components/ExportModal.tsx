@@ -39,7 +39,7 @@ export default function ExportModal({ open, onClose, data }: ExportModalProps) {
   // Check export permissions when modal opens
   useEffect(() => {
     const checkExportPermissions = async () => {
-      if (!session?.user?.id) {
+      if (!session?.user?.firebaseUid) {
         setCanExport(false);
         setExportError('Please sign in to export reports.');
         return;
@@ -47,7 +47,7 @@ export default function ExportModal({ open, onClose, data }: ExportModalProps) {
 
       try {
         const db = getFirestore(app);
-        const userRef = doc(db, 'users', session.user.id);
+        const userRef = doc(db, 'users', session.user.firebaseUid);
         const userDoc = await getDoc(userRef);
         
         if (userDoc.exists()) {
@@ -69,7 +69,7 @@ export default function ExportModal({ open, onClose, data }: ExportModalProps) {
     if (open) {
       checkExportPermissions();
     }
-  }, [open, session?.user?.id]);
+  }, [open, session?.user?.firebaseUid]);
 
   // Handle escape key to close modal
   useEffect(() => {

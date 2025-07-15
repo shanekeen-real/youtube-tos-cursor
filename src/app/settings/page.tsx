@@ -13,6 +13,8 @@ import TwoFactorSetupModal from '@/components/TwoFactorSetupModal';
 import TwoFactorDisableModal from '@/components/TwoFactorDisableModal';
 import TwoFactorWrapper from '@/components/TwoFactorWrapper';
 import { useToastContext } from '@/contexts/ToastContext';
+import { getAuth } from 'firebase/auth';
+import { signOut } from "next-auth/react";
 
 // Define the structure of a user's profile data
 interface UserProfile {
@@ -59,6 +61,9 @@ export default function SettingsPage() {
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
   const [showTwoFactorSetupModal, setShowTwoFactorSetupModal] = useState(false);
   const [showTwoFactorDisableModal, setShowTwoFactorDisableModal] = useState(false);
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const [deleteStatus, setDeleteStatus] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   
   useEffect(() => {
     if (dark) {
@@ -70,20 +75,24 @@ export default function SettingsPage() {
   
   useEffect(() => {
     const fetchUserProfile = async () => {
-      if (!session?.user?.id) return;
+      const auth = getAuth();
+      const firebaseUid = auth.currentUser?.uid;
+      if (!firebaseUid) return;
       const db = getFirestore(app);
-      const userRef = doc(db, 'users', session.user.id);
+      const userRef = doc(db, 'users', firebaseUid);
       const userDoc = await getDoc(userRef);
       if (userDoc.exists()) setUserProfile(userDoc.data() as UserProfile);
     };
     fetchUserProfile();
-  }, [session?.user?.id]);
+  }, []);
   
   useEffect(() => {
     const fetchYouTube = async () => {
-      if (!session?.user?.id) return;
+      const auth = getAuth();
+      const firebaseUid = auth.currentUser?.uid;
+      if (!firebaseUid) return;
       const db = getFirestore(app);
-      const userRef = doc(db, 'users', session.user.id);
+      const userRef = doc(db, 'users', firebaseUid);
       const userDoc = await getDoc(userRef);
       if (userDoc.exists() && userDoc.data().youtube?.channel) {
         setYtChannel(userDoc.data().youtube.channel as YouTubeChannel);
@@ -100,14 +109,15 @@ export default function SettingsPage() {
 
     // Refresh YouTube data when user returns to the tab
     const handleFocus = () => {
-      if (session?.user?.id) {
+      const auth = getAuth();
+      if (auth.currentUser?.uid) {
         fetchYouTube();
       }
     };
 
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [session?.user?.id]);
+  }, []);
   
   // Show welcome modal when YouTube is connected (same logic as Dashboard)
   useEffect(() => {
@@ -124,10 +134,12 @@ export default function SettingsPage() {
   const progress = userProfile ? (userProfile.scanCount / userProfile.scanLimit) * 100 : 0;
   
   const handleUnlinkYouTube = async () => {
-    if (!session?.user?.id) return;
+    const auth = getAuth();
+    const firebaseUid = auth.currentUser?.uid;
+    if (!firebaseUid) return;
     if (!window.confirm('Are you sure you want to unlink your YouTube channel?')) return;
     const db = getFirestore(app);
-    const userRef = doc(db, 'users', session.user.id);
+    const userRef = doc(db, 'users', firebaseUid);
     try {
       await updateDoc(userRef, {
         youtube: null
@@ -144,7 +156,9 @@ export default function SettingsPage() {
   };
 
   const handleConnectYouTube = async () => {
-    if (!session?.user?.id) return;
+    const auth = getAuth();
+    const firebaseUid = auth.currentUser?.uid;
+    if (!firebaseUid) return;
     setYtFetching(true);
     try {
       const response = await fetch('/api/fetch-youtube-channel', {
@@ -179,7 +193,9 @@ export default function SettingsPage() {
   };
 
   const handleManageSubscription = async () => {
-    if (!session?.user?.id) return;
+    const auth = getAuth();
+    const firebaseUid = auth.currentUser?.uid;
+    if (!firebaseUid) return;
     setManagingSubscription(true);
     setSubscriptionError(null); // Clear any previous errors
     
@@ -218,6 +234,46 @@ export default function SettingsPage() {
       setSubscriptionError('Failed to open subscription management. Please try again.');
     } finally {
       setManagingSubscription(false);
+    }
+  };
+
+  // Privacy controls handlers
+  const handleExport = async () => {
+    setExportStatus(null);
+    try {
+      const res = await fetch("/api/export-user-data");
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "yellow-dollar-user-data.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setExportStatus("Export successful. Check your downloads.");
+    } catch (err: any) {
+      setExportStatus("Export failed: " + err.message);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm("Are you sure? This will permanently delete your account and all data. This cannot be undone.")) return;
+    setDeleting(true);
+    setDeleteStatus(null);
+    try {
+      const res = await fetch("/api/delete-account", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Delete failed");
+      setDeleteStatus("Account deleted successfully.");
+      // Automatically sign out and redirect after deletion
+      setTimeout(() => {
+        signOut({ callbackUrl: "/" });
+      }, 1500);
+    } catch (err: any) {
+      setDeleteStatus("Delete failed: " + err.message);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -452,6 +508,25 @@ export default function SettingsPage() {
               )}
             </Card>
 
+            {/* Privacy Controls Card */}
+            <Card>
+              <div className="flex items-center gap-3 mb-4">
+                <Shield className="w-5 h-5 text-yellow-500" />
+                <h2 className="text-subtitle font-semibold text-gray-800">Privacy & Data Controls</h2>
+              </div>
+              <button onClick={handleExport} className="w-full mb-3 px-4 py-2 rounded-lg bg-yellow-500 text-black font-semibold hover:bg-yellow-400 transition">
+                Export My Data
+              </button>
+              {exportStatus && <div className="mb-3 text-sm" style={{ color: exportStatus.startsWith("Export successful") ? "#00C853" : "#FF3B30" }}>{exportStatus}</div>}
+              <button onClick={handleDelete} disabled={deleting} className={`w-full px-4 py-2 rounded-lg ${deleting ? "bg-gray-200 text-gray-500" : "bg-risk text-white hover:bg-red-600"} font-semibold transition`}>
+                {deleting ? "Deleting..." : "Delete My Account"}
+              </button>
+              {deleteStatus && <div className="mt-3 text-sm" style={{ color: deleteStatus.startsWith("Account deleted") ? "#00C853" : "#FF3B30" }}>{deleteStatus}</div>}
+              <div className="mt-4 text-xs text-gray-500">
+                Download a copy of your data or permanently delete your account. Deletion is irreversible.
+              </div>
+            </Card>
+
             {/* Preferences */}
             <Card>
               <div className="flex items-center gap-3 mb-4">
@@ -578,10 +653,12 @@ export default function SettingsPage() {
         onClose={() => setShowTwoFactorSetupModal(false)}
         onSuccess={() => {
           // Refresh user profile to show updated 2FA status
-          if (session?.user?.id) {
+          const auth = getAuth();
+          const firebaseUid = auth.currentUser?.uid;
+          if (firebaseUid) {
             const fetchUserProfile = async () => {
               const db = getFirestore(app);
-              const userRef = doc(db, 'users', session.user.id);
+              const userRef = doc(db, 'users', firebaseUid);
               const userDoc = await getDoc(userRef);
               if (userDoc.exists()) setUserProfile(userDoc.data() as UserProfile);
             };
@@ -594,11 +671,12 @@ export default function SettingsPage() {
         open={showTwoFactorDisableModal}
         onClose={() => setShowTwoFactorDisableModal(false)}
         onSuccess={() => {
-          // Refresh user profile to show updated 2FA status
-          if (session?.user?.id) {
+          const auth = getAuth();
+          const firebaseUid = auth.currentUser?.uid;
+          if (firebaseUid) {
             const fetchUserProfile = async () => {
               const db = getFirestore(app);
-              const userRef = doc(db, 'users', session.user.id);
+              const userRef = doc(db, 'users', firebaseUid);
               const userDoc = await getDoc(userRef);
               if (userDoc.exists()) setUserProfile(userDoc.data() as UserProfile);
             };

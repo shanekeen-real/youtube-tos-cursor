@@ -16,6 +16,7 @@ import VideoReportsModal from '@/components/VideoReportsModal';
 import CPMSetupModal from '@/components/CPMSetupModal';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import YouTubeWelcomeModal from '@/components/YouTubeWelcomeModal';
+import { getAuth } from 'firebase/auth';
 
 // Define the structure of a user's profile data
 interface UserProfile {
@@ -92,14 +93,16 @@ export default function DashboardClient() {
 
   useEffect(() => {
     const fetchUserProfile = async () => {
-      if (!session?.user?.id) {
+      const auth = getAuth();
+      const firebaseUid = auth.currentUser?.uid;
+      if (!firebaseUid) {
         setLoading(false);
         return;
       }
 
       try {
         const db = getFirestore(app);
-        const userRef = doc(db, 'users', session.user.id);
+        const userRef = doc(db, 'users', firebaseUid);
         const userDoc = await getDoc(userRef);
 
         if (userDoc.exists()) {
@@ -121,19 +124,21 @@ export default function DashboardClient() {
     };
 
     fetchUserProfile();
-  }, [session?.user?.id]);
+  }, []);
 
   useEffect(() => {
     const fetchYouTube = async () => {
       setYtLoading(true);
-      if (!session?.user?.id) {
+      const auth = getAuth();
+      const firebaseUid = auth.currentUser?.uid;
+      if (!firebaseUid) {
         setYtChannel(null);
         setYtLoading(false);
         return;
       }
       try {
         const db = getFirestore(app);
-        const userRef = doc(db, 'users', session.user.id);
+        const userRef = doc(db, 'users', firebaseUid);
         const userDoc = await getDoc(userRef);
         if (userDoc.exists() && userDoc.data().youtube?.channel) {
           setYtChannel(userDoc.data().youtube.channel);
@@ -158,14 +163,15 @@ export default function DashboardClient() {
 
     // Refresh YouTube data when user returns to the tab
     const handleFocus = () => {
-      if (session?.user?.id) {
+      const auth = getAuth();
+      if (auth.currentUser?.uid) {
         fetchYouTube();
       }
     };
 
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [session?.user?.id]);
+  }, []);
   
   const handleUpgradeClick = async () => {
     if (!session?.user?.id) {

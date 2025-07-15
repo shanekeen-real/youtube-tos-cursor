@@ -17,6 +17,7 @@ import { checkUserCanAccessAIDetection } from '@/lib/subscription-utils';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import he from 'he';
 import { getTierLimits } from '@/types/subscription';
+import { getAuth } from 'firebase/auth';
 
 interface RiskSpan {
   text: string;
@@ -108,22 +109,18 @@ function ResultsPageContent() {
 
   useEffect(() => {
     const fetchUserProfile = async () => {
-      if (!session?.user?.id) return;
-      
+      const auth = getAuth();
+      const firebaseUid = auth.currentUser?.uid;
+      if (!firebaseUid) return;
       try {
         const db = getFirestore(app);
-        const userRef = doc(db, 'users', session.user.id);
+        const userRef = doc(db, 'users', firebaseUid);
         const userDoc = await getDoc(userRef);
-        
         if (userDoc.exists()) {
           const profile = userDoc.data();
           setUserProfile(profile);
-          
-          // Check export permissions
           const exportCheck = checkUserCanExport(profile);
           setCanExport(exportCheck.canExport);
-
-          // Check AI detection access permissions
           const aiDetectionCheck = checkUserCanAccessAIDetection(profile);
           setCanAccessAIDetection(aiDetectionCheck.canAccess);
         }
@@ -131,9 +128,8 @@ function ResultsPageContent() {
         console.error('Failed to fetch user profile:', err);
       }
     };
-
     fetchUserProfile();
-  }, [session?.user?.id]);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
