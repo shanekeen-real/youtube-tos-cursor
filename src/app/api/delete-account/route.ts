@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
         await adminDb.collection('user_deletion_logs').add({
           userId,
           requestedAt: new Date(),
-          ip: req.headers.get('x-forwarded-for') || req.ip || null,
+          ip: req.headers.get('x-forwarded-for') || null,
         });
 
         // Delete all user data
