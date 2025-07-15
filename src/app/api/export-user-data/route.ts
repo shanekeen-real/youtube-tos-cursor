@@ -42,7 +42,7 @@ async function getUserData(userId: string) {
   const scans = scansSnap.docs.map((doc: FirebaseFirestore.QueryDocumentSnapshot) => ({ id: doc.id, ...doc.data() }));
 
   // Remove scanHistory query for now (index issues)
-  const scanHistory = [];
+  const scanHistory: any[] = [];
 
   // Add more collections as needed
 
