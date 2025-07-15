@@ -110,7 +110,7 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTier, PricingTier> = {
     description: 'For teams and professionals who need unlimited scans and collaboration.',
     features: [
       'Unlimited YouTube channel scans',
-      '5+ suggestions per scan',
+      'All suggestions per scan (10+)',
       'Single & bulk video scan',
       'Full revenue at risk calculator + export',
       'Export reports (PDF/CSV)',
@@ -124,7 +124,7 @@ export const SUBSCRIPTION_TIERS: Record<SubscriptionTier, PricingTier> = {
     ],
     limits: {
       scanLimit: 'unlimited',
-      suggestionsPerScan: 5,
+      suggestionsPerScan: 'all',
       bulkScan: true,
       revenueCalculator: 'full+export',
       exportReports: true,

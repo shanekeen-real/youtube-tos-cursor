@@ -94,14 +94,14 @@ class AIRequestQueue {
 }
 
 export class GeminiModel implements AIModel {
-  name = 'gemini-2.5-flash-preview-04-17';
+  name = 'gemini-2.0-flash';
   supportsMultiModal = true;
   private model: any;
 
   constructor() {
     const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY as string);
     this.model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash-preview-04-17',
+      model: 'gemini-2.0-flash',
       generationConfig: {
         temperature: 0,
         maxOutputTokens: 8192,
