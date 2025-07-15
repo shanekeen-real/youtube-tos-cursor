@@ -487,7 +487,10 @@ Provide actionable, specific suggestions to improve content compliance and reduc
             throw new Error(`Invalid suggestions response: ${validationResult.error.message}`);
           }
 
-          return validationResult.data.suggestions;
+          // Apply hard limit of 12 suggestions to prevent overwhelming users
+          let suggestions = validationResult.data.suggestions.slice(0, 12);
+          
+          return suggestions;
 
         } catch (error) {
           lastError = error as Error;

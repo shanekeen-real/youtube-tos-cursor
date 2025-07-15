@@ -1,6 +1,8 @@
 import { AIModel, callAIWithRetry } from './ai-models';
 import { parseJSONSafely } from './json-utils';
+import { jsonParsingService } from './json-parsing-service';
 import { performContextAnalysis } from './context-analysis';
+import { z } from 'zod';
 
 /**
  * Perform AI detection analysis using channel context and content analysis
@@ -121,16 +123,27 @@ export async function performAIDetection(text: string, model: AIModel, channelCo
     `;
 
     const result = await callAIWithRetry((model: AIModel) => model.generateContent(prompt));
-    const response = result;
     
-    // Extract JSON from response
-    const jsonMatch = response.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('Failed to parse AI detection response');
-    }
+    // Use the robust JSON parsing service
+    const expectedSchema = z.object({
+      ai_probability: z.number(),
+      confidence: z.number(),
+      patterns: z.array(z.string()),
+      indicators: z.object({
+        repetitive_language: z.number(),
+        structured_content: z.number(),
+        personal_voice: z.number(),
+        grammar_consistency: z.number(),
+        natural_flow: z.number()
+      }),
+      explanation: z.string(),
+      content_type_adjustment: z.string().optional()
+    });
+
+    const parsingResult = await jsonParsingService.parseJson<any>(result, expectedSchema, model);
     
-    try {
-      const aiData = JSON.parse(jsonMatch[0]);
+    if (parsingResult.success && parsingResult.data) {
+      const aiData = parsingResult.data;
       
       // Apply content-type sensitivity adjustment
       let adjustedProbability = Math.min(100, Math.max(0, aiData.ai_probability || 0));
@@ -204,22 +217,8 @@ export async function performAIDetection(text: string, model: AIModel, channelCo
         explanation: enhancedExplanation,
         content_type_adjustment: aiData.content_type_adjustment || `Applied ${contentType} sensitivity multiplier (${sensitivityMultiplier})`,
       };
-    } catch (parseError) {
-      console.error('AI detection parse error:', parseError);
-      return {
-        ai_probability: 0,
-        confidence: 0,
-        patterns: [],
-        indicators: {
-          repetitive_language: 0,
-          structured_content: 0,
-          personal_voice: 0,
-          grammar_consistency: 0,
-          natural_flow: 0,
-        },
-        explanation: 'AI detection analysis failed',
-        content_type_adjustment: 'Analysis failed - defaulting to 0%',
-      };
+    } else {
+      throw new Error(`AI detection JSON parsing failed: ${parsingResult.error}`);
     }
   } catch (error) {
     console.error('Error performing AI detection:', error);

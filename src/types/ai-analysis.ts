@@ -92,7 +92,8 @@ export interface EnhancedAnalysisResult {
     analysis_timestamp: string;
     processing_time_ms: number;
     content_length: number;
-    analysis_mode: 'enhanced' | 'fallback' | 'emergency';
+    analysis_mode: 'enhanced' | 'fallback' | 'emergency' | 'multi-modal';
+    queue_status?: any; // Optional queue status for monitoring
   };
 }
 

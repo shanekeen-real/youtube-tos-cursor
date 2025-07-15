@@ -1,8 +1,10 @@
 import { AIModel, callAIWithRetry, RateLimiter } from './ai-models';
 import { parseJSONSafely, normalizeBatchScores, extractPartialAnalysis } from './json-utils';
+import { jsonParsingService } from './json-parsing-service';
 import { PolicyCategoryAnalysis, ContextAnalysis, BatchAnalysisSchema } from '../types/ai-analysis';
 import { YOUTUBE_POLICY_CATEGORIES } from '../types/ai-analysis';
 import * as Sentry from '@sentry/nextjs';
+import { z } from 'zod';
 
 const rateLimiter = new RateLimiter();
 
@@ -81,142 +83,33 @@ export async function performPolicyCategoryAnalysisBatched(text: string, model: 
   while (!batchProcessed && retryCount <= maxRetries) {
     try {
       const result = await callAIWithRetry((model: AIModel) => model.generateContent(prompt));
-      const response = result;
       
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          // Try regular JSON parsing first
-          const analysis = JSON.parse(jsonMatch[0]);
-          
-          // Add detailed logging to debug schema validation
-          console.log('Parsed JSON structure:', JSON.stringify(analysis, null, 2));
-          console.log('Expected schema structure:', JSON.stringify({
-            categories: {
-              "example_category": {
-                risk_score: 0,
-                confidence: 0,
-                violations: [],
-                severity: "LOW",
-                explanation: "string"
-              }
-            }
-          }, null, 2));
-          
-          // Schema validation
-          const validatedAnalysis = BatchAnalysisSchema.parse(analysis);
-          
-          if (validatedAnalysis.categories) {
-            console.log(`Successfully parsed batch analysis for ${Object.keys(validatedAnalysis.categories).length} categories`);
-            const categoryKeys = Object.keys(validatedAnalysis.categories);
-            const riskScores = categoryKeys.map(key => validatedAnalysis.categories[key].risk_score);
-            const confidenceScores = categoryKeys.map(key => validatedAnalysis.categories[key].confidence);
-            const normalizedRiskScores = normalizeBatchScores(riskScores);
-            const normalizedConfidenceScores = normalizeBatchScores(confidenceScores);
-            categoryKeys.forEach((categoryKey, idx) => {
-              policyAnalysis[categoryKey] = {
-                risk_score: normalizedRiskScores[idx],
-                confidence: normalizedConfidenceScores[idx],
-                violations: validatedAnalysis.categories[categoryKey].violations || [],
-                severity: validatedAnalysis.categories[categoryKey].severity || 'LOW',
-                explanation: validatedAnalysis.categories[categoryKey].explanation || ''
-              };
-            });
-            batchProcessed = true;
-          }
-        } catch (parseError) {
-          console.log('Regular JSON parsing failed, trying enhanced parsing...');
-          console.error('Parse error details:', parseError);
-          console.error('Raw JSON that failed parsing:', jsonMatch[0]);
-          try {
-            // Use the enhanced JSON parsing function as fallback
-            const analysis = parseJSONSafely(jsonMatch[0]);
-            
-            console.log('Enhanced parsing result:', JSON.stringify(analysis, null, 2));
-            
-            // Schema validation
-            const validatedAnalysis = BatchAnalysisSchema.parse(analysis);
-            
-            if (validatedAnalysis.categories) {
-              console.log(`Successfully parsed batch analysis using enhanced parsing for ${Object.keys(validatedAnalysis.categories).length} categories`);
-              const categoryKeys = Object.keys(validatedAnalysis.categories);
-              const riskScores = categoryKeys.map(key => validatedAnalysis.categories[key].risk_score);
-              const confidenceScores = categoryKeys.map(key => validatedAnalysis.categories[key].confidence);
-              const normalizedRiskScores = normalizeBatchScores(riskScores);
-              const normalizedConfidenceScores = normalizeBatchScores(confidenceScores);
-              categoryKeys.forEach((categoryKey, idx) => {
-                policyAnalysis[categoryKey] = {
-                  risk_score: normalizedRiskScores[idx],
-                  confidence: normalizedConfidenceScores[idx],
-                  violations: validatedAnalysis.categories[categoryKey].violations || [],
-                  severity: validatedAnalysis.categories[categoryKey].severity || 'LOW',
-                  explanation: validatedAnalysis.categories[categoryKey].explanation || ''
-                };
-              });
-              batchProcessed = true;
-            }
-          } catch (enhancedParseError) {
-            console.error('Enhanced parsing also failed:', enhancedParseError);
-            console.error('Enhanced parsing error details:', enhancedParseError);
-            retryCount++;
-            console.error(`Batch parse attempt ${retryCount} failed:`, enhancedParseError);
-            console.error('Raw JSON:', jsonMatch[0]);
-            
-            // Track parsing errors in Sentry
-            Sentry.captureException(enhancedParseError, {
-              extra: {
-                retryCount,
-                maxRetries,
-                rawJson: jsonMatch[0].substring(0, 500), // Truncate to avoid huge payloads
-                batchSize: batch.length,
-                batchCategories: batch.map(cat => cat.key)
-              }
-            });
-            
-            if (retryCount > maxRetries) {
-              console.error('Max retries reached for batch, providing default analysis');
-              
-              // Try to extract partial information from the malformed JSON
-              try {
-                const partialAnalysis = extractPartialAnalysis(jsonMatch[0], batch);
-                console.log(`Successfully extracted partial analysis for ${Object.keys(partialAnalysis).length} categories`);
-                for (const [categoryKey, analysis] of Object.entries(partialAnalysis)) {
-                  policyAnalysis[categoryKey] = analysis;
-                }
-              } catch (extractError) {
-                console.error('Failed to extract partial analysis:', extractError);
-                // Provide default analysis for failed batch
-                for (const category of batch) {
-                  policyAnalysis[category.key] = {
-                    risk_score: 0,
-                    confidence: 0,
-                    violations: [],
-                    severity: 'LOW',
-                    explanation: 'Analysis failed for this category (JSON parse error)'
-                  };
-                }
-              }
-            } else {
-              console.log(`Retrying batch (attempt ${retryCount + 1}/${maxRetries + 1})`);
-              await new Promise(resolve => setTimeout(resolve, 1000)); // Brief delay before retry
-            }
-          }
+      // Use the robust JSON parsing service
+      const parsingResult = await jsonParsingService.parseJson<any>(result, BatchAnalysisSchema, model);
+      
+      if (parsingResult.success && parsingResult.data) {
+        const validatedAnalysis = parsingResult.data;
+        
+        if (validatedAnalysis.categories) {
+          console.log(`Successfully parsed batch analysis using ${parsingResult.strategy} for ${Object.keys(validatedAnalysis.categories).length} categories`);
+          const categoryKeys = Object.keys(validatedAnalysis.categories);
+          const riskScores = categoryKeys.map(key => validatedAnalysis.categories[key].risk_score);
+          const confidenceScores = categoryKeys.map(key => validatedAnalysis.categories[key].confidence);
+          const normalizedRiskScores = normalizeBatchScores(riskScores);
+          const normalizedConfidenceScores = normalizeBatchScores(confidenceScores);
+          categoryKeys.forEach((categoryKey, idx) => {
+            policyAnalysis[categoryKey] = {
+              risk_score: normalizedRiskScores[idx],
+              confidence: normalizedConfidenceScores[idx],
+              violations: validatedAnalysis.categories[categoryKey].violations || [],
+              severity: validatedAnalysis.categories[categoryKey].severity || 'LOW',
+              explanation: validatedAnalysis.categories[categoryKey].explanation || ''
+            };
+          });
+          batchProcessed = true;
         }
       } else {
-        retryCount++;
-        if (retryCount > maxRetries) {
-          console.error('No JSON found in response after max retries');
-          // Provide default analysis for failed batch
-          for (const category of batch) {
-            policyAnalysis[category.key] = {
-              risk_score: 0,
-              confidence: 0,
-              violations: [],
-              severity: 'LOW',
-              explanation: 'Analysis failed for this category (no JSON response)'
-            };
-          }
-        }
+        throw new Error(`Policy analysis JSON parsing failed: ${parsingResult.error}`);
       }
     } catch (error) {
       retryCount++;

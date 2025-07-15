@@ -22,12 +22,33 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: 'No access token available' }, { status: 400 });
         }
 
+        // Handle token refresh if needed
+        let accessToken = (session as any).accessToken;
+        let refreshToken = (session as any).refreshToken;
+        let expiresAt = (session as any).expiresAt;
+        
+        // Check if token is expired or about to expire (within 60 seconds)
+        if (expiresAt && Date.now() / 1000 > expiresAt - 60 && refreshToken) {
+          console.log('Token expired, attempting refresh for channel fetch...');
+          try {
+            const { refreshGoogleAccessToken } = await import('@/lib/auth');
+            const refreshed = await refreshGoogleAccessToken(refreshToken);
+            accessToken = refreshed.access_token;
+            console.log('Token refreshed successfully for channel fetch');
+          } catch (err) {
+            console.error('Failed to refresh token for channel fetch:', err);
+            return NextResponse.json({ 
+              error: 'Failed to refresh access token. Please sign out and sign in again.' 
+            }, { status: 401 });
+          }
+        }
+
         // Fetch YouTube channel data
         const response = await fetch(
           'https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&mine=true',
           {
             headers: {
-              'Authorization': `Bearer ${(session as any).accessToken}`,
+              'Authorization': `Bearer ${accessToken}`,
               'Accept': 'application/json',
             },
           }
@@ -55,7 +76,7 @@ export async function POST(req: NextRequest) {
         let channelContext = null;
         try {
           console.log('Fetching channel context for channel ID:', channelId);
-          channelContext = await getChannelContext(channelId, (session as any).accessToken);
+          channelContext = await getChannelContext(channelId, accessToken);
           console.log('Channel context result:', channelContext ? 'Success' : 'Failed');
           if (channelContext) {
             console.log('Channel context data:', {

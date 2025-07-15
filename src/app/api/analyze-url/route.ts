@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { performEnhancedAnalysis } from '@/lib/ai-analysis';
+import { performMultiModalVideoAnalysis } from '@/lib/multi-modal-analysis';
+import { prepareVideoForAnalysis, cleanupVideoFiles } from '@/lib/video-processing';
 import { getChannelContext } from '@/lib/channel-context';
 import axios from 'axios';
 import { adminDb } from '@/lib/firebase-admin'; // Correctly import adminDb
@@ -341,28 +343,57 @@ export async function POST(req: NextRequest) {
     let analyzedContent = '';
     let analysisSource = '';
     let metadata: { title: string; description: string } | null = null;
+    let videoAnalysisData: any = null;
     metadata = await getVideoMetadata(videoId); // Always fetch metadata first
 
-    // 1. Try Node.js youtube-transcript-api library first (most reliable)
+    // 1. Try multi-modal video analysis first (primary method)
+    console.log(`Attempting multi-modal video analysis for: ${videoId}`);
+    try {
+      videoAnalysisData = await prepareVideoForAnalysis(videoId);
+      if (videoAnalysisData && videoAnalysisData.videoInfo?.success) {
+        console.log('Multi-modal video analysis prepared successfully');
+        analysisSource = 'multi-modal video analysis';
+      } else {
+        console.log('Multi-modal video analysis not available, falling back to transcript analysis');
+        videoAnalysisData = null;
+      }
+    } catch (videoError) {
+      console.warn('Multi-modal video analysis failed:', videoError);
+      videoAnalysisData = null;
+    }
+
+    // 2. Try Node.js youtube-transcript-api library for transcript
     const nodeLibraryTranscript = await getTranscriptViaNodeLibrary(videoId);
     if (nodeLibraryTranscript) {
       analyzedContent = nodeLibraryTranscript;
+      if (videoAnalysisData) {
+        videoAnalysisData.transcript = nodeLibraryTranscript;
+      } else {
       contentToAnalyze = `Analyze the following YouTube video transcript: \n\n---${analyzedContent}---`;
       analysisSource = 'transcript (nodejs library)';
+      }
     } else {
-      // 2. Try advanced web scraping external services
+      // 3. Try advanced web scraping external services
       console.log(`Node.js library failed, trying advanced web scraping for video ${videoId}`);
       const webScrapedTranscript = await getTranscriptViaWebScraping(videoId);
       if (webScrapedTranscript) {
         analyzedContent = webScrapedTranscript;
+        if (videoAnalysisData) {
+          videoAnalysisData.transcript = webScrapedTranscript;
+        } else {
         contentToAnalyze = `Analyze the following YouTube video transcript: \n\n---${analyzedContent}---`;
         analysisSource = 'transcript (web scraping)';
+        }
       } else {
-        // 3. Fallback to video metadata
+        // 4. Fallback to video metadata
         if (metadata) {
           analyzedContent = `Title: ${metadata.title}\n\nDescription:\n${metadata.description}`;
+          if (videoAnalysisData) {
+            videoAnalysisData.metadata = metadata;
+          } else {
           contentToAnalyze = `Analyze the following YouTube video title and description: \n\n---${analyzedContent}---`;
           analysisSource = 'metadata';
+          }
         } else {
           return NextResponse.json({ 
             error: "Could not retrieve transcript or video metadata. Please try another video."
@@ -377,13 +408,32 @@ export async function POST(req: NextRequest) {
       const userDoc = await adminDb.collection('users').doc(userId).get();
       if (userDoc.exists) {
         const userData = userDoc.data();
-        if (userData?.youtube?.channel?.id && (session as any).accessToken) {
-          // Check if this video belongs to the user's channel before applying context
-          const isOwned = await isVideoOwnedByUser(videoId, userData.youtube.channel.id, (session as any).accessToken);
+                  if (userData?.youtube?.channel?.id && (session as any).accessToken) {
+            // Handle token refresh if needed for video ownership check
+            let accessToken = (session as any).accessToken;
+            let refreshToken = (session as any).refreshToken;
+            let expiresAt = (session as any).expiresAt;
+            
+            // Check if token is expired or about to expire (within 60 seconds)
+            if (expiresAt && Date.now() / 1000 > expiresAt - 60 && refreshToken) {
+              console.log('Token expired, attempting refresh for video ownership check...');
+              try {
+                const { refreshGoogleAccessToken } = await import('@/lib/auth');
+                const refreshed = await refreshGoogleAccessToken(refreshToken);
+                accessToken = refreshed.access_token;
+                console.log('Token refreshed successfully for video ownership check');
+              } catch (err) {
+                console.error('Failed to refresh token for video ownership check:', err);
+                // Continue without channel context - this is not critical
+              }
+            }
+            
+            // Check if this video belongs to the user's channel before applying context
+            const isOwned = await isVideoOwnedByUser(videoId, userData.youtube.channel.id, accessToken);
           
           if (isOwned) {
             console.log(`Applying channel context for user's own video: ${videoId}`);
-            channelContext = await getChannelContext(userData.youtube.channel.id, (session as any).accessToken);
+            channelContext = await getChannelContext(userData.youtube.channel.id, accessToken);
           } else {
             console.log(`Skipping channel context for external video: ${videoId}`);
           }
@@ -394,7 +444,15 @@ export async function POST(req: NextRequest) {
       // Continue without context - this is not critical
     }
 
-    const analysisResult = await performEnhancedAnalysis(contentToAnalyze, channelContext);
+    // Perform analysis based on available data
+    let analysisResult;
+    if (videoAnalysisData && videoAnalysisData.videoInfo?.success) {
+      console.log('Performing multi-modal video analysis');
+      analysisResult = await performMultiModalVideoAnalysis(videoAnalysisData, channelContext);
+    } else {
+      console.log('Performing text-only analysis');
+      analysisResult = await performEnhancedAnalysis(contentToAnalyze, channelContext);
+    }
     console.log('AI analysisResult:', analysisResult);
 
     // Normalize output for frontend compatibility
@@ -429,6 +487,16 @@ export async function POST(req: NextRequest) {
         console.log(`CACHE SET: Saved new analysis to cache for URL: ${url}`);
     }
     // --- End Save to Cache ---
+
+    // Clean up video files if multi-modal analysis was used
+    if (videoAnalysisData && videoAnalysisData.videoInfo?.videoPath) {
+      try {
+        await cleanupVideoFiles(videoAnalysisData.videoInfo.videoPath);
+        console.log('Cleaned up video files after analysis');
+      } catch (cleanupError) {
+        console.warn('Failed to clean up video files:', cleanupError);
+      }
+    }
 
     // --- Always save to history using server-side Firebase Admin ---
     try {

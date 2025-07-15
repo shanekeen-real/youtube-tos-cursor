@@ -1,5 +1,6 @@
 import { getAIModel, AIModel, GeminiModel, ClaudeModel, RateLimiter, callAIWithRetry, getModelWithFallback } from './ai-models';
 import { parseJSONSafely, normalizeBatchScores, extractPartialAnalysis } from './json-utils';
+import { jsonParsingService } from './json-parsing-service';
 import { 
   YOUTUBE_POLICY_CATEGORIES, 
   PolicyCategoryAnalysis, 
@@ -188,6 +189,9 @@ export async function performEnhancedAnalysis(text: string, channelContext?: any
     await rateLimiter.waitIfNeeded();
     const suggestions = await generateActionableSuggestions(decodedText, model, policyAnalysis, riskAssessment);
     
+    // Apply hard limit of 12 suggestions to prevent overwhelming users
+    const limitedSuggestions = suggestions.slice(0, 12);
+    
     // Calculate overall risk score and level
     const overallRiskScore = calculateOverallRiskScore(policyAnalysis, riskAssessment);
     const riskLevel = getRiskLevel(overallRiskScore);
@@ -244,7 +248,7 @@ export async function performEnhancedAnalysis(text: string, channelContext?: any
         language_detected: contextAnalysis.language_detected
       },
       highlights,
-      suggestions,
+      suggestions: limitedSuggestions,
       risky_spans: allRiskySpans,
       risky_phrases: allRiskyPhrases,
       risky_phrases_by_category: riskAssessment.risky_phrases_by_category || {},
@@ -383,7 +387,7 @@ async function performBasicAnalysis(text: string, model: AIModel) {
 
     4.  **Create Risk Highlights:** Identify up to 4 specific policy areas that are at risk. For each highlight, provide the category (e.g., "Hate Speech," "Graphic Violence," "Misinformation"), a risk level ("high", "medium", or "low"), and a confidence score (0-100).
 
-    5.  **Generate Actionable Suggestions:** Provide exactly 3 specific, actionable suggestions for how the user can improve their content to reduce the identified risks. Each suggestion should have a title and a descriptive text.
+    5.  **Generate Actionable Suggestions:** Provide 5-8 specific, actionable suggestions for how the user can improve their content to reduce the identified risks. Each suggestion should have a title and a descriptive text.
 
     Please return your analysis **only** as a valid JSON object, with no other text or explanation. The JSON object must follow this exact structure:
     {
@@ -407,22 +411,36 @@ async function performBasicAnalysis(text: string, model: AIModel) {
   `;
 
   const result = await callAIWithRetry((model: AIModel) => model.generateContent(prompt));
-  const response = result;
+  
+  // Use the robust JSON parsing service
+  const expectedSchema = z.object({
+    risk_score: z.number(),
+    risk_level: z.string(),
+    flagged_section: z.string(),
+    highlights: z.array(z.object({
+      category: z.string(),
+      risk: z.string(),
+      score: z.number()
+    })),
+    suggestions: z.array(z.object({
+      title: z.string(),
+      text: z.string()
+    }))
+  });
 
-  const firstBrace = response.indexOf('{');
-  const lastBrace = response.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    const jsonString = response.substring(firstBrace, lastBrace + 1);
-    const parsedResult = JSON.parse(jsonString);
+  const parsingResult = await jsonParsingService.parseJson<any>(result, expectedSchema, model);
+  
+  if (parsingResult.success && parsingResult.data) {
+    const parsedResult = parsingResult.data;
     
-    // Ensure suggestions are limited to 3 for free tier compatibility
-    if (parsedResult.suggestions && parsedResult.suggestions.length > 3) {
-      console.log(`[DEBUG] Basic analysis returned ${parsedResult.suggestions.length} suggestions, limiting to 3`);
-      parsedResult.suggestions = parsedResult.suggestions.slice(0, 3);
+    // Apply hard limit of 12 suggestions to prevent overwhelming users
+    if (parsedResult.suggestions && parsedResult.suggestions.length > 12) {
+      console.log(`[DEBUG] Basic analysis returned ${parsedResult.suggestions.length} suggestions, limiting to 12`);
+      parsedResult.suggestions = parsedResult.suggestions.slice(0, 12);
     }
     
     return parsedResult;
   } else {
-    throw new Error("No valid JSON object found in the AI's response.");
+    throw new Error(`Basic analysis JSON parsing failed: ${parsingResult.error}`);
   }
 }

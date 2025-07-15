@@ -15,18 +15,20 @@ A comprehensive YouTube policy analysis tool that helps content creators underst
 
 The application now supports dual AI models for enhanced reliability and performance:
 
-### Primary Model: Claude 3 Haiku
-- **Provider**: Anthropic
-- **Model**: `claude-3-haiku-20240307`
+### Primary Model: Gemini 2.5 Flash Preview
+- **Provider**: Google
+- **Model**: `gemini-2.5-flash-preview-04-17`
 - **Benefits**: 
+  - Multi-modal analysis capabilities (text + video)
+  - Enhanced content understanding
   - Superior analysis accuracy
-  - Higher rate limits (100 requests/minute)
+  - Higher rate limits (15 requests/minute)
   - Better understanding of nuanced policy violations
   - More detailed explanations and suggestions
 
-### Fallback Model: Gemini 1.5 Flash
-- **Provider**: Google
-- **Model**: `gemini-1.5-flash-latest`
+### Fallback Model: Claude 3 Haiku
+- **Provider**: Anthropic
+- **Model**: `claude-3-haiku-20240307`
 - **Benefits**: 
   - Reliable fallback option
   - Good performance for basic analysis
@@ -78,8 +80,8 @@ The application includes Sentry integration for comprehensive error monitoring:
 
 The application automatically selects the best available model:
 
-1. **Claude 3 Haiku** (if `ANTHROPIC_API_KEY` is set)
-2. **Gemini 1.5 Flash** (fallback if Claude unavailable or fails)
+1. **Gemini 2.5 Flash Preview** (if `GOOGLE_API_KEY` is set)
+2. **Claude 3 Haiku** (fallback if Gemini unavailable or fails)
 
 This ensures maximum uptime and analysis quality while maintaining backward compatibility.
 

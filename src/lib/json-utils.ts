@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/nextjs';
 import { PolicyCategoryAnalysis } from '../types/ai-analysis';
+import { jsonrepair } from 'jsonrepair';
 
 // Batch normalization utility for risk scores and confidence
 export function normalizeBatchScores(scores: number[]) {
@@ -20,18 +21,39 @@ export function normalizeBatchScores(scores: number[]) {
   return scores;
 }
 
-// Robust JSON parsing utility with multiple fallback strategies
+// Enhanced JSON parsing utility with jsonrepair as primary strategy
 export function parseJSONSafely(jsonString: string): any {
-  // Strategy 1: Direct parsing (try this first for valid JSON)
-  try {
-    return JSON.parse(jsonString);
-  } catch (error) {
-    console.log('Direct JSON parsing failed, trying sanitization...');
+  // Strategy 0: Clean up common AI model artifacts
+  let cleaned = jsonString.trim();
+  
+  // Remove markdown code blocks if present
+  cleaned = cleaned.replace(/```json\s*/g, '').replace(/```\s*$/g, '');
+  
+  // Remove any text before the first { and after the last }
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    cleaned = cleaned.substring(firstBrace, lastBrace + 1);
   }
 
-  // Strategy 2: Simple sanitization for common issues
+  // Strategy 1: Direct parsing (try this first for valid JSON)
   try {
-    let sanitized = jsonString;
+    return JSON.parse(cleaned);
+  } catch (error) {
+    console.log('Direct JSON parsing failed, trying jsonrepair...');
+  }
+
+  // Strategy 2: Use jsonrepair library (primary fallback)
+  try {
+    const repaired = jsonrepair(cleaned);
+    return JSON.parse(repaired);
+  } catch (error) {
+    console.log('jsonrepair failed, trying legacy strategies...');
+  }
+
+  // Strategy 3: Legacy sanitization for common issues
+  try {
+    let sanitized = cleaned;
     // Only fix trailing commas before closing braces/brackets
     sanitized = sanitized.replace(/,(\s*[}\]])/g, '$1');
     // Fix non-standard single quote escapes (\')
@@ -41,9 +63,9 @@ export function parseJSONSafely(jsonString: string): any {
     console.log('Simple sanitization failed, trying robust quote fixing...');
   }
 
-  // Strategy 2.5: Robustly fix unescaped quotes in ALL string values
+  // Strategy 4: Robustly fix unescaped quotes in ALL string values
   try {
-    let sanitized = jsonString;
+    let sanitized = cleaned;
     
     // Fix unescaped quotes in ALL string values, not just explanation fields
     // This regex finds any string value and escapes unescaped quotes inside it
@@ -66,9 +88,9 @@ export function parseJSONSafely(jsonString: string): any {
     console.log('Robust quote fixing failed, trying comprehensive quote fixing...');
   }
 
-  // Strategy 2.6: Smart quote fixing that only targets string values, not keys
+  // Strategy 5: Smart quote fixing that only targets string values, not keys
   try {
-    let sanitized = jsonString;
+    let sanitized = cleaned;
     
     // Smart approach: only fix quotes in string values, not in JSON keys
     // This regex specifically targets string values after colons
@@ -91,9 +113,9 @@ export function parseJSONSafely(jsonString: string): any {
     console.log('Smart quote fixing failed, trying regex extraction...');
   }
 
-  // Strategy 3: Extract JSON using regex (only if no valid JSON found)
+  // Strategy 6: Extract JSON using regex (only if no valid JSON found)
   try {
-    const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       return JSON.parse(jsonMatch[0]);
     }
@@ -101,11 +123,41 @@ export function parseJSONSafely(jsonString: string): any {
     console.log('Regex extraction failed');
   }
 
-  // Strategy 4: Manual parsing as last resort
+  // Strategy 7: Gemini-specific JSON fixing
+  try {
+    let sanitized = cleaned;
+    
+    // Fix common Gemini issues:
+    // 1. Replace smart quotes with regular quotes
+    sanitized = sanitized.replace(/[""]/g, '"');
+    sanitized = sanitized.replace(/['']/g, "'");
+    
+    // 2. Fix unescaped quotes in string values more aggressively
+    sanitized = sanitized.replace(
+      /:\s*"([^"]*(?:"[^"]*)*)"/g,
+      (match, content) => {
+        // Escape all unescaped quotes in the content
+        const fixed = content.replace(/(?<!\\)"/g, '\\"');
+        return `: "${fixed}"`;
+      }
+    );
+    
+    // 3. Fix trailing commas
+    sanitized = sanitized.replace(/,(\s*[}\]])/g, '$1');
+    
+    // 4. Fix newlines in strings
+    sanitized = sanitized.replace(/\n/g, '\\n');
+    
+    return JSON.parse(sanitized);
+  } catch (error) {
+    console.log('Gemini-specific fixing failed, trying manual parsing...');
+  }
+
+  // Strategy 8: Manual parsing as last resort
   try {
     const result: any = {};
     // Extract categories using regex
-    const categoryMatches = jsonString.match(/"([^"]+)"\s*:\s*\{[^}]+\}/g);
+    const categoryMatches = cleaned.match(/"([^"]+)"\s*:\s*\{[^}]+\}/g);
     if (categoryMatches) {
       result.categories = {};
       for (const match of categoryMatches) {
@@ -135,9 +187,15 @@ export function parseJSONSafely(jsonString: string): any {
   Sentry.captureException(new Error('All JSON parsing strategies failed'), {
     extra: {
       jsonString: jsonString.substring(0, 500), // Truncate to avoid huge payloads
-      strategiesAttempted: ['direct', 'sanitized', 'robust-quote-fixing', 'regex', 'manual']
+      strategiesAttempted: ['direct', 'jsonrepair', 'sanitized', 'robust-quote-fixing', 'regex', 'manual']
     }
   });
+
+  console.error('All JSON parsing strategies failed. Raw JSON string:');
+  console.error('Length:', jsonString.length);
+  console.error('First 1500 chars:', jsonString.substring(0, 1500));
+  console.error('Last 500 chars:', jsonString.substring(Math.max(0, jsonString.length - 500)));
+  console.error('Cleaned string (first 1500 chars):', cleaned.substring(0, 1500));
 
   throw new Error('All JSON parsing strategies failed');
 }
@@ -199,9 +257,11 @@ export function extractPartialAnalysis(jsonString: string, batch: any[]): {[key:
   const confidenceScores = keys.map(key => partialAnalysis[key].confidence);
   const normalizedRiskScores = normalizeBatchScores(riskScores);
   const normalizedConfidenceScores = normalizeBatchScores(confidenceScores);
-  keys.forEach((key, idx) => {
-    partialAnalysis[key].risk_score = normalizedRiskScores[idx];
-    partialAnalysis[key].confidence = normalizedConfidenceScores[idx];
+  
+  // Apply normalized scores back to the analysis
+  keys.forEach((key, index) => {
+    partialAnalysis[key].risk_score = normalizedRiskScores[index];
+    partialAnalysis[key].confidence = normalizedConfidenceScores[index];
   });
   
   return partialAnalysis;
