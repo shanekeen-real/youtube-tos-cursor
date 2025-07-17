@@ -3,8 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
 import { useSession } from 'next-auth/react';
-import { getFirestore, doc, getDoc, updateDoc } from 'firebase/firestore';
-import { app } from '@/lib/firebase';
+
 import Link from 'next/link';
 import { getTierLimits } from '@/types/subscription';
 import { Settings, User, CreditCard, Youtube, Moon, Sun, AlertTriangle, CheckCircle, Shield, Smartphone } from 'lucide-react';
@@ -64,6 +63,7 @@ export default function SettingsPage() {
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [deleteStatus, setDeleteStatus] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [isFreshConnection, setIsFreshConnection] = useState(false);
   
   useEffect(() => {
     if (dark) {
@@ -75,32 +75,43 @@ export default function SettingsPage() {
   
   useEffect(() => {
     const fetchUserProfile = async () => {
-      const auth = getAuth();
-      const firebaseUid = auth.currentUser?.uid;
-      if (!firebaseUid) return;
-      const db = getFirestore(app);
-      const userRef = doc(db, 'users', firebaseUid);
-      const userDoc = await getDoc(userRef);
-      if (userDoc.exists()) setUserProfile(userDoc.data() as UserProfile);
+      if (!session?.user?.id) return;
+      try {
+        const response = await fetch('/api/get-user-profile');
+        if (response.ok) {
+          const data = await response.json();
+          setUserProfile(data.userProfile as UserProfile);
+        }
+      } catch (err) {
+        console.error('Failed to fetch user profile:', err);
+      }
     };
     fetchUserProfile();
-  }, []);
+  }, [session?.user?.id]);
   
   useEffect(() => {
     const fetchYouTube = async () => {
-      const auth = getAuth();
-      const firebaseUid = auth.currentUser?.uid;
-      if (!firebaseUid) return;
-      const db = getFirestore(app);
-      const userRef = doc(db, 'users', firebaseUid);
-      const userDoc = await getDoc(userRef);
-      if (userDoc.exists() && userDoc.data().youtube?.channel) {
-        setYtChannel(userDoc.data().youtube.channel as YouTubeChannel);
-        // Also get channel context if available
-        if (userDoc.data().youtube?.channelContext) {
-          setChannelContext(userDoc.data().youtube.channelContext);
+      if (!session?.user?.id) return;
+      try {
+        const response = await fetch('/api/get-user-profile');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.userProfile?.youtube?.channel) {
+            setYtChannel(data.userProfile.youtube.channel as YouTubeChannel);
+            // Also get channel context if available
+            if (data.userProfile.youtube?.channelContext) {
+              setChannelContext(data.userProfile.youtube.channelContext);
+            }
+          } else {
+            setYtChannel(null);
+            setChannelContext(null);
+          }
+        } else {
+          setYtChannel(null);
+          setChannelContext(null);
         }
-      } else {
+      } catch (err) {
+        console.error('Failed to fetch YouTube data:', err);
         setYtChannel(null);
         setChannelContext(null);
       }
@@ -109,56 +120,83 @@ export default function SettingsPage() {
 
     // Refresh YouTube data when user returns to the tab
     const handleFocus = () => {
-      const auth = getAuth();
-      if (auth.currentUser?.uid) {
+      if (session?.user?.id) {
         fetchYouTube();
       }
     };
 
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, []);
+  }, [session?.user?.id]);
   
+
+
   // Show welcome modal when YouTube is connected (same logic as Dashboard)
   useEffect(() => {
-    // Show modal if we have either channel context OR YouTube channel data, and haven't shown it before
-    const shouldShowModal = (channelContext?.channelData || ytChannel) && !window.sessionStorage.getItem('ytWelcomeModalShown');
+    // Add a small delay to ensure data is properly loaded
+    const timer = setTimeout(() => {
+      console.log('Welcome modal trigger check:', {
+        hasChannelContext: !!channelContext,
+        hasChannelData: !!channelContext?.channelData,
+        hasYtChannel: !!ytChannel,
+        isFreshConnection: isFreshConnection,
+        sessionStorageShown: window.sessionStorage.getItem('ytWelcomeModalShown'),
+        channelContext: channelContext
+      });
+      
+      // Show modal only if this is a NEW connection (not just existing data)
+      // We need to track if this is the first time we're seeing this channel data
+      const modalShown = window.sessionStorage.getItem('ytWelcomeModalShown');
+      const modalShownTime = modalShown ? parseInt(modalShown) : 0;
+      const isRecent = Date.now() - modalShownTime < 24 * 60 * 60 * 1000; // 24 hours
+      
+      // Only show modal if this is a fresh connection (not just existing data)
+      const hasChannelData = channelContext?.channelData || ytChannel;
+      const shouldShowModal = hasChannelData && isFreshConnection && (!modalShown || !isRecent);
+      
+      console.log('Should show modal:', shouldShowModal);
+      
+      if (shouldShowModal) {
+        console.log('Triggering welcome modal');
+        setShowWelcomeModal(true);
+        // Reset the fresh connection flag after triggering modal
+        setIsFreshConnection(false);
+        // Don't set sessionStorage immediately - let the modal handle it
+      }
+    }, 500); // 500ms delay
     
-    if (shouldShowModal) {
-      console.log('Triggering welcome modal');
-      setShowWelcomeModal(true);
-      window.sessionStorage.setItem('ytWelcomeModalShown', '1');
-    }
+    return () => clearTimeout(timer);
   }, [channelContext, ytChannel]);
   
   const progress = userProfile ? (userProfile.scanCount / userProfile.scanLimit) * 100 : 0;
   
   const handleUnlinkYouTube = async () => {
-    const auth = getAuth();
-    const firebaseUid = auth.currentUser?.uid;
-    if (!firebaseUid) return;
+    if (!session?.user?.id) return;
     if (!window.confirm('Are you sure you want to unlink your YouTube channel?')) return;
-    const db = getFirestore(app);
-    const userRef = doc(db, 'users', firebaseUid);
     try {
-      await updateDoc(userRef, {
-        youtube: null
+      const response = await fetch('/api/unlink-youtube', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
-      setYtChannel(null);
-      // Clear the welcome modal session flag so it will show again on reconnect
-      if (typeof window !== 'undefined') {
-        sessionStorage.removeItem('ytWelcomeModalShown');
+      if (response.ok) {
+        setYtChannel(null);
+        // Clear the welcome modal session flag so it will show again on reconnect
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('ytWelcomeModalShown');
+        }
+        showSuccess('YouTube Unlinked', 'Your YouTube channel has been successfully unlinked.');
+      } else {
+        showError('YouTube Unlink Error', 'Failed to unlink YouTube channel. Please try again.');
       }
-      showSuccess('YouTube Unlinked', 'Your YouTube channel has been successfully unlinked.');
     } catch (err) {
       showError('YouTube Unlink Error', 'Failed to unlink YouTube channel. Please try again.');
     }
   };
 
   const handleConnectYouTube = async () => {
-    const auth = getAuth();
-    const firebaseUid = auth.currentUser?.uid;
-    if (!firebaseUid) return;
+    if (!session?.user?.id) return;
     setYtFetching(true);
     try {
       const response = await fetch('/api/fetch-youtube-channel', {
@@ -170,14 +208,16 @@ export default function SettingsPage() {
       
       if (response.ok) {
         const data = await response.json();
-        setYtChannel(data.channel);
         console.log('YouTube connection response:', data);
+        setYtChannel(data.channel);
         if (data.channelContext) {
           console.log('Setting channel context:', data.channelContext);
           setChannelContext(data.channelContext);
         } else {
           console.log('No channel context in response');
         }
+        // Mark this as a fresh connection to trigger welcome modal
+        setIsFreshConnection(true);
         showSuccess('YouTube Connected', 'Your YouTube channel has been successfully connected!');
       } else {
         const errorData = await response.json();
@@ -193,9 +233,7 @@ export default function SettingsPage() {
   };
 
   const handleManageSubscription = async () => {
-    const auth = getAuth();
-    const firebaseUid = auth.currentUser?.uid;
-    if (!firebaseUid) return;
+    if (!session?.user?.id) return;
     setManagingSubscription(true);
     setSubscriptionError(null); // Clear any previous errors
     
@@ -653,17 +691,18 @@ export default function SettingsPage() {
         onClose={() => setShowTwoFactorSetupModal(false)}
         onSuccess={() => {
           // Refresh user profile to show updated 2FA status
-          const auth = getAuth();
-          const firebaseUid = auth.currentUser?.uid;
-          if (firebaseUid) {
-            const fetchUserProfile = async () => {
-              const db = getFirestore(app);
-              const userRef = doc(db, 'users', firebaseUid);
-              const userDoc = await getDoc(userRef);
-              if (userDoc.exists()) setUserProfile(userDoc.data() as UserProfile);
-            };
-            fetchUserProfile();
-          }
+          const fetchUserProfile = async () => {
+            try {
+              const response = await fetch('/api/get-user-profile');
+              if (response.ok) {
+                const data = await response.json();
+                setUserProfile(data.userProfile as UserProfile);
+              }
+            } catch (err) {
+              console.error('Failed to refresh user profile:', err);
+            }
+          };
+          fetchUserProfile();
         }}
       />
 
@@ -671,17 +710,18 @@ export default function SettingsPage() {
         open={showTwoFactorDisableModal}
         onClose={() => setShowTwoFactorDisableModal(false)}
         onSuccess={() => {
-          const auth = getAuth();
-          const firebaseUid = auth.currentUser?.uid;
-          if (firebaseUid) {
-            const fetchUserProfile = async () => {
-              const db = getFirestore(app);
-              const userRef = doc(db, 'users', firebaseUid);
-              const userDoc = await getDoc(userRef);
-              if (userDoc.exists()) setUserProfile(userDoc.data() as UserProfile);
-            };
-            fetchUserProfile();
-          }
+          const fetchUserProfile = async () => {
+            try {
+              const response = await fetch('/api/get-user-profile');
+              if (response.ok) {
+                const data = await response.json();
+                setUserProfile(data.userProfile as UserProfile);
+              }
+            } catch (err) {
+              console.error('Failed to refresh user profile:', err);
+            }
+          };
+          fetchUserProfile();
         }}
       />
     </main>

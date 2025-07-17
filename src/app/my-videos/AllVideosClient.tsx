@@ -9,8 +9,7 @@ import Button from '@/components/Button';
 import { useInView } from 'react-intersection-observer';
 import * as Sentry from "@sentry/nextjs";
 import VideoReportsModal from '@/components/VideoReportsModal';
-import { getFirestore, collection, query, where, orderBy, getDocs, limit, startAfter, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
-import { app } from '@/lib/firebase';
+
 
 // Types
 interface Video {

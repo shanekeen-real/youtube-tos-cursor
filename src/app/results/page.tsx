@@ -10,8 +10,7 @@ import { Suspense } from "react";
 import ExportModal from '@/components/ExportModal';
 import HighlightedTranscript from '@/components/HighlightedTranscript';
 import { Download, Lock, AlertTriangle, CheckCircle, Clock, BarChart3, FileText, Target, Globe, Zap, Calendar, Settings, ArrowLeft, ExternalLink, ArrowRight, Shield, Check, Brain, Info } from 'lucide-react';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
-import { app } from '@/lib/firebase';
+
 import { checkUserCanExport } from '@/lib/subscription-utils';
 import { checkUserCanAccessAIDetection } from '@/lib/subscription-utils';
 import * as Tooltip from '@radix-ui/react-tooltip';
@@ -109,15 +108,12 @@ function ResultsPageContent() {
 
   useEffect(() => {
     const fetchUserProfile = async () => {
-      const auth = getAuth();
-      const firebaseUid = auth.currentUser?.uid;
-      if (!firebaseUid) return;
+      if (!session?.user?.id) return;
       try {
-        const db = getFirestore(app);
-        const userRef = doc(db, 'users', firebaseUid);
-        const userDoc = await getDoc(userRef);
-        if (userDoc.exists()) {
-          const profile = userDoc.data();
+        const response = await fetch('/api/get-user-profile');
+        if (response.ok) {
+          const data = await response.json();
+          const profile = data.userProfile;
           setUserProfile(profile);
           const exportCheck = checkUserCanExport(profile);
           setCanExport(exportCheck.canExport);
@@ -129,7 +125,7 @@ function ResultsPageContent() {
       }
     };
     fetchUserProfile();
-  }, []);
+  }, [session?.user?.id]);
 
   useEffect(() => {
     const fetchData = async () => {

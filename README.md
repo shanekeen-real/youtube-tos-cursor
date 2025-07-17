@@ -15,9 +15,9 @@ A comprehensive YouTube policy analysis tool that helps content creators underst
 
 The application now supports dual AI models for enhanced reliability and performance:
 
-### Primary Model: Gemini 2.5 Flash Preview
+### Primary Model: Gemini 2.0 Flash
 - **Provider**: Google
-- **Model**: `gemini-2.5-flash-preview-04-17`
+- **Model**: `gemini-2.0-flash`
 - **Benefits**: 
   - Multi-modal analysis capabilities (text + video)
   - Enhanced content understanding

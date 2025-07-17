@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
     google_key_present: !!process.env.GOOGLE_API_KEY,
     usage: 'Send POST request with { "text": "your content to analyze" }',
     models: {
-      primary: 'gemini-2.5-flash-preview-04-17 (if GOOGLE_API_KEY is set)',
+              primary: 'gemini-2.0-flash (if GOOGLE_API_KEY is set)',
       fallback: 'claude-3-haiku-20240307 (if Gemini unavailable)'
     }
   });

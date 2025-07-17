@@ -93,6 +93,18 @@ export async function POST(req: NextRequest) {
 
         // Store channel data in Firestore
         const userRef = adminDb.collection('users').doc(session.user.id);
+        const userDoc = await userRef.get();
+        // Fallback: migrate legacy doc if needed
+        const googleAccountId = (session.user as any).googleAccountId || null;
+        if (!userDoc.exists && googleAccountId && googleAccountId !== session.user.id) {
+          const legacyRef = adminDb.collection('users').doc(googleAccountId);
+          const legacyDoc = await legacyRef.get();
+          if (legacyDoc.exists) {
+            const legacyData = legacyDoc.data();
+            await userRef.set({ ...legacyData, googleAccountId, migratedFrom: googleAccountId }, { merge: true });
+            await legacyRef.delete();
+          }
+        }
         await userRef.update({
           youtube: {
             channel: channel,

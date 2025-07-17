@@ -14,9 +14,9 @@ async function checkModels() {
     });
     
     // Test specific model
-    console.log('\nTesting specific model: gemini-2.5-flash-preview-04-17');
+    console.log('\nTesting specific model: gemini-2.0-flash');
     try {
-      const testModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-preview-04-17' });
+      const testModel = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
       console.log('Model loaded successfully');
     } catch (err) {
       console.error('Model loading failed:', err.message);

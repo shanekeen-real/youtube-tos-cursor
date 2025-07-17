@@ -4,25 +4,34 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // Users can only read and write to their own user document.
+    // Since we now use API routes for all user data access, we can lock this down
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if false; // All user data access goes through API routes
     }
 
-    // A user can create, read, and delete their own scan documents.
-    // They cannot update a scan once it's created, and they cannot see other users' scans.
-    match /scans/{scanId} {
-      allow read, delete: if request.auth != null && resource.data.userId == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    // Analysis cache - users can only access their own scans
+    match /analysis_cache/{scanId} {
+      allow read, write: if false; // All scan access goes through API routes
     }
 
-    // A user can read their own scan history collection, which is a subcollection under their user document.
-    match /users/{userId}/scanHistory/{scanId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    
-    // Channel context cache - users can read their own channel data
+    // Channel context cache - users can only access their own channel data
     match /channel_context_cache/{channelId} {
-        allow read, write: if request.auth != null;
+      allow read, write: if false; // All channel data access goes through API routes
+    }
+
+    // Usage tracking - admin only
+    match /usage_tracking/{date} {
+      allow read, write: if false; // Admin only through API routes
+    }
+
+    // User export logs - admin only
+    match /user_export_logs/{logId} {
+      allow read, write: if false; // Admin only through API routes
+    }
+
+    // User deletion logs - admin only
+    match /user_deletion_logs/{logId} {
+      allow read, write: if false; // Admin only through API routes
     }
   }
 }

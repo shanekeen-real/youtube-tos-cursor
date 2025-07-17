@@ -1,31 +1,34 @@
 "use client";
-import { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { getAuth, signInWithCredential, GoogleAuthProvider } from "firebase/auth";
 import { app } from "@/lib/firebase";
 
-export default function FirebaseAuthProvider({ children }: { children: React.ReactNode }) {
-  const { data: session, status } = useSession();
+// Add global type for gapi to fix TS errors
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+declare global {
+  interface Window {
+    gapi: any;
+  }
+}
 
-  useEffect(() => {
-    const syncFirebaseAuth = async () => {
-      if (status !== "authenticated" || !session?.idToken) return;
-      const auth = getAuth(app);
-      // Only sign in if not already signed in as the correct user
-      if (auth.currentUser && auth.currentUser.uid === session.user.id) {
-        console.log("[FirebaseAuthProvider] Already signed in as:", auth.currentUser.uid);
-        return;
-      }
-      try {
-        const credential = GoogleAuthProvider.credential(session.idToken);
-        await signInWithCredential(auth, credential);
-        console.log("[FirebaseAuthProvider] Signed in to Firebase Auth as:", auth.currentUser?.uid, auth.currentUser?.email);
-      } catch (err) {
-        console.error("[FirebaseAuthProvider] Failed to sign in to Firebase Auth:", err, "IDToken:", session.idToken);
-      }
+// Utility to load Google API JS SDK
+function loadGapi(): Promise<typeof window.gapi> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined') return reject('No window');
+    if ((window as any).gapi && (window as any).gapi.auth2) return resolve((window as any).gapi);
+    const script = document.createElement('script');
+    script.src = 'https://apis.google.com/js/api.js';
+    script.onload = () => {
+      (window as any).gapi.load('auth2', () => {
+        resolve((window as any).gapi);
+      });
     };
-    syncFirebaseAuth();
-  }, [session, status]);
+    script.onerror = reject;
+    document.body.appendChild(script);
+  });
+}
 
+// Remove all unused imports and code related to Firebase Auth, GoogleAuthProvider, or gapi
+export default function FirebaseAuthProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 } 

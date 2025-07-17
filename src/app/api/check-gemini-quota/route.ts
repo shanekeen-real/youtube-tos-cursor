@@ -14,14 +14,14 @@ export async function GET(req: NextRequest) {
     
     // Try a simple test request to see if we get quota info
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-preview-04-17' });
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
       const result = await model.generateContent('Hello');
       const response = await result.response;
       
       return NextResponse.json({
         status: 'working',
         message: 'Gemini API is working',
-        model: 'gemini-2.5-flash-preview-04-17',
+        model: 'gemini-2.0-flash',
         response_length: response.text().length,
         quota_info: {
           daily_limit: 50,

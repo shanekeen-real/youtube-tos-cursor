@@ -1,5 +1,6 @@
 import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
+import { getAuth as getAdminAuth } from "firebase-admin/auth";
 
 // Conditional import for server-side only
 let adminDb: any = null;
@@ -43,88 +44,50 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return token
     },
     async session({ session, token }) {
-      // Send properties to the client, like an access_token and user id from a provider.
       session.accessToken = token.accessToken as string | undefined
       session.refreshToken = token.refreshToken as string | undefined
       session.expiresAt = token.expiresAt as number | undefined
-      // Use the consistent user ID from the JWT token
-      session.user.id = (token.userId as string) || token.sub || ''
       session.idToken = token.idToken as string | undefined
-
-      // Add Firebase Auth UID from ID token (sub claim)
-      if (session.idToken) {
-        try {
-          const payload = JSON.parse(Buffer.from(session.idToken.split('.')[1], 'base64').toString());
-          session.user.firebaseUid = payload.sub;
-        } catch (e) {
-          console.error('Failed to decode Firebase UID from ID token:', e);
-        }
-      }
-
-      // Check if user has 2FA enabled and add to session
-      if (session.user.id && adminDb) {
-        try {
-          const userRef = adminDb.collection('users').doc(session.user.id);
-          const userDoc = await userRef.get();
-          if (userDoc.exists) {
-            const userData = userDoc.data();
-            session.twoFactorEnabled = userData?.twoFactorEnabled || false;
-            
-            // Check if 2FA has been verified recently (within 24 hours)
-            if (userData?.twoFactorVerifiedAt) {
-              const verifiedAt = new Date(userData.twoFactorVerifiedAt);
-              const now = new Date();
-              const hoursSinceVerification = (now.getTime() - verifiedAt.getTime()) / (1000 * 60 * 60);
-              session.twoFactorVerified = hoursSinceVerification < 24;
-            } else {
-              session.twoFactorVerified = false;
-            }
-          }
-        } catch (error) {
-          console.error('Error checking 2FA status in session:', error);
-          session.twoFactorEnabled = false;
-          session.twoFactorVerified = false;
-        }
-      }
-      
-      return session
+      // Always set session.user.id to the Google Account ID (string)
+      session.user.id = String(token.userId || '');
+      // Optionally, add googleAccountId to session for clarity
+      (session.user as any).googleAccountId = String(token.userId || '');
+      return session;
     },
     async signIn({ user, account, profile }) {
-      if (account?.provider === "google") {
+      if (account?.provider === "google" && account.providerAccountId) {
         try {
-          // Store user profile in Firestore using the Google account ID for consistency
-          const userId = account.providerAccountId || user.id || '';
-          const userRef = adminDb.collection('users').doc(userId);
+          const googleAccountId = account.providerAccountId;
+          const userRef = adminDb.collection('users').doc(googleAccountId);
           const userDoc = await userRef.get();
+          const now = new Date().toISOString();
           if (!userDoc.exists) {
             await userRef.set({
               email: user.email,
               displayName: user.name,
               photoURL: user.image,
-              createdAt: new Date().toISOString(),
+              createdAt: now,
               scanCount: 0,
               scanLimit: 3,
               subscriptionTier: 'free',
-              lastSignIn: new Date().toISOString(),
-              googleAccountId: account.providerAccountId, // Store for reference
+              lastSignIn: now,
+              googleAccountId,
             });
           } else {
-            // Only update non-usage fields if doc exists
             await userRef.set({
               email: user.email,
               displayName: user.name,
               photoURL: user.image,
-              lastSignIn: new Date().toISOString(),
-              googleAccountId: account.providerAccountId,
+              lastSignIn: now,
+              googleAccountId,
             }, { merge: true });
           }
-
-
         } catch (error) {
-          console.error('Error storing user profile:', error)
+          console.error('Error storing user profile (Google Account ID):', error)
+          return false;
         }
       }
-      return true
+      return true;
     }
   },
   pages: {

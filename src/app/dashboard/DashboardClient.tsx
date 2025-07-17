@@ -1,8 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { getFirestore, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { app } from '@/lib/firebase';
+
 import { useRouter, useSearchParams } from 'next/navigation';
 import Card from '@/components/Card';
 import Button from '@/components/Button';
@@ -16,7 +15,6 @@ import VideoReportsModal from '@/components/VideoReportsModal';
 import CPMSetupModal from '@/components/CPMSetupModal';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import YouTubeWelcomeModal from '@/components/YouTubeWelcomeModal';
-import { getAuth } from 'firebase/auth';
 
 // Define the structure of a user's profile data
 interface UserProfile {
@@ -71,6 +69,7 @@ export default function DashboardClient() {
   const [cpmSetupModalOpen, setCpmSetupModalOpen] = useState(false);
   const [canBatchScan, setCanBatchScan] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [isFreshConnection, setIsFreshConnection] = useState(false);
 
   // Log user ID to browser console for testing
   useEffect(() => {
@@ -91,67 +90,82 @@ export default function DashboardClient() {
     }
   }, [searchParams, router]);
 
+  // Move fetchUserProfile out of useEffect so it can be reused
+  const fetchUserProfile = async () => {
+    if (!session?.user?.id) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const response = await fetch('/api/get-user-profile');
+      if (response.ok) {
+        const data = await response.json();
+        setUserProfile(data.userProfile as UserProfile);
+        setCanBatchScan(data.userProfile.subscriptionTier === 'advanced' || data.userProfile.subscriptionTier === 'enterprise');
+      } else {
+        setError('Your account data is missing. Please contact support.');
+        setUserProfile(null);
+        setCanBatchScan(false);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch user profile.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Wait for both session and authentication to be ready before fetching user profile
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      const auth = getAuth();
-      const firebaseUid = auth.currentUser?.uid;
-      if (!firebaseUid) {
-        setLoading(false);
+    let retryCount = 0;
+    const waitForSession = async () => {
+      if (status !== 'authenticated' || !session?.user?.id) {
+        if (retryCount < 20) {
+          retryCount++;
+          setTimeout(waitForSession, 200);
+        }
         return;
       }
-
-      try {
-        const db = getFirestore(app);
-        const userRef = doc(db, 'users', firebaseUid);
-        const userDoc = await getDoc(userRef);
-
-        if (userDoc.exists()) {
-          setUserProfile(userDoc.data() as UserProfile);
-          setCanBatchScan(userDoc.data().subscriptionTier === 'advanced' || userDoc.data().subscriptionTier === 'enterprise');
-        } else {
-          // User doc missing: do NOT auto-create. Block dashboard and show error.
-          setError('Your account data is missing. Please contact support.');
-          setUserProfile(null);
-          setCanBatchScan(false);
-          setLoading(false);
-          return;
-        }
-      } catch (err: any) {
-        setError(err.message || 'Failed to fetch user profile.');
-      } finally {
-        setLoading(false);
-      }
+      fetchUserProfile();
     };
-
-    fetchUserProfile();
-  }, []);
+    waitForSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, session]);
 
   useEffect(() => {
+    let retryCount = 0;
     const fetchYouTube = async () => {
       setYtLoading(true);
-      const auth = getAuth();
-      const firebaseUid = auth.currentUser?.uid;
-      if (!firebaseUid) {
-        setYtChannel(null);
-        setYtLoading(false);
+      // Wait for session to be ready
+      if (!session?.user?.id) {
+        if (retryCount < 10) {
+          retryCount++;
+          setTimeout(fetchYouTube, 200);
+        } else {
+          setYtChannel(null);
+          setYtLoading(false);
+        }
         return;
       }
       try {
-        const db = getFirestore(app);
-        const userRef = doc(db, 'users', firebaseUid);
-        const userDoc = await getDoc(userRef);
-        if (userDoc.exists() && userDoc.data().youtube?.channel) {
-          setYtChannel(userDoc.data().youtube.channel);
-          // Also get channel context if available
-          if (userDoc.data().youtube?.channelContext) {
-            setChannelContext(userDoc.data().youtube.channelContext);
+        const response = await fetch('/api/get-user-profile');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.userProfile?.youtube?.channel) {
+            setYtChannel(data.userProfile.youtube.channel);
+            // Also get channel context if available
+            if (data.userProfile.youtube?.channelContext) {
+              setChannelContext(data.userProfile.youtube.channelContext);
+            } else {
+              console.log('No channel context in response');
+            }
           } else {
-            console.log('No channel context in response');
-          }
-        } else {
-          // No channel data found, set to null (don't auto-reconnect)
+            // No channel data found, set to null (don't auto-reconnect)
             setYtChannel(null);
             setChannelContext(null);
+          }
+        } else {
+          setYtChannel(null);
+          setChannelContext(null);
         }
       } catch {
         setYtChannel(null);
@@ -163,16 +177,16 @@ export default function DashboardClient() {
 
     // Refresh YouTube data when user returns to the tab
     const handleFocus = () => {
-      const auth = getAuth();
-      if (auth.currentUser?.uid) {
+      if (session?.user?.id) {
         fetchYouTube();
       }
     };
 
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, []);
+  }, [session?.user?.id]);
   
+  // After subscription upgrade, refetch user profile
   const handleUpgradeClick = async () => {
     if (!session?.user?.id) {
         alert("Please sign in to upgrade.");
@@ -185,6 +199,7 @@ export default function DashboardClient() {
         const stripe = await stripePromise;
         if (stripe) {
             await stripe.redirectToCheckout({ sessionId: data.sessionId });
+            await fetchUserProfile(); // Refetch after upgrade
         }
     } catch (error) {
         console.error("Error creating Stripe checkout session:", error);
@@ -348,25 +363,74 @@ export default function DashboardClient() {
     fetchRevenue();
   };
 
+
+
   // Show welcome modal on first connection
   useEffect(() => {
-    console.log('Welcome modal trigger check:', {
-      hasChannelContext: !!channelContext,
-      hasChannelData: !!channelContext?.channelData,
-      hasYtChannel: !!ytChannel,
-      sessionStorageShown: window.sessionStorage.getItem('ytWelcomeModalShown'),
-      channelContext: channelContext
-    });
+    // Add a small delay to ensure data is properly loaded
+    const timer = setTimeout(() => {
+      console.log('Welcome modal trigger check:', {
+        hasChannelContext: !!channelContext,
+        hasChannelData: !!channelContext?.channelData,
+        hasYtChannel: !!ytChannel,
+        isFreshConnection: isFreshConnection,
+        sessionStorageShown: window.sessionStorage.getItem('ytWelcomeModalShown'),
+        channelContext: channelContext
+      });
+      
+      // Show modal only if this is a NEW connection (not just existing data)
+      // We need to track if this is the first time we're seeing this channel data
+      const modalShown = window.sessionStorage.getItem('ytWelcomeModalShown');
+      const modalShownTime = modalShown ? parseInt(modalShown) : 0;
+      const isRecent = Date.now() - modalShownTime < 24 * 60 * 60 * 1000; // 24 hours
+      
+      // Only show modal if this is a fresh connection (not just existing data)
+      const hasChannelData = channelContext?.channelData || ytChannel;
+      const shouldShowModal = hasChannelData && isFreshConnection && (!modalShown || !isRecent);
+      
+      console.log('Should show modal:', shouldShowModal);
+      
+      if (shouldShowModal) {
+        console.log('Triggering welcome modal');
+        setShowWelcomeModal(true);
+        // Reset the fresh connection flag after triggering modal
+        setIsFreshConnection(false);
+        // Don't set sessionStorage immediately - let the modal handle it
+      }
+    }, 500); // 500ms delay
     
-    // Show modal if we have either channel context OR YouTube channel data, and haven't shown it before
-    const shouldShowModal = (channelContext?.channelData || ytChannel) && !window.sessionStorage.getItem('ytWelcomeModalShown');
-    
-    if (shouldShowModal) {
-      console.log('Triggering welcome modal');
-      setShowWelcomeModal(true);
-      window.sessionStorage.setItem('ytWelcomeModalShown', '1');
-    }
+    return () => clearTimeout(timer);
   }, [channelContext, ytChannel]);
+
+  // After YouTube connect, refetch user profile
+  const handleYouTubeConnect = async () => {
+    setYtFetching(true);
+    try {
+      const response = await fetch('/api/fetch-youtube-channel', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setYtChannel(data.channel);
+        if (data.channelContext) {
+          setChannelContext(data.channelContext);
+        }
+        // Mark this as a fresh connection to trigger welcome modal
+        setIsFreshConnection(true);
+        await fetchUserProfile(); // Refetch user data after connect
+      } else {
+        const errorData = await response.json();
+        alert('Failed to connect YouTube channel. Please try again.');
+      }
+    } catch (error) {
+      alert('Failed to connect YouTube channel. Please try again.');
+    } finally {
+      setYtFetching(false);
+    }
+  };
 
   if (status === 'loading' || loading) {
     return (
@@ -433,38 +497,7 @@ export default function DashboardClient() {
               <Button 
                 size="sm" 
                 disabled={ytFetching} 
-                onClick={async () => {
-                  setYtFetching(true);
-                  try {
-                    const response = await fetch('/api/fetch-youtube-channel', {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                    });
-                    
-                                          if (response.ok) {
-                        const data = await response.json();
-                        setYtChannel(data.channel);
-                        console.log('YouTube connection response:', data);
-                        if (data.channelContext) {
-                          console.log('Setting channel context:', data.channelContext);
-                          setChannelContext(data.channelContext);
-                        } else {
-                          console.log('No channel context in response');
-                        }
-                      } else {
-                      const errorData = await response.json();
-                      console.error('Failed to connect YouTube:', errorData.error);
-                      alert('Failed to connect YouTube channel. Please try again.');
-                    }
-                  } catch (error) {
-                    console.error('Error connecting YouTube:', error);
-                    alert('Failed to connect YouTube channel. Please try again.');
-                  } finally {
-                    setYtFetching(false);
-                  }
-                }}
+                onClick={handleYouTubeConnect}
               >
                 {ytFetching ? 'Connecting...' : 'Connect YouTube'}
               </Button>

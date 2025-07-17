@@ -37,6 +37,10 @@ export default function YouTubeWelcomeModal({ open, channelData, onClose }: YouT
       setLoading(true);
       setProgress(0);
       
+      // Set sessionStorage when modal opens to prevent showing again
+      // Include timestamp to handle edge cases with session persistence
+      window.sessionStorage.setItem('ytWelcomeModalShown', Date.now().toString());
+      
       // Animate progress bar
       const progressInterval = setInterval(() => {
         setProgress(prev => {

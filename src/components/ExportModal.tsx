@@ -1,8 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
-import { app } from '@/lib/firebase';
+
 import { checkUserCanExport } from '@/lib/subscription-utils';
 import Button from './Button';
 import { 
@@ -39,19 +38,17 @@ export default function ExportModal({ open, onClose, data }: ExportModalProps) {
   // Check export permissions when modal opens
   useEffect(() => {
     const checkExportPermissions = async () => {
-      if (!session?.user?.firebaseUid) {
+      if (!session?.user?.id) {
         setCanExport(false);
         setExportError('Please sign in to export reports.');
         return;
       }
 
       try {
-        const db = getFirestore(app);
-        const userRef = doc(db, 'users', session.user.firebaseUid);
-        const userDoc = await getDoc(userRef);
-        
-        if (userDoc.exists()) {
-          const profile = userDoc.data();
+        const response = await fetch('/api/get-user-profile');
+        if (response.ok) {
+          const data = await response.json();
+          const profile = data.userProfile;
           const exportCheck = checkUserCanExport(profile);
           setCanExport(exportCheck.canExport);
           setExportError(exportCheck.reason || '');
@@ -69,7 +66,7 @@ export default function ExportModal({ open, onClose, data }: ExportModalProps) {
     if (open) {
       checkExportPermissions();
     }
-  }, [open, session?.user?.firebaseUid]);
+  }, [open, session?.user?.id]);
 
   // Handle escape key to close modal
   useEffect(() => {

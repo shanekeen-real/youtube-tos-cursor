@@ -2,8 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
-import { app } from '@/lib/firebase';
 import { 
   ChevronDown, 
   User, 
@@ -41,23 +39,17 @@ export default function UserMenu({ user }: UserMenuProps) {
   // Fetch user profile data
   useEffect(() => {
     const fetchUserProfile = async () => {
-      const { getAuth } = await import("firebase/auth");
-      const { app } = await import("@/lib/firebase");
-      const auth = getAuth(app);
-      const firebaseUid = auth.currentUser?.uid;
-      if (!firebaseUid) {
+      if (!session?.user?.id) {
         setLoading(false);
         return;
       }
-      // Debug log for UID
-      console.log("[UserMenu] Fetching user profile for UID:", firebaseUid);
-      console.log("[UserMenu] Firebase Auth currentUser:", auth.currentUser?.uid, auth.currentUser?.email);
       try {
-        const db = getFirestore(app);
-        const userRef = doc(db, 'users', firebaseUid);
-        const userDoc = await getDoc(userRef);
-        if (userDoc.exists()) {
-          setUserProfile(userDoc.data() as UserProfile);
+        const response = await fetch('/api/get-user-profile');
+        if (response.ok) {
+          const data = await response.json();
+          setUserProfile(data.userProfile as UserProfile);
+        } else {
+          console.error('Failed to fetch user profile:', response.statusText);
         }
       } catch (err: any) {
         console.error('Failed to fetch user profile:', err);
@@ -66,7 +58,7 @@ export default function UserMenu({ user }: UserMenuProps) {
       }
     };
     fetchUserProfile();
-  }, []);
+  }, [session?.user?.id]);
 
   // Close menu when clicking outside
   useEffect(() => {

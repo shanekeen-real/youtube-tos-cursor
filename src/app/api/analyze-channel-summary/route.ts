@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     // Try Gemini first
     try {
       const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY as string);
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-preview-04-17' });
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
       const result = await model.generateContent(prompt);
       const summary = result.response.text();
       return NextResponse.json({ summary });

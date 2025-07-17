@@ -1,8 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
-import { app } from '@/lib/firebase';
+
 import PricingCard from '@/components/PricingCard';
 import { SUBSCRIPTION_TIERS } from '@/types/subscription';
 import { loadStripe } from '@stripe/stripe-js';
@@ -50,27 +49,24 @@ export default function PricingPage() {
 
   useEffect(() => {
     const fetchUserProfile = async () => {
-      const auth = getAuth();
-      const firebaseUid = auth.currentUser?.uid;
-      if (!firebaseUid) {
+      if (!session?.user?.id) {
         setLoading(false);
         return;
       }
       try {
-        const db = getFirestore(app);
-        const userRef = doc(db, 'users', firebaseUid);
-        const userDoc = await getDoc(userRef);
-        if (userDoc.exists()) {
-          setUserProfile(userDoc.data() as UserProfile);
+        const response = await fetch('/api/get-user-profile');
+        if (response.ok) {
+          const data = await response.json();
+          setUserProfile(data.userProfile as UserProfile);
         }
-      } catch (err: any) {
+      } catch (err) {
         console.error('Failed to fetch user profile:', err);
       } finally {
         setLoading(false);
       }
     };
     fetchUserProfile();
-  }, []);
+  }, [session?.user?.id]);
 
   // Helper function to calculate display price
   const getDisplayPrice = (tier: SubscriptionTier, cycle: 'monthly' | 'annual') => {
