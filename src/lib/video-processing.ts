@@ -4,6 +4,8 @@ import { promisify } from 'util';
 import { pipeline } from 'stream';
 import { exec } from 'child_process';
 import * as Sentry from '@sentry/nextjs';
+import fs from 'fs';
+import path from 'path';
 
 const pipelineAsync = promisify(pipeline);
 const execAsync = promisify(exec);
@@ -31,10 +33,15 @@ export interface VideoAnalysisData {
 export async function downloadYouTubeVideo(videoId: string, outputDir: string = '/tmp'): Promise<VideoProcessingResult> {
   try {
     console.log(`Starting video download for: ${videoId}`);
+    console.log(`Output directory: ${outputDir}`);
     
-    // Use yt-dlp to download video
+    // Use yt-dlp to download video with better format selection
     const outputPath = `${outputDir}/${videoId}.mp4`;
-    const command = `yt-dlp -f "best[height<=720]" -o "${outputPath}" "https://www.youtube.com/watch?v=${videoId}"`;
+    
+    // More robust format selection - prefer formats that are known to work well
+    const command = `yt-dlp -f "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best" -o "${outputPath}" "https://www.youtube.com/watch?v=${videoId}"`;
+    
+    console.log(`Executing command: ${command}`);
     
     const { stdout, stderr } = await execAsync(command);
     
@@ -44,33 +51,60 @@ export async function downloadYouTubeVideo(videoId: string, outputDir: string = 
     
     console.log('yt-dlp stdout:', stdout);
     
-    // Get video information using ffprobe
-    const ffprobeCommand = `ffprobe -v quiet -print_format json -show_format -show_streams "${outputPath}"`;
-    const { stdout: ffprobeOutput } = await execAsync(ffprobeCommand);
-    const videoInfo = JSON.parse(ffprobeOutput);
+    // Verify the file was downloaded and has reasonable size
+    if (!fs.existsSync(outputPath)) {
+      throw new Error(`Video file not found at ${outputPath}`);
+    }
     
-    // Extract video details
-    const format = videoInfo.format;
-    const videoStream = videoInfo.streams.find((s: any) => s.codec_type === 'video');
+    const stats = fs.statSync(outputPath);
+    console.log(`Downloaded file size: ${stats.size} bytes (${(stats.size / 1024).toFixed(2)} KB)`);
     
-    const result: VideoProcessingResult = {
+    // Check if file size is suspiciously small (less than10B for a video)
+    if (stats.size < 104) {
+      console.warn(`Warning: Video file is suspiciously small (${stats.size} bytes). This might indicate a download issue.`);
+      
+      // Try to read the first few bytes to see if it's an error page
+      const fileContent = fs.readFileSync(outputPath, 'utf8').substring(0, 500);
+      if (fileContent.includes('<!DOCTYPE html>') || fileContent.includes('<html>')) {
+        throw new Error('Downloaded file appears to be an HTML error page, not a video file');
+      }
+    }
+    
+    // Verify video file integrity with ffprobe
+    const probeCommand = `ffprobe -v quiet -print_format json -show_format -show_streams ${outputPath}"`;
+    console.log(`Running ffprobe: ${probeCommand}`);
+    
+    const { stdout: probeStdout, stderr: probeStderr } = await execAsync(probeCommand);
+    
+    if (probeStderr) {
+      console.error('ffprobe stderr:', probeStderr);
+    }
+    
+    const probeData = JSON.parse(probeStdout);
+    console.log('Video file analysis:', {
+      duration: probeData.format?.duration,
+      size: probeData.format?.size,
+      bitrate: probeData.format?.bit_rate,
+      videoStreams: probeData.streams?.filter((s: any) => s.codec_type === 'video').length,
+      audioStreams: probeData.streams?.filter((s: any) => s.codec_type === 'audio').length
+    });
+    
+    // Check if video stream has proper pixel format
+    const videoStream = probeData.streams?.find((s: any) => s.codec_type === 'video');
+    if (videoStream && (!videoStream.pix_fmt || videoStream.pix_fmt === 'none')) {
+      console.warn('Warning: Video stream has no pixel format specified. This may cause frame extraction issues.');
+    }
+    
+    return {
       videoPath: outputPath,
-      duration: parseFloat(format.duration) || 0,
+      duration: parseFloat(probeData.format?.duration || '0'),
       resolution: videoStream ? `${videoStream.width}x${videoStream.height}` : 'unknown',
-      fileSize: parseInt(format.size) || 0,
+      fileSize: parseInt(probeData.format?.size || '0'),
       success: true
     };
     
-    console.log(`Video downloaded successfully: ${result.videoPath}, Size: ${result.fileSize} bytes, Duration: ${result.duration}s`);
-    return result;
-    
   } catch (error: any) {
     console.error('Video download failed:', error);
-    Sentry.captureException(error, {
-      tags: { component: 'video-processing', action: 'download' },
-      extra: { videoId, outputDir }
-    });
-    
     return {
       videoPath: '',
       duration: 0,
@@ -85,29 +119,115 @@ export async function downloadYouTubeVideo(videoId: string, outputDir: string = 
 /**
  * Extract key frames from video for analysis
  */
-export async function extractKeyFrames(videoPath: string, outputDir: string = '/tmp', frameCount: number = 10): Promise<string[]> {
+export async function extractKeyFrames(videoPath: string, outputDir: string = '/tmp', frameCount?: number): Promise<string[]> {
   try {
-    console.log(`Extracting ${frameCount} key frames from: ${videoPath}`);
-    
-    const framePaths: string[] = [];
     const duration = await getVideoDuration(videoPath);
+    console.log(`Video duration: ${duration}s`);
     
-    // Extract frames at regular intervals
-    for (let i = 0; i < frameCount; i++) {
-      const timestamp = (duration / frameCount) * i;
-      const framePath = `${outputDir}/frame_${i}.jpg`;
-      
-      const command = `ffmpeg -ss ${timestamp} -i "${videoPath}" -vframes 1 -q:v 2 "${framePath}" -y`;
-      await execAsync(command);
-      
-      framePaths.push(framePath);
+    // Dynamic screenshot scaling based on video duration
+    let actualFrameCount: number;
+    if (frameCount !== undefined) {
+      // Use provided frameCount if specified (for backward compatibility)
+      actualFrameCount = frameCount;
+    } else { // Dynamic scaling based on video duration
+      if (duration < 60) { // < 1 minute
+        actualFrameCount = 3
+      } else if (duration < 120) { // <2tes
+        actualFrameCount = 5
+      } else if (duration < 180) { // <3tes
+        actualFrameCount = 10
+      } else { // >=3tes
+        actualFrameCount = 10
+      }
     }
     
-    console.log(`Extracted ${framePaths.length} key frames`);
+    console.log(`Extracting ${actualFrameCount} key frames from: ${videoPath} (duration: ${duration.toFixed(1)}s)`);
+    
+    // Check if video file exists and is readable
+    if (!fs.existsSync(videoPath)) {
+      console.error(`❌ ERROR: Video file does not exist: ${videoPath}`);
+      return [];
+    }
+    
+    const videoStats = fs.statSync(videoPath);
+    
+    // Check if file is readable
+    let isReadable = 'No';
+    try {
+      fs.accessSync(videoPath, fs.constants.R_OK);
+      isReadable = 'Yes';
+    } catch (error) {
+      isReadable = 'No';
+    }
+    
+    console.log(`Video file stats:`, {
+      path: videoPath,
+      size: videoStats.size,
+      sizeInKB: (videoStats.size / 1024).toFixed(2),
+      isFile: videoStats.isFile(),
+      readable: isReadable
+    });
+    
+    if (videoStats.size < 100000) {
+      console.warn(`⚠️  WARNING: Video file is very small (${videoStats.size} bytes). This might cause FFmpeg issues.`);
+    }
+    
+    const framePaths: string[] = [];
+    
+    // Extract frames at regular intervals
+    for (let i = 0; i < actualFrameCount; i++) {
+      const timestamp = (duration / actualFrameCount) * i;
+      const framePath = `${outputDir}/frame_${i}.jpg`;
+      
+      console.log(`Extracting frame ${i + 1}/${actualFrameCount} at timestamp ${timestamp.toFixed(2)}s -> ${framePath}`);
+      
+      const command = `ffmpeg -ss ${timestamp} -i "${videoPath}" -vframes 1 -q:v 2 -pix_fmt yuv420p "${framePath}" -y`;
+      console.log(`FFmpeg command: ${command}`);
+      
+      try {
+        const { stdout, stderr } = await execAsync(command);
+        if (stdout) console.log(`FFmpeg stdout: ${stdout}`);
+        if (stderr) console.log(`FFmpeg stderr: ${stderr}`);
+        
+        // Check if frame was actually created
+        if (fs.existsSync(framePath)) {
+          const frameStats = fs.statSync(framePath);
+          console.log(`Frame ${i + 1} created successfully:`, {
+            path: framePath,
+            size: frameStats.size,
+            sizeInKB: (frameStats.size / 1024).toFixed(2)
+          });
+          framePaths.push(framePath);
+        } else {
+          console.error(`❌ ERROR: Frame ${i + 1} was not created at: ${framePath}`);
+        }
+      } catch (frameError: any) {
+        console.error(`❌ ERROR: Failed to extract frame ${i + 1} at timestamp ${timestamp},`, {
+          framePath,
+          error: frameError.message,
+          cmd: frameError.cmd,
+          stdout: frameError.stdout,
+          stderr: frameError.stderr
+        });
+        
+        // Dont break the loop, try to continue with other frames
+        continue;
+      }
+    }
+    
+    console.log(`Successfully extracted ${framePaths.length}/${actualFrameCount} key frames`);
     return framePaths;
     
   } catch (error: any) {
     console.error('Key frame extraction failed:', error);
+    console.error('Extraction error details:', {
+      message: error.message,
+      code: error.code,
+      cmd: error.cmd,
+      stdout: error.stdout,
+      stderr: error.stderr
+    });
+    
     Sentry.captureException(error, {
       tags: { component: 'video-processing', action: 'extract-frames' },
       extra: { videoPath, outputDir, frameCount }

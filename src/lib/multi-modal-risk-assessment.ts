@@ -53,6 +53,57 @@ export async function performMultiModalRiskAssessment(
         return validationResult.data;
       } else {
         console.error('Risk assessment validation failed:', validationResult.error);
+        
+        // Try to fix the data structure before giving up
+        console.log('Attempting to normalize data structure...');
+        const normalizedData = { ...dataToValidate };
+        
+        // Fix risky_phrases_by_category if it exists
+        if (normalizedData.risky_phrases_by_category && typeof normalizedData.risky_phrases_by_category === 'object') {
+          const fixedCategories: { [key: string]: string[] } = {};
+          
+          for (const [category, value] of Object.entries(normalizedData.risky_phrases_by_category)) {
+            if (Array.isArray(value)) {
+              // Flatten nested arrays and filter out non-string values
+              const flattenedArray: string[] = [];
+              const flattenArray = (arr: any[]): void => {
+                for (const item of arr) {
+                  if (Array.isArray(item)) {
+                    flattenArray(item);
+                  } else if (typeof item === 'string') {
+                    flattenedArray.push(item);
+                  }
+                }
+              };
+              flattenArray(value);
+              fixedCategories[category] = flattenedArray;
+            } else if (typeof value === 'string') {
+              // Convert string to array
+              fixedCategories[category] = [value];
+            } else if (value === null || value === undefined) {
+              // Convert null/undefined to empty array
+              fixedCategories[category] = [];
+            } else {
+              // Convert any other type to empty array
+              fixedCategories[category] = [];
+            }
+          }
+          
+          normalizedData.risky_phrases_by_category = fixedCategories;
+          console.log('Normalized risky_phrases_by_category structure (flattened nested arrays)');
+        }
+        
+        // Try validation again with normalized data
+        const retryValidation = RiskAssessmentSchema.safeParse(normalizedData);
+        if (retryValidation.success) {
+          console.log('Validation successful after normalization');
+          return retryValidation.data;
+        }
+        
+        // Log the specific validation errors that remain after normalization
+        console.error('Validation still failed after normalization. Remaining errors:', retryValidation.error);
+        console.log('Normalized data structure:', JSON.stringify(normalizedData, null, 2).substring(0, 1000) + '...');
+        
         // Return fallback instead of throwing error
         console.log('Using fallback risk assessment due to validation failure');
         const fallbackText = videoData.transcript || videoContext || 'No content available for analysis';
@@ -145,6 +196,41 @@ export async function performAIDrivenRiskAssessment(
         risky_spans: [],
         risky_phrases_by_category: parsingResult.data.risky_phrases_by_category || {},
       };
+      
+      // Normalize risky_phrases_by_category to ensure all values are arrays
+      if (validatedResult.risky_phrases_by_category && typeof validatedResult.risky_phrases_by_category === 'object') {
+        const normalizedCategories: { [key: string]: string[] } = {};
+        
+        for (const [category, value] of Object.entries(validatedResult.risky_phrases_by_category)) {
+          if (Array.isArray(value)) {
+            // Flatten nested arrays and filter out non-string values
+            const flattenedArray: string[] = [];
+            const flattenArray = (arr: any[]): void => {
+              for (const item of arr) {
+                if (Array.isArray(item)) {
+                  flattenArray(item);
+                } else if (typeof item === 'string') {
+                  flattenedArray.push(item);
+                }
+              }
+            };
+            flattenArray(value);
+            normalizedCategories[category] = flattenedArray;
+          } else if (typeof value === 'string') {
+            // Convert string to array
+            normalizedCategories[category] = [value];
+          } else if (value === null || value === undefined) {
+            // Convert null/undefined to empty array
+            normalizedCategories[category] = [];
+          } else {
+            // Convert any other type to empty array
+            normalizedCategories[category] = [];
+          }
+        }
+        
+        validatedResult.risky_phrases_by_category = normalizedCategories;
+      }
+      
       console.log(`AI-driven risk assessment completed using ${parsingResult.strategy}:`, validatedResult);
       return validatedResult;
     } else {

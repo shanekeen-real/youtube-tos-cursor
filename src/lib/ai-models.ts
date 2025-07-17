@@ -119,50 +119,84 @@ export class GeminiModel implements AIModel {
 
   async generateContent(prompt: string): Promise<string> {
     usageTracker.recordCall('gemini');
-    const result = await this.model.generateContent(prompt);
-    return result.response.text();
+    
+    // Add retry logic for 503rs (model overloaded)
+    const maxRetries = 3;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const result = await this.model.generateContent(prompt);
+        return result.response.text();
+      } catch (error: any) {
+        // Check for 503 Service Unavailable (model overloaded)
+        if (error.status === 503 || (error.message && error.message.includes('503')) || 
+            (error.message && error.message.includes('overloaded'))) {
+          console.log(`Gemini model overloaded on attempt ${attempt + 1}, retrying in ${Math.pow(2, attempt)}s...`);
+          if (attempt < maxRetries - 1) {
+            await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+            continue;
+          }
+        }
+        throw error;
+      }
+    }
+    throw new Error('Max retries exceeded for Gemini API call');
   }
 
   async generateMultiModalContent(prompt: string, videoPath: string, transcript?: string, metadata?: any): Promise<string> {
     usageTracker.recordCall('gemini');
     
-    try {
-      // Read video file and convert to base64
-      const fs = await import('fs');
-      const videoBuffer = fs.readFileSync(videoPath);
-      const videoBase64 = videoBuffer.toString('base64');
-      
-      // Create multi-modal content parts
-      const parts: any[] = [
-        { text: prompt }
-      ];
+    // Add retry logic for 503rs (model overloaded)
+    const maxRetries = 3;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        // Read video file and convert to base64
+        const fs = await import('fs');
+        const videoBuffer = fs.readFileSync(videoPath);
+        const videoBase64 = videoBuffer.toString('base64');
+        
+        // Create multi-modal content parts
+        const parts: any[] = [
+          { text: prompt }
+        ];
 
-      // Add video content as base64
-      parts.push({
-        inlineData: {
-          mimeType: 'video/mp4',
-          data: videoBase64
+        // Add video content as base64
+        parts.push({
+          inlineData: {
+            mimeType: 'video/mp4',
+            data: videoBase64
+          }
+        });
+
+        // Add transcript if available
+        if (transcript) {
+          parts.push({ text: `\n\nTranscript:\n${transcript}` });
         }
-      });
 
-      // Add transcript if available
-      if (transcript) {
-        parts.push({ text: `\n\nTranscript:\n${transcript}` });
+        // Add metadata if available
+        if (metadata) {
+          parts.push({ text: `\n\nVideo Metadata:\nTitle: ${metadata.title}\nDescription: ${metadata.description}` });
+        }
+
+        const result = await this.model.generateContent(parts);
+        return result.response.text();
+      } catch (error: any) {
+        // Check for 503 Service Unavailable (model overloaded)
+        if (error.status === 503 || (error.message && error.message.includes('503')) || 
+            (error.message && error.message.includes('overloaded'))) {
+          console.log(`Gemini model overloaded on attempt ${attempt + 1}, retrying in ${Math.pow(2, attempt)}s...`);
+          if (attempt < maxRetries - 1) {
+            await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+            continue;
+          }
+        }
+        
+        // For other errors, fallback to text-only analysis
+        console.error('Multi-modal analysis failed, falling back to text-only:', error);
+        const fallbackPrompt = `${prompt}\n\n${transcript ? `Transcript: ${transcript}` : ''}\n\n${metadata ? `Metadata: ${JSON.stringify(metadata)}` : ''}`;
+        return this.generateContent(fallbackPrompt);
       }
-
-      // Add metadata if available
-      if (metadata) {
-        parts.push({ text: `\n\nVideo Metadata:\nTitle: ${metadata.title}\nDescription: ${metadata.description}` });
-      }
-
-      const result = await this.model.generateContent(parts);
-      return result.response.text();
-    } catch (error: any) {
-      console.error('Multi-modal analysis failed, falling back to text-only:', error);
-      // Fallback to text-only analysis
-      const fallbackPrompt = `${prompt}\n\n${transcript ? `Transcript: ${transcript}` : ''}\n\n${metadata ? `Metadata: ${JSON.stringify(metadata)}` : ''}`;
-      return this.generateContent(fallbackPrompt);
     }
+    throw new Error('Max retries exceeded for Gemini multi-modal API call');
   }
 }
 
@@ -219,6 +253,11 @@ export class SmartAIModel implements AIModel {
         console.log('Gemini quota exceeded for text analysis, switching to Claude');
         return await this.claudeModel.generateContent(prompt);
       }
+      if (error.status === 503 || (error.message && error.message.includes('503')) || 
+          (error.message && error.message.includes('overloaded'))) {
+        console.log('Gemini model overloaded for text analysis, switching to Claude');
+        return await this.claudeModel.generateContent(prompt);
+      }
       throw error;
     }
   }
@@ -226,20 +265,47 @@ export class SmartAIModel implements AIModel {
   async generateMultiModalContent(prompt: string, videoPath: string, transcript?: string, metadata?: any): Promise<string> {
     // ALWAYS use Gemini for multi-modal content (video analysis)
     // This is crucial for accuracy as Claude cannot see video content
-    try {
-      return await this.queue.addRequest(
-        () => this.geminiModel.generateMultiModalContent(prompt, videoPath, transcript, metadata),
-        this.estimateTokens(prompt) + (transcript ? this.estimateTokens(transcript) : 0) + 5000 // Extra tokens for video processing
-      );
-    } catch (error: any) {
-      if (error.status === 429 || (error.message && error.message.includes('429'))) {
-        console.log('Gemini quota exceeded for video analysis, falling back to text-only with Claude');
-        // Fallback to text-only analysis with Claude using available context
-        const fallbackPrompt = `${prompt}\n\n${transcript ? `Transcript: ${transcript}` : ''}\n\n${metadata ? `Metadata: ${JSON.stringify(metadata)}` : ''}`;
-        return await this.claudeModel.generateContent(fallbackPrompt);
+    
+    // Add retry logic for503rs (model overloaded)
+    const maxRetries = 3;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await this.queue.addRequest(
+          () => this.geminiModel.generateMultiModalContent(prompt, videoPath, transcript, metadata),
+          this.estimateTokens(prompt) + (transcript ? this.estimateTokens(transcript) : 0) + 5000 // Extra tokens for video processing
+        );
+      } catch (error: any) {
+        // Check for 503 Service Unavailable (model overloaded)
+        if (error.status === 503 || (error.message && error.message.includes('503')) || 
+            (error.message && error.message.includes('overloaded'))) {
+          console.log(`Gemini model overloaded on attempt ${attempt + 1}, retrying in ${Math.pow(2, attempt)}s...`);
+          if (attempt < maxRetries - 1) {
+            await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+            continue;
+          }
+        }
+        
+        // For quota exceeded or other errors, fallback to text-only analysis
+        if (error.status === 429 || (error.message && error.message.includes('429'))) {
+          console.log('Gemini quota exceeded for video analysis, falling back to text-only with Claude');
+          // Fallback to text-only analysis with Claude using available context
+          const fallbackPrompt = `${prompt}\n\n${transcript ? `Transcript: ${transcript}` : ''}\n\n${metadata ? `Metadata: ${JSON.stringify(metadata)}` : ''}`;
+          return await this.claudeModel.generateContent(fallbackPrompt);
+        }
+        
+        // For 503rors after all retries, fallback to text-only
+        if (error.status === 503 || (error.message && error.message.includes('503')) || 
+            (error.message && error.message.includes('overloaded'))) {
+          console.log('Gemini model overloaded for video analysis after retries, falling back to text-only with Claude');
+          // Fallback to text-only analysis with Claude using available context
+          const fallbackPrompt = `${prompt}\n\n${transcript ? `Transcript: ${transcript}` : ''}\n\n${metadata ? `Metadata: ${JSON.stringify(metadata)}` : ''}`;
+          return await this.claudeModel.generateContent(fallbackPrompt);
+        }
+        
+        throw error;
       }
-      throw error;
     }
+    throw new Error('Max retries exceeded for Gemini multi-modal API call');
   }
 
   // Method to get video context from Gemini, then use Claude for subsequent analysis
@@ -334,6 +400,14 @@ export async function callAIWithRetry<T>(aiCall: (model: AIModel) => Promise<T>,
     } catch (error: any) {
       if (error.status === 429 || (error.message && error.message.includes('429'))) {
         console.log(`Quota limit hit on attempt ${attempt + 1}, retrying in ${Math.pow(2, attempt)}s...`);
+        if (attempt < maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+          continue;
+        }
+      }
+      if (error.status === 503 || (error.message && error.message.includes('503')) || 
+          (error.message && error.message.includes('overloaded'))) {
+        console.log(`Model overloaded on attempt ${attempt + 1}, retrying in ${Math.pow(2, attempt)}s...`);
         if (attempt < maxRetries - 1) {
           await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
           continue;
