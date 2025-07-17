@@ -254,3 +254,116 @@ export async function performAIDrivenRiskAssessment(
     return fallbackObj;
   }
 } 
+
+/**
+ * Text-only risk assessment using video context as text input
+ * This is the optimized version for the hybrid pipeline
+ */
+export async function performTextOnlyRiskAssessment(
+  transcript: string,
+  contextAnalysis: ContextAnalysis,
+  videoContext: string,
+  model: SmartAIModel
+): Promise<RiskAssessment> {
+  console.log('Performing text-only risk assessment with video context');
+  
+  const expectedSchema = MULTI_MODAL_SCHEMAS.riskAssessment;
+  const exampleResponse = MULTI_MODAL_EXAMPLES.riskAssessment;
+  
+  const basePrompt = `Perform a comprehensive risk assessment of this YouTube video content:`;
+  const robustPrompt = createJsonOnlyPrompt(
+    basePrompt + '\n' +
+    `Transcript: "${transcript}"\n` +
+    `Context: ${JSON.stringify(contextAnalysis)}\n` +
+    `Video Context: "${videoContext}"\n` +
+    `\nAnalyze the content using both the transcript and the detailed video context provided above.`,
+    JSON.stringify(expectedSchema, null, 2),
+    JSON.stringify(exampleResponse, null, 2)
+  );
+  
+  try {
+    const result = await model.generateContent(robustPrompt);
+    const parsingResult = await jsonParsingService.parseJson<any>(result, expectedSchema, model);
+    
+    if (parsingResult.success && parsingResult.data) {
+      console.log(`Text-only risk assessment completed using ${parsingResult.strategy}`);
+      
+      // Handle case where AI returns array instead of object
+      let dataToValidate = parsingResult.data;
+      if (Array.isArray(parsingResult.data)) {
+        console.warn('AI returned array instead of object, attempting to convert');
+        dataToValidate = parsingResult.data[0] || {};
+      }
+      
+      // Validate against the proper schema
+      const validationResult = RiskAssessmentSchema.safeParse(dataToValidate);
+      if (validationResult.success) {
+        return validationResult.data;
+      } else {
+        console.error('Text-only risk assessment validation failed:', validationResult.error);
+        
+        // Try to fix the data structure before giving up
+        console.log('Attempting to normalize data structure...');
+        const normalizedData = { ...dataToValidate };
+        
+        // Fix risky_phrases_by_category if it exists
+        if (normalizedData.risky_phrases_by_category && typeof normalizedData.risky_phrases_by_category === 'object') {
+          const fixedCategories: { [key: string]: string[] } = {};
+          
+          for (const [category, value] of Object.entries(normalizedData.risky_phrases_by_category)) {
+            if (Array.isArray(value)) {
+              // Flatten nested arrays and filter out non-string values
+              const flattenedArray: string[] = [];
+              const flattenArray = (arr: any[]): void => {
+                for (const item of arr) {
+                  if (Array.isArray(item)) {
+                    flattenArray(item);
+                  } else if (typeof item === 'string') {
+                    flattenedArray.push(item);
+                  }
+                }
+              };
+              flattenArray(value);
+              fixedCategories[category] = flattenedArray;
+            } else if (typeof value === 'string') {
+              // Convert string to array
+              fixedCategories[category] = [value];
+            } else if (value === null || value === undefined) {
+              // Convert null/undefined to empty array
+              fixedCategories[category] = [];
+            } else {
+              // Convert any other type to empty array
+              fixedCategories[category] = [];
+            }
+          }
+          
+          normalizedData.risky_phrases_by_category = fixedCategories;
+          console.log('Normalized risky_phrases_by_category structure (flattened nested arrays)');
+        }
+        
+        // Try validation again with normalized data
+        const retryValidation = RiskAssessmentSchema.safeParse(normalizedData);
+        if (retryValidation.success) {
+          console.log('Validation successful after normalization');
+          return retryValidation.data;
+        }
+        
+        // Log the specific validation errors that remain after normalization
+        console.error('Validation still failed after normalization. Remaining errors:', retryValidation.error);
+        console.log('Normalized data structure:', JSON.stringify(normalizedData, null, 2).substring(0, 1000) + '...');
+        
+        // Return fallback instead of throwing error
+        console.log('Using fallback risk assessment due to validation failure');
+        const fallbackText = transcript || videoContext || 'No content available for analysis';
+        return await performRiskAssessment(fallbackText, model, contextAnalysis, contextAnalysis);
+      }
+    } else {
+      throw new Error(`Text-only risk assessment JSON parsing failed: ${parsingResult.error}`);
+    }
+  } catch (error) {
+    console.error('Text-only risk assessment failed:', error);
+    // Fallback to text-only risk assessment
+    const fallbackText = transcript || videoContext || 'No content available for analysis';
+    return await performRiskAssessment(fallbackText, model, contextAnalysis, contextAnalysis);
+  }
+} 

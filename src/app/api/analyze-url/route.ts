@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { performEnhancedAnalysis } from '@/lib/ai-analysis';
-import { performMultiModalVideoAnalysis } from '@/lib/multi-modal-analysis';
+import { performHybridMultiModalVideoAnalysis } from '@/lib/hybrid-multi-modal-analysis';
 import { prepareVideoForAnalysis, cleanupVideoFiles } from '@/lib/video-processing';
 import { getChannelContext } from '@/lib/channel-context';
 import axios from 'axios';
@@ -447,8 +447,8 @@ export async function POST(req: NextRequest) {
     // Perform analysis based on available data
     let analysisResult;
     if (videoAnalysisData && videoAnalysisData.videoInfo?.success) {
-      console.log('Performing multi-modal video analysis');
-      analysisResult = await performMultiModalVideoAnalysis(videoAnalysisData, channelContext);
+      console.log('Performing hybrid multi-modal video analysis');
+      analysisResult = await performHybridMultiModalVideoAnalysis(videoAnalysisData, channelContext);
     } else {
       console.log('Performing text-only analysis');
       analysisResult = await performEnhancedAnalysis(contentToAnalyze, channelContext);
