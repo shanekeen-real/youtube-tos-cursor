@@ -10,7 +10,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import axios from 'axios';
 import ConnectYouTubeButton from '@/components/ConnectYouTubeButton';
 import { format } from 'date-fns';
-import { Calendar, TrendingUp, Users, Video, AlertTriangle, CheckCircle, Clock, Calculator, DollarSign, Shield, Settings, Lock } from 'lucide-react';
+import { Calendar, TrendingUp, Users, Video, AlertTriangle, CheckCircle, Clock, Calculator, DollarSign, Shield, Settings, Lock, RefreshCw } from 'lucide-react';
 import VideoReportsModal from '@/components/VideoReportsModal';
 import CPMSetupModal from '@/components/CPMSetupModal';
 import * as Tooltip from '@radix-ui/react-tooltip';
@@ -70,6 +70,9 @@ export default function DashboardClient() {
   const [canBatchScan, setCanBatchScan] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [isFreshConnection, setIsFreshConnection] = useState(false);
+  // Add caching timestamps
+  const [videosLastFetched, setVideosLastFetched] = useState<number>(0);
+  const [revenueLastFetched, setRevenueLastFetched] = useState<number>(0);
 
   // Log user ID to browser console for testing
   useEffect(() => {
@@ -175,15 +178,8 @@ export default function DashboardClient() {
     };
     fetchYouTube();
 
-    // Refresh YouTube data when user returns to the tab
-    const handleFocus = () => {
-      if (session?.user?.id) {
-        fetchYouTube();
-      }
-    };
-
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
+    // Only refresh YouTube data on initial load, not on tab focus
+    // Removed window focus event listener to prevent constant re-fetching
   }, [session?.user?.id]);
   
   // After subscription upgrade, refetch user profile
@@ -213,6 +209,8 @@ export default function DashboardClient() {
   useEffect(() => {
     const fetchRecentVideos = async () => {
       if (!ytChannel || !session?.user?.id) return;
+      // Only fetch if more than 5 minutes have passed since last fetch
+      if (Date.now() - videosLastFetched < 5 * 60 * 1000) return;
       setVideosLoading(true);
       setVideosError(null);
       try {
@@ -222,6 +220,7 @@ export default function DashboardClient() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ pageSize: 5 }),
         });
+        setVideosLastFetched(Date.now());
         
         console.log('Videos API response status:', response.status);
         
@@ -318,10 +317,13 @@ export default function DashboardClient() {
   // Fetch revenue at risk data
   useEffect(() => {
     const fetchRevenue = async () => {
+      // Only fetch if more than 5 minutes have passed since last fetch
+      if (Date.now() - revenueLastFetched < 5 * 60 * 1000) return;
       setRevenueLoading(true);
       setRevenueError(null);
       try {
         const res = await fetch('/api/revenue-at-risk');
+        setRevenueLastFetched(Date.now());
         if (!res.ok) throw new Error('Failed to fetch revenue at risk');
         const data = await res.json();
         setRevenueData(data);
@@ -363,7 +365,61 @@ export default function DashboardClient() {
     fetchRevenue();
   };
 
+  // Add refresh handlers
+  const handleRefreshRevenue = async () => {
+    setRevenueLoading(true);
+    setRevenueError(null);
+    try {
+      const res = await fetch('/api/revenue-at-risk');
+      setRevenueLastFetched(Date.now());
+      if (!res.ok) throw new Error('Failed to fetch revenue at risk');
+      const data = await res.json();
+      setRevenueData(data);
+    } catch (err: any) {
+      setRevenueError(err.message || 'Failed to fetch revenue at risk');
+    } finally {
+      setRevenueLoading(false);
+    }
+  };
 
+  const handleRefreshVideos = async () => {
+    if (!ytChannel || !session?.user?.id) return;
+    setVideosLoading(true);
+    setVideosError(null);
+    try {
+      const response = await fetch('/api/fetch-youtube-videos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pageSize: 5 }),
+      });
+      setVideosLastFetched(Date.now());
+      
+      if (!response.ok) {
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (parseError) {
+          console.error('Failed to parse error response:', parseError);
+          errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
+        }
+        console.error('Videos API error:', errorData);
+        const errorMessage = errorData.error || errorData.details || `Failed to fetch videos (${response.status})`;
+        setVideosError(errorMessage);
+        setRecentVideos([]);
+      } else {
+        const data = await response.json();
+        setRecentVideos(data.items || []);
+        if (data.items && data.items.length > 0) {
+          await fetchRiskLevels(data.items);
+        }
+      }
+    } catch (err: any) {
+      setVideosError(err.message || 'Network error while fetching videos');
+      setRecentVideos([]);
+    } finally {
+      setVideosLoading(false);
+    }
+  };
 
   // Show welcome modal on first connection
   useEffect(() => {
@@ -606,14 +662,25 @@ export default function DashboardClient() {
                 Revenue at Risk
               </h2>
               {revenueData && !revenueData.setupRequired && (
-                <button
-                  onClick={() => setCpmSetupModalOpen(true)}
-                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                  aria-label="Edit CPM Settings"
-                  title="Edit CPM Settings"
-                >
-                  <Settings className="h-5 w-5 text-gray-500" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleRefreshRevenue}
+                    disabled={revenueLoading}
+                    className="p-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label="Refresh Revenue Data"
+                    title="Refresh Revenue Data"
+                  >
+                    <RefreshCw className={`h-5 w-5 text-gray-500 ${revenueLoading ? 'animate-spin' : ''}`} />
+                  </button>
+                  <button
+                    onClick={() => setCpmSetupModalOpen(true)}
+                    className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                    aria-label="Edit CPM Settings"
+                    title="Edit CPM Settings"
+                  >
+                    <Settings className="h-5 w-5 text-gray-500" />
+                  </button>
+                </div>
               )}
             </div>
             
@@ -766,9 +833,20 @@ export default function DashboardClient() {
                   <Video className="w-6 h-6 text-yellow-500" />
                   Recent Videos
                 </h2>
-                <Link href="/my-videos">
-                  <Button variant="outlined" size="sm">View All</Button>
-                </Link>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleRefreshVideos}
+                    disabled={videosLoading}
+                    className="p-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label="Refresh Videos"
+                    title="Refresh Videos"
+                  >
+                    <RefreshCw className={`h-5 w-5 text-gray-500 ${videosLoading ? 'animate-spin' : ''}`} />
+                  </button>
+                  <Link href="/my-videos">
+                    <Button variant="outlined" size="sm">View All</Button>
+                  </Link>
+                </div>
               </div>
               
               <div>
