@@ -19,6 +19,7 @@
       }
     ],
     "paths": {
+      // Alias '@' points to the 'src' directory for cleaner imports (e.g., '@/components/Component')
       "@/*": ["./src/*"]
     }
   },

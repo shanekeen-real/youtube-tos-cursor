@@ -13,18 +13,12 @@ import ResultsSummary from '@/components/results/ResultsSummary';
 import ResultsHeader from '@/components/results/ResultsHeader';
 import TabNavigation from '@/components/results/ResultsTabs/TabNavigation';
 import OverviewTab from '@/components/results/ResultsTabs/OverviewTab';
-import DetailsTab from '@/components/results/ResultsTabs/DetailsTab';
-import SuggestionsTab from '@/components/results/ResultsTabs/SuggestionsTab';
-import AIDetectionTab from '@/components/results/ResultsTabs/AIDetectionTab';
 
 function ResultsPageContent() {
   const { data, loading, error, status } = useResultsData();
   const { canExport, canAccessAIDetection, getSuggestionLimit } = useResultsPermissions();
   const { activeTab, setActiveTab, tabs } = useResultsNavigation();
   const { exportModalOpen, openExportModal, closeExportModal } = useResultsExport();
-
-  // Calculate suggestion limit
-  const suggestionLimit = getSuggestionLimit(data);
 
   if (status === 'loading' || loading) {
     return (
@@ -118,16 +112,23 @@ function ResultsPageContent() {
               <OverviewTab data={data} />
             )}
 
+            {/* TODO: Extract other tabs */}
             {activeTab === 'details' && (
-              <DetailsTab data={data} canAccessAIDetection={canAccessAIDetection} />
+              <div className="text-center py-12">
+                <p className="text-gray-500">Details tab - to be extracted</p>
+              </div>
             )}
 
             {activeTab === 'suggestions' && (
-              <SuggestionsTab data={data} suggestionLimit={suggestionLimit} />
+              <div className="text-center py-12">
+                <p className="text-gray-500">Suggestions tab - to be extracted</p>
+              </div>
             )}
 
             {activeTab === 'ai-detection' && (
-              <AIDetectionTab data={data} />
+              <div className="text-center py-12">
+                <p className="text-gray-500">AI Detection tab - to be extracted</p>
+              </div>
             )}
           </div>
         </Card>
