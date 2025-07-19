@@ -677,9 +677,9 @@ export default function SettingsPage() {
           viewCount: channelContext?.channelData?.viewCount || ytChannel?.statistics?.viewCount || 0,
           videoCount: channelContext?.channelData?.videoCount || ytChannel?.statistics?.videoCount || 0,
           statistics: ytChannel?.statistics || {
-            subscriberCount: channelContext?.channelData?.subscriberCount || 0,
-            viewCount: channelContext?.channelData?.viewCount || 0,
-            videoCount: channelContext?.channelData?.videoCount || 0
+            subscriberCount: String(channelContext?.channelData?.subscriberCount || 0),
+            viewCount: String(channelContext?.channelData?.viewCount || 0),
+            videoCount: String(channelContext?.channelData?.videoCount || 0)
           }
         }}
         onClose={() => setShowWelcomeModal(false)}
