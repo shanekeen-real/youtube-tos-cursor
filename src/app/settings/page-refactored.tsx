@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect } from 'react';
 import { AlertTriangle } from 'lucide-react';
-import Button from '../../components/Button';
+import Button from '@/components/Button';
 import TwoFactorWrapper from '@/components/TwoFactorWrapper';
 import YouTubeWelcomeModal from '@/components/YouTubeWelcomeModal';
 import TwoFactorSetupModal from '@/components/TwoFactorSetupModal';
@@ -89,13 +89,8 @@ export default function SettingsPageRefactored() {
 
   // Handle YouTube unlink with confirmation
   const handleUnlinkYouTubeWithConfirmation = async () => {
-    if (!window.confirm('Are you sure you want to unlink your YouTube channel?')) return;
-    try {
-      await handleUnlinkYouTube();
-    } catch (error: any) {
-      console.error('YouTube unlink error:', error);
-      // Error handling is done in the hook, but we can add additional UI feedback here if needed
-    }
+    // Business logic moved to hook - this is just UI coordination
+    await handleUnlinkYouTube();
   };
 
   // Handle 2FA success callbacks

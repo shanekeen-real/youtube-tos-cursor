@@ -1,0 +1,225 @@
+import { RECOGNIZED_CONTEXTS } from './category-mapping';
+
+export interface TermContext {
+  shouldHighlight: boolean;
+  context?: string;
+  severity: 'high' | 'medium';
+}
+
+/**
+ * Categories that are always high risk, regardless of context
+ */
+const ALWAYS_RED_CATEGORIES = [
+  'HATE_SPEECH',
+  'TERRORISM',
+  'CHILD_SAFETY',
+  'SEXUAL_CONTENT',
+  'GRAPHIC_VIOLENCE',
+  'ILLEGAL_ACTIVITY',
+  'EXTREMISM',
+  'EXPLOITATION',
+  'SELF_HARM',
+  'SUICIDE',
+  'ANIMAL_CRUELTY',
+  'HUMAN_TRAFFICKING',
+  'ABUSE',
+  'HARASSMENT',
+  'BULLYING',
+  'THREATS',
+  'DOXXING',
+  'NON_CONSENSUAL',
+  'TORTURE',
+  'MURDER',
+  'RAPE',
+  'INCITEMENT',
+  'VIOLENT_CRIME',
+  'CHILD_EXPLOITATION',
+  'CHILD_ABUSE',
+  'CHILD_PORNOGRAPHY',
+  'CSA',
+  'CP',
+  'CSAM',
+  'TERROR',
+  'BOMB',
+  'BOMBING',
+  'MASS_SHOOTING',
+  'MASSACRE',
+  'GENOCIDE',
+  'NAZI',
+  'FASCIST',
+  'ADOLF',
+  'HITLER',
+  'ISIS',
+  'AL_QAEDA',
+  'AL-QAEDA',
+  'ISIL',
+  'ISLAMIC_STATE',
+  'JIHAD',
+  'EXTREMIST',
+  'RADICALIZATION',
+  'RADICALISATION',
+  'TERRORIST',
+  'TERRORISM',
+  'BOMB_MAKING',
+  'EXPLOSIVES',
+  'WEAPONS_TRADE',
+  'ARMS_DEALING',
+  'ILLEGAL_WEAPONS',
+  'ILLEGAL_DRUGS',
+  'DRUG_TRAFFICKING',
+  'HUMAN_SMUGGLING',
+  'ORGANIZED_CRIME',
+  'MONEY_LAUNDERING',
+  'SCAM',
+  'FRAUD',
+  'IDENTITY_THEFT',
+  'BLACKMAIL',
+  'REVENGE_PORN',
+  'NONCONSENSUAL',
+  'REVENGE',
+  'DOX',
+  'DOXX',
+  'DOXXING',
+  'SWATTING',
+  'STALKING',
+  'GROOMING',
+  'PEDOPHILIA',
+  'PEDOPHILE',
+  'PEDO',
+  'CHILD',
+  'MINOR',
+  'UNDERAGE',
+  'MOLEST',
+  'MOLESTATION',
+  'INCEST',
+  'BESTIALITY',
+  'ZOOPHILIA',
+  'RACISM',
+  'RACIST',
+  'SEXISM',
+  'SEXIST',
+  'HOMOPHOBIA',
+  'HOMOPHOBIC',
+  'TRANSPHOBIA',
+  'TRANSPHOBIC',
+  'XENOPHOBIA',
+  'XENOPHOBIC',
+  'SLUR',
+  'SLURS',
+  'SLANDER',
+  'DEFAMATION',
+  'LIBEL',
+  'DISCRIMINATION',
+  'BIGOTRY',
+  'BIGOT',
+  'MISOGYNY',
+  'MISOGYNIST',
+  'MISANDRY',
+  'MISANDRIST',
+  'ABLEISM',
+  'ABLEIST',
+  'AGEISM',
+  'AGEIST',
+  'RELIGIOUS_HATE',
+  'RELIGIOUS_INTOLERANCE',
+  'RELIGIOUS_PERSECUTION',
+  'RELIGIOUS_DISCRIMINATION',
+  'RELIGIOUS_BIGOTRY',
+  'RELIGIOUS_SLUR',
+  'RELIGIOUS_SLURS',
+  'RELIGIOUS_HARASSMENT',
+  'RELIGIOUS_ABUSE',
+  'RELIGIOUS_VIOLENCE',
+  'RELIGIOUS_EXTREMISM',
+  'RELIGIOUS_TERRORISM',
+  'RELIGIOUS_RADICALIZATION',
+  'RELIGIOUS_RADICALISATION',
+  'RELIGIOUS_TERRORIST',
+  'RELIGIOUS_TERRORISM',
+  'RELIGIOUS_BOMB',
+  'RELIGIOUS_BOMBING',
+  'RELIGIOUS_MASS_SHOOTING',
+  'RELIGIOUS_MASSACRE',
+  'RELIGIOUS_GENOCIDE',
+  'RELIGIOUS_NAZI',
+  'RELIGIOUS_FASCIST',
+  'RELIGIOUS_ADOLF',
+  'RELIGIOUS_HITLER',
+  'RELIGIOUS_ISIS',
+  'RELIGIOUS_AL_QAEDA',
+  'RELIGIOUS_AL-QAEDA',
+  'RELIGIOUS_ISIL',
+  'RELIGIOUS_ISLAMIC_STATE',
+  'RELIGIOUS_JIHAD',
+  'RELIGIOUS_EXTREMIST',
+  'RELIGIOUS_RADICALIZATION',
+  'RELIGIOUS_RADICALISATION',
+  'RELIGIOUS_TERRORIST',
+  'RELIGIOUS_TERRORISM',
+  'RELIGIOUS_BOMB_MAKING',
+  'RELIGIOUS_EXPLOSIVES',
+  'RELIGIOUS_WEAPONS_TRADE',
+  'RELIGIOUS_ARMS_DEALING',
+  'RELIGIOUS_ILLEGAL_WEAPONS',
+  'RELIGIOUS_ILLEGAL_DRUGS',
+  'RELIGIOUS_DRUG_TRAFFICKING',
+  'RELIGIOUS_HUMAN_SMUGGLING',
+  'RELIGIOUS_ORGANIZED_CRIME',
+  'RELIGIOUS_MONEY_LAUNDERING',
+  'RELIGIOUS_SCAM',
+  'RELIGIOUS_FRAUD',
+  'RELIGIOUS_IDENTITY_THEFT',
+  'RELIGIOUS_BLACKMAIL',
+  'RELIGIOUS_REVENGE_PORN',
+  'RELIGIOUS_NONCONSENSUAL',
+  'RELIGIOUS_REVENGE',
+  'RELIGIOUS_DOX',
+  'RELIGIOUS_DOXX',
+  'RELIGIOUS_DOXXING',
+  'RELIGIOUS_SWATTING',
+  'RELIGIOUS_STALKING',
+  'RELIGIOUS_GROOMING',
+  'RELIGIOUS_PEDOPHILIA',
+  'RELIGIOUS_PEDOPHILE',
+  'RELIGIOUS_PEDO',
+  'RELIGIOUS_CHILD',
+  'RELIGIOUS_MINOR',
+  'RELIGIOUS_UNDERAGE',
+  'RELIGIOUS_MOLEST',
+  'RELIGIOUS_MOLESTATION',
+  'RELIGIOUS_INCEST',
+  'RELIGIOUS_BESTIALITY',
+  'RELIGIOUS_ZOOPHILIA'
+];
+
+/**
+ * Context-aware term filtering - returns context info instead of boolean
+ */
+export function getTermContext(
+  term: string, 
+  category: string, 
+  contextAnalysis?: {
+    content_type?: string;
+    target_audience?: string;
+  }
+): TermContext {
+  const contentType = contextAnalysis?.content_type?.toLowerCase() || '';
+  const targetAudience = contextAnalysis?.target_audience?.toLowerCase() || '';
+  
+  // If the category is always red, highlight as high risk
+  for (const red of ALWAYS_RED_CATEGORIES) {
+    if (category.toUpperCase().includes(red)) {
+      return { shouldHighlight: true, severity: 'high' };
+    }
+  }
+
+  // If the content type is a recognized context, downgrade to yellow (medium)
+  for (const ctx of RECOGNIZED_CONTEXTS) {
+    if (contentType.includes(ctx)) {
+      return { shouldHighlight: true, context: ctx, severity: 'medium' };
+    }
+  }
+  
+  // No context identified - high severity
+  return { shouldHighlight: true, severity: 'high' };
+} 

@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { loadStripe } from '@stripe/stripe-js';
 import axios from 'axios';
 import { UserProfile } from '@/components/dashboard/types';
+import { PERFORMANCE_CONFIG } from '@/lib/constants/policy-terms';
 
 // Load the Stripe.js library with your publishable key
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
@@ -13,6 +14,10 @@ export function useDashboardData() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [canBatchScan, setCanBatchScan] = useState(false);
+  
+  // Performance optimization: Prevent multiple simultaneous API calls
+  const fetchingRef = useRef(false);
+  const lastFetchRef = useRef<number>(0);
 
   // Move fetchUserProfile out of useEffect so it can be reused
   const fetchUserProfile = async () => {
@@ -20,6 +25,16 @@ export function useDashboardData() {
       setLoading(false);
       return;
     }
+    
+    // Performance optimization: Prevent multiple simultaneous API calls
+    const now = Date.now();
+    if (fetchingRef.current || (now - lastFetchRef.current < PERFORMANCE_CONFIG.API_CALL_THROTTLE)) {
+      return; // Already fetching or fetched recently
+    }
+    
+    fetchingRef.current = true;
+    lastFetchRef.current = now;
+    
     try {
       const response = await fetch('/api/get-user-profile');
       if (response.ok) {
@@ -35,6 +50,7 @@ export function useDashboardData() {
       setError(err.message || 'Failed to fetch user profile.');
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   };
 
@@ -43,9 +59,9 @@ export function useDashboardData() {
     let retryCount = 0;
     const waitForSession = async () => {
       if (status !== 'authenticated' || !session?.user?.id) {
-        if (retryCount < 20) {
+        if (retryCount < PERFORMANCE_CONFIG.MAX_SESSION_RETRIES) {
           retryCount++;
-          setTimeout(waitForSession, 200);
+          setTimeout(waitForSession, PERFORMANCE_CONFIG.SESSION_RETRY_DELAY);
         }
         return;
       }

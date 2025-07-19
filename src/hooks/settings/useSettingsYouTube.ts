@@ -166,9 +166,15 @@ export function useSettingsYouTube(session: Session | null) {
     }
   };
 
-  // Unlink YouTube channel
+  // Unlink YouTube channel with confirmation
   const handleUnlinkYouTube = async () => {
     if (!session?.user?.id) return;
+    
+    // Business logic: Show confirmation dialog
+    if (!window.confirm('Are you sure you want to unlink your YouTube channel?')) {
+      return;
+    }
+    
     try {
       const response = await fetch('/api/unlink-youtube', {
         method: 'POST',
