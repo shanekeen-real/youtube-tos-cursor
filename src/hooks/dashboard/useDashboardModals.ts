@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from 'react';
 import { Session } from 'next-auth';
 import { SelectedVideoForReports } from '@/components/dashboard/types';

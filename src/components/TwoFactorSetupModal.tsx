@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { X, Shield, Smartphone, Copy, CheckCircle, AlertTriangle } from 'lucide-react';
-import Button from './Button';
+import { Button } from '@/lib/imports';
 import { useToastContext } from '@/contexts/ToastContext';
 
 interface TwoFactorSetupModalProps {

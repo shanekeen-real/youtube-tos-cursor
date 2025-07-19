@@ -1,7 +1,7 @@
 import React from 'react';
 import { CreditCard } from 'lucide-react';
-import Card from '../Card';
-import Button from '../Button';
+import { Card } from '@/lib/imports';
+import { Button } from '@/lib/imports';
 
 interface UserProfile {
   email: string;

@@ -4,11 +4,11 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { Search, Filter, SortAsc, SortDesc, Calendar, Eye, Clock, Grid, List, ChevronDown } from 'lucide-react';
-import Card from '@/components/Card';
-import Button from '@/components/Button';
+import { Card } from '@/lib/imports';
+import { Button } from '@/lib/imports';
 import { useInView } from 'react-intersection-observer';
 import * as Sentry from "@sentry/nextjs";
-import VideoReportsModal from '@/components/VideoReportsModal';
+import { VideoReportsModal } from '@/lib/imports';
 
 
 // Types

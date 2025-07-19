@@ -1,7 +1,6 @@
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
-import Card from '@/components/Card';
-import Badge from '@/components/Badge';
+import { Card, Badge } from '@/lib/imports';
 import { getRiskBadgeVariant } from '../ResultsUtils';
 
 interface RiskLevelCardProps {

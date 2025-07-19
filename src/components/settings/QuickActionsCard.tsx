@@ -1,7 +1,7 @@
 import React from 'react';
 import { Shield } from 'lucide-react';
-import Card from '../Card';
-import Button from '../Button';
+import { Card } from '@/lib/imports';
+import { Button } from '@/lib/imports';
 
 export default function QuickActionsCard() {
   return (

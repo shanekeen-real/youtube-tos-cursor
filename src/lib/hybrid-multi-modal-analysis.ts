@@ -2,7 +2,7 @@ import { getAIModel, SmartAIModel } from './ai-models';
 import { 
   EnhancedAnalysisResult
 } from '../types/ai-analysis';
-import { VideoAnalysisData } from './video-processing';
+import { VideoAnalysisData } from '@/types/video-processing';
 import * as Sentry from '@sentry/nextjs';
 import { calculateOverallRiskScore, getRiskLevel, generateHighlights, cleanRiskyPhrases } from './analysis-utils';
 

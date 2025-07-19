@@ -3,18 +3,18 @@ import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import Card from '@/components/Card';
-import Button from '@/components/Button';
+import { Card } from '@/lib/imports';
+import { Button } from '@/lib/imports';
 import Link from 'next/link';
 import { loadStripe } from '@stripe/stripe-js';
 import axios from 'axios';
-import ConnectYouTubeButton from '@/components/ConnectYouTubeButton';
+import { ConnectYouTubeButton } from '@/lib/imports';
 import { format } from 'date-fns';
 import { Calendar, TrendingUp, Users, Video, AlertTriangle, CheckCircle, Clock, Calculator, DollarSign, Shield, Settings, Lock, RefreshCw } from 'lucide-react';
-import VideoReportsModal from '@/components/VideoReportsModal';
-import CPMSetupModal from '@/components/CPMSetupModal';
+import { VideoReportsModal } from '@/lib/imports';
+import { CPMSetupModal } from '@/lib/imports';
 import * as Tooltip from '@radix-ui/react-tooltip';
-import YouTubeWelcomeModal from '@/components/YouTubeWelcomeModal';
+import { YouTubeWelcomeModal } from '@/lib/imports';
 
 // Define the structure of a user's profile data
 interface UserProfile {

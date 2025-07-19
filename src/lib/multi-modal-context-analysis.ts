@@ -1,6 +1,6 @@
 import { SmartAIModel } from './ai-models';
 import { ContextAnalysis, ContextAnalysisSchema } from '../types/ai-analysis';
-import { VideoAnalysisData } from './video-processing';
+import { VideoAnalysisData } from '@/types/video-processing';
 import { jsonParsingService } from './json-parsing-service';
 import { createJsonOnlyPrompt } from './prompt-utils';
 import { performContextAnalysis } from './context-analysis';

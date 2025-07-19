@@ -1,7 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Download, Lock, BarChart3 } from 'lucide-react';
-import Button from '@/components/Button';
+import { Button } from '@/lib/imports';
 import * as Tooltip from '@radix-ui/react-tooltip';
 
 interface ResultsHeaderProps {

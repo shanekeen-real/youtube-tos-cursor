@@ -2,13 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 
-import PricingCard from '@/components/PricingCard';
-import { SUBSCRIPTION_TIERS } from '@/types/subscription';
+import { PricingCard } from '@/lib/imports';
+import { SUBSCRIPTION_TIERS, type SubscriptionTier } from '@/types/subscription';
+import { SUBSCRIPTION_TIER_ORDER } from '@/lib/imports';
 import { loadStripe } from '@stripe/stripe-js';
 import axios from 'axios';
-import type { SubscriptionTier } from '@/types/subscription';
 import { CheckCircle, Crown, Star, Zap, Shield, Users, ArrowRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { UIButton as Button } from '@/lib/imports';
 import { getAuth } from 'firebase/auth';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
@@ -128,7 +128,7 @@ export default function PricingPage() {
     }
   };
 
-  const tiers = ['free', 'pro', 'advanced', 'enterprise'] as const;
+  const tiers = SUBSCRIPTION_TIER_ORDER;
 
   if (loading) {
     return (
@@ -187,9 +187,8 @@ export default function PricingPage() {
             const displayPrice = getDisplayPrice(tier, billingCycle);
 
             // Determine upgrade/downgrade logic
-            const tierOrder = ['free', 'pro', 'advanced', 'enterprise'];
-            const userTierIndex = userProfile ? tierOrder.indexOf(userProfile.subscriptionTier) : -1;
-            const cardTierIndex = tierOrder.indexOf(tier);
+            const userTierIndex = userProfile ? SUBSCRIPTION_TIER_ORDER.indexOf(userProfile.subscriptionTier) : -1;
+            const cardTierIndex = SUBSCRIPTION_TIER_ORDER.indexOf(tier);
             let buttonText = '';
             if (isCurrent) {
               buttonText = 'Current Plan';
@@ -247,7 +246,7 @@ export default function PricingPage() {
 
                   {/* Features */}
                   <div className="flex-1 space-y-3 mb-6">
-                    {tierData.features.slice(0, 6).map((feature, featureIndex) => (
+                    {tierData.features.slice(0, 6).map((feature: string, featureIndex: number) => (
                       <div key={featureIndex} className="flex items-center gap-3">
                         <CheckCircle className="w-4 h-4 text-safe flex-shrink-0" />
                         <span className="text-sm text-gray-700">{feature}</span>

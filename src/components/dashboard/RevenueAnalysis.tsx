@@ -1,7 +1,7 @@
 import React from 'react';
 import { DollarSign, TrendingUp, Shield, Calculator, AlertTriangle, RefreshCw, Settings } from 'lucide-react';
-import Card from '@/components/Card';
-import Button from '@/components/Button';
+import { Card } from '@/lib/imports';
+import { Button } from '@/lib/imports';
 import { RevenueData, YouTubeChannel } from './types';
 
 interface RevenueAnalysisProps {

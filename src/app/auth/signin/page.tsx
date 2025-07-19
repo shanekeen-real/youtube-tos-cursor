@@ -2,7 +2,7 @@
 import { signIn, getSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Button from '@/components/Button';
+import { Button } from '@/lib/imports';
 import { ArrowLeft, Shield, CheckCircle, Zap } from 'lucide-react';
 import Link from 'next/link';
 

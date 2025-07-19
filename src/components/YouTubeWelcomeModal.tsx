@@ -1,6 +1,8 @@
+"use client";
+
 import React, { useEffect, useState } from 'react';
-import Card from './Card';
-import Button from './Button';
+import { Card } from '@/lib/imports';
+import { Button } from '@/lib/imports';
 import { Users, Eye, Video, DollarSign, Shield, TrendingUp } from 'lucide-react';
 
 interface YouTubeWelcomeModalProps {

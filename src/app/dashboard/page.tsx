@@ -1,7 +1,7 @@
 "use client";
 import React, { Suspense } from 'react';
 import DashboardClient from './DashboardClient';
-import TwoFactorWrapper from '@/components/TwoFactorWrapper';
+import { TwoFactorWrapper } from '@/lib/imports';
 
 export default function DashboardPage() {
   return (

@@ -1,9 +1,11 @@
+"use client";
+
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { X, Calendar, BarChart3, ExternalLink, FileText, Clock } from 'lucide-react';
-import Button from './Button';
-import Card from './Card';
+import { Button } from '@/lib/imports';
+import { Card } from '@/lib/imports';
 
 interface VideoScan {
   scanId: string;

@@ -1,7 +1,6 @@
 import React from 'react';
 import { BarChart3, AlertTriangle, Target, Check, Shield, Zap, FileText, CheckCircle, Info } from 'lucide-react';
-import Card from '@/components/Card';
-import Badge from '@/components/Badge';
+import { Card, Badge } from '@/lib/imports';
 import { ScanData } from '../types';
 import { getRiskBadgeVariant, generateAnalysisSummary, toArray } from '../ResultsUtils';
 

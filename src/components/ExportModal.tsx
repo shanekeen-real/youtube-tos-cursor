@@ -3,15 +3,15 @@ import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 
 import { checkUserCanExport } from '@/lib/subscription-utils';
-import Button from './Button';
 import { 
+  Button,
   generateCSV, 
   generatePDF, 
   downloadFile, 
   generateFilename,
   type AnalysisData,
   type ExportOptions 
-} from '@/lib/export-utils';
+} from '@/lib/imports';
 import { Download, FileText, FileSpreadsheet, Settings, Check, Lock, X, Shield, Zap } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import Link from 'next/link';

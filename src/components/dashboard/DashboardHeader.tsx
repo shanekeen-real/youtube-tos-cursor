@@ -1,8 +1,10 @@
+"use client";
+
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { CheckCircle, Video, Lock, AlertTriangle } from 'lucide-react';
-import Button from '@/components/Button';
+import { Button } from '@/lib/imports';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { UserProfile } from './types';
 

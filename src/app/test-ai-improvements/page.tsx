@@ -1,8 +1,8 @@
 "use client";
 import React, { useState } from 'react';
-import Card from '@/components/Card';
-import Button from '@/components/Button';
-import Badge from '@/components/Badge';
+import { Card } from '@/lib/imports';
+import { Button } from '@/lib/imports';
+import { Badge } from '@/lib/imports';
 
 const testCases = [
   {

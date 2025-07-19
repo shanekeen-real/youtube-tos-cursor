@@ -11,6 +11,17 @@ import { auth } from '@/lib/auth';
 import * as Sentry from "@sentry/nextjs";
 import { FieldValue } from 'firebase-admin/firestore';
 import { checkUserCanScan } from '@/lib/subscription-utils';
+import { 
+  YOUTUBE_URL_PATTERNS, 
+  ENGLISH_LANGUAGE_VARIANTS, 
+  TRANSCRIPT_HTML_PATTERNS,
+  FORM_PARSING_PATTERNS,
+  extractVideoId, 
+  isValidYouTubeUrl, 
+  detectLanguage, 
+  isNonEnglish 
+} from '@/lib/constants/url-patterns';
+import { CACHE_CONFIG } from '@/lib/constants/analysis-config';
 
 // Temporary module declaration for missing types
 // @ts-ignore
@@ -19,34 +30,15 @@ import { checkUserCanScan } from '@/lib/subscription-utils';
 // declare module 'youtube-transcript-api';
 
 // --- Caching Configuration ---
-const CACHE_ENABLED = true; // Enable cache for both development and production
-const CACHE_DURATION_DAYS = 7;
+const CACHE_ENABLED = CACHE_CONFIG.ENABLED;
+const CACHE_DURATION_DAYS = CACHE_CONFIG.DURATION_DAYS;
 
 // Function to create a consistent hash for a URL
 function createCacheKey(url: string): string {
     return createHash('sha256').update(url).digest('hex');
 }
 
-// Function to extract video ID from YouTube URL
-function extractVideoId(url: string): string | null {
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
-    /youtube\.com\/v\/([^&\n?#]+)/,
-    /youtube\.com\/watch\?.*&v=([^&\n?#]+)/
-  ];
-  
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match) return match[1];
-  }
-  return null;
-}
-
-// Function to validate YouTube URL
-function isValidYouTubeUrl(url: string): boolean {
-  const videoId = extractVideoId(url);
-  return videoId !== null && videoId.length === 11;
-}
+// Use imported utility functions from constants
 
 // Get transcript using the working @danielxceron/youtube-transcript library
 async function getTranscriptViaNodeLibrary(videoId: string): Promise<string | null> {
@@ -54,9 +46,7 @@ async function getTranscriptViaNodeLibrary(videoId: string): Promise<string | nu
     console.log(`Trying @danielxceron/youtube-transcript library for video ${videoId}...`);
     
     // First try to get English transcript (try multiple English variants)
-    const englishVariants = ['en', 'en-US', 'en-GB', 'en-CA', 'en-AU'];
-    
-    for (const langCode of englishVariants) {
+    for (const langCode of ENGLISH_LANGUAGE_VARIANTS) {
       try {
         const transcript = await YoutubeTranscript.fetchTranscript(videoId, { lang: langCode });
         if (transcript && transcript.length > 0) {
@@ -83,15 +73,11 @@ async function getTranscriptViaNodeLibrary(videoId: string): Promise<string | nu
         .join('\n');
       if (transcriptText && transcriptText.length > 0) {
         // Check if the transcript appears to be in a non-English language
-        const isNonEnglish = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(transcriptText) || // Arabic
-                            /[\u4E00-\u9FFF]/.test(transcriptText) || // Chinese
-                            /[\u3040-\u309F\u30A0-\u30FF]/.test(transcriptText) || // Japanese
-                            /[\uAC00-\uD7AF]/.test(transcriptText) || // Korean
-                            /[\u0E00-\u0E7F]/.test(transcriptText) || // Thai
-                            /[\u0900-\u097F]/.test(transcriptText); // Devanagari (Hindi, etc.)
+        const isNonEnglishText = isNonEnglish(transcriptText);
         
-        if (isNonEnglish) {
-          console.log(`Warning: Transcript appears to be in a non-English language. Length: ${transcriptText.length} characters`);
+        if (isNonEnglishText) {
+          const detectedLang = detectLanguage(transcriptText);
+          console.log(`Warning: Transcript appears to be in ${detectedLang}. Length: ${transcriptText.length} characters`);
           console.log(`First 200 characters: ${transcriptText.substring(0, 200)}`);
         } else {
           console.log(`Successfully fetched transcript via @danielxceron/youtube-transcript: ${transcriptText.length} characters`);
@@ -119,11 +105,11 @@ function analyzePageStructure(html: string, domain: string) {
   };
 
   // Look for forms
-  const formMatches = html.match(/<form[^>]*>[\s\S]*?<\/form>/gi);
+  const formMatches = html.match(FORM_PARSING_PATTERNS.FORM_MATCH);
   if (formMatches) {
     analysis.forms = formMatches.map(form => {
-      const actionMatch = form.match(/action="([^"]*)"/i);
-      const methodMatch = form.match(/method="([^"]*)"/i);
+      const actionMatch = form.match(FORM_PARSING_PATTERNS.ACTION_MATCH);
+      const methodMatch = form.match(FORM_PARSING_PATTERNS.METHOD_MATCH);
       return {
         action: actionMatch ? actionMatch[1] : '',
         method: methodMatch ? methodMatch[1] : 'GET',
@@ -133,12 +119,12 @@ function analyzePageStructure(html: string, domain: string) {
   }
 
   // Look for input fields
-  const inputMatches = html.match(/<input[^>]*>/gi);
+  const inputMatches = html.match(FORM_PARSING_PATTERNS.INPUT_MATCH);
   if (inputMatches) {
     analysis.inputs = inputMatches.map(input => {
-      const nameMatch = input.match(/name="([^"]*)"/i);
-      const typeMatch = input.match(/type="([^"]*)"/i);
-      const valueMatch = input.match(/value="([^"]*)"/i);
+      const nameMatch = input.match(FORM_PARSING_PATTERNS.NAME_MATCH);
+      const typeMatch = input.match(FORM_PARSING_PATTERNS.TYPE_MATCH);
+      const valueMatch = input.match(FORM_PARSING_PATTERNS.VALUE_MATCH);
       return {
         name: nameMatch ? nameMatch[1] : '',
         type: typeMatch ? typeMatch[1] : 'text',
@@ -148,7 +134,7 @@ function analyzePageStructure(html: string, domain: string) {
   }
 
   // Look for potential API endpoints
-  const endpointMatches = html.match(/["'](\/api\/[^"']+)["']/g);
+  const endpointMatches = html.match(FORM_PARSING_PATTERNS.ENDPOINT_MATCH);
   if (endpointMatches) {
     analysis.potentialEndpoints = endpointMatches.map(match => match.replace(/["']/g, ''));
   }
@@ -181,15 +167,12 @@ async function getTranscriptViaWebScraping(videoId: string): Promise<string | nu
                              html.includes('data-transcript_categories=');
       
       if (isProcessedPage) {
-        // Extract transcript content
-        const transcriptMatch = html.match(/<div[^>]*class="[^"]*transcript[^"]*"[^>]*>([\s\S]*?)<\/div>/i) ||
-                               html.match(/<textarea[^>]*>([\s\S]*?)<\/textarea>/i) ||
-                               html.match(/<pre[^>]*>([\s\S]*?)<\/pre>/i) ||
-                               html.match(/<div[^>]*id="[^"]*transcript[^"]*"[^>]*>([\s\S]*?)<\/div>/i) ||
-                               html.match(/<div[^>]*class="[^"]*result[^"]*"[^>]*>([\s\S]*?)<\/div>/i) ||
-                               html.match(/<div[^>]*class="[^"]*content[^"]*"[^>]*>([\s\S]*?)<\/div>/i) ||
-                               html.match(/<div[^>]*class="[^"]*output[^"]*"[^>]*>([\s\S]*?)<\/div>/i) ||
-                               html.match(/<div[^>]*class="[^"]*text[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+        // Extract transcript content using centralized patterns
+        let transcriptMatch = null;
+        for (const pattern of TRANSCRIPT_HTML_PATTERNS) {
+          transcriptMatch = html.match(pattern);
+          if (transcriptMatch) break;
+        }
         
         if (transcriptMatch && transcriptMatch[1].trim().length > 100) {
           const transcript = transcriptMatch[1].replace(/<[^>]*>/g, '').trim();

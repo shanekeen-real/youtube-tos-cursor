@@ -4,7 +4,7 @@ import React from 'react';
 import * as Sentry from '@sentry/nextjs';
 import Link from 'next/link';
 import { ArrowLeft, Home, RefreshCw, Shield, AlertTriangle } from 'lucide-react';
-import Button from './Button';
+import { Button } from '@/lib/imports';
 
 interface ErrorBoundaryState {
   hasError: boolean;

@@ -1,26 +1,24 @@
 "use client";
 import React, { useEffect } from 'react';
 import { AlertTriangle } from 'lucide-react';
-import Button from '@/components/Button';
-import TwoFactorWrapper from '@/components/TwoFactorWrapper';
-import YouTubeWelcomeModal from '@/components/YouTubeWelcomeModal';
-import TwoFactorSetupModal from '@/components/TwoFactorSetupModal';
-import TwoFactorDisableModal from '@/components/TwoFactorDisableModal';
-
-// Custom hooks
-import { useSettingsData } from '@/hooks/settings/useSettingsData';
-import { useSettingsYouTube } from '@/hooks/settings/useSettingsYouTube';
-import { useSettingsModals } from '@/hooks/settings/useSettingsModals';
-import { useSettingsActions } from '@/hooks/settings/useSettingsActions';
-
-// Settings components
-import AccountDetailsCard from '@/components/settings/AccountDetailsCard';
-import UsageCard from '@/components/settings/UsageCard';
-import SubscriptionCard from '@/components/settings/SubscriptionCard';
-import YouTubeCard from '@/components/settings/YouTubeCard';
-import PrivacyCard from '@/components/settings/PrivacyCard';
-import PreferencesCard from '@/components/settings/PreferencesCard';
-import QuickActionsCard from '@/components/settings/QuickActionsCard';
+import { Button } from '@/lib/imports';
+import { 
+  TwoFactorWrapper,
+  YouTubeWelcomeModal,
+  TwoFactorSetupModal,
+  TwoFactorDisableModal,
+  useSettingsData,
+  useSettingsYouTube,
+  useSettingsModals,
+  useSettingsActions,
+  AccountDetailsCard,
+  UsageCard,
+  SubscriptionCard,
+  YouTubeCard,
+  PrivacyCard,
+  PreferencesCard,
+  QuickActionsCard
+} from '@/lib/imports';
 
 export default function SettingsPageRefactored() {
   // Custom hooks for data management

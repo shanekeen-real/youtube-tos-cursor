@@ -1,6 +1,6 @@
 import React from 'react';
 import { CheckCircle } from 'lucide-react';
-import Button from '@/components/Button';
+import { Button } from '@/lib/imports';
 import { YouTubeChannel, ChannelContext } from './types';
 
 interface YouTubeIntegrationProps {

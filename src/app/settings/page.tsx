@@ -7,10 +7,12 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { getTierLimits } from '@/types/subscription';
 import { Settings, User, CreditCard, Youtube, Moon, Sun, AlertTriangle, CheckCircle, Shield, Smartphone } from 'lucide-react';
-import YouTubeWelcomeModal from '@/components/YouTubeWelcomeModal';
-import TwoFactorSetupModal from '@/components/TwoFactorSetupModal';
-import TwoFactorDisableModal from '@/components/TwoFactorDisableModal';
-import TwoFactorWrapper from '@/components/TwoFactorWrapper';
+import { 
+  YouTubeWelcomeModal,
+  TwoFactorSetupModal,
+  TwoFactorDisableModal,
+  TwoFactorWrapper
+} from '@/lib/imports';
 import { useToastContext } from '@/contexts/ToastContext';
 import { getAuth } from 'firebase/auth';
 import { signOut } from "next-auth/react";

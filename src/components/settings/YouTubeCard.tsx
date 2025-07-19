@@ -1,7 +1,7 @@
 import React from 'react';
 import { Youtube, CheckCircle } from 'lucide-react';
-import Card from '../Card';
-import Button from '../Button';
+import { Card } from '@/lib/imports';
+import { Button } from '@/lib/imports';
 
 interface YouTubeChannel {
   snippet?: {

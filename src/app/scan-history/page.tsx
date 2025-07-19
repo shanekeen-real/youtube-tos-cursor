@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import Button from '@/components/Button';
-import Card from '@/components/Card';
-import Badge from '@/components/Badge';
+import { Button } from '@/lib/imports';
+import { Card } from '@/lib/imports';
+import { Badge } from '@/lib/imports';
 import * as Sentry from "@sentry/nextjs";
 import { Clock, AlertTriangle, CheckCircle, XCircle, ExternalLink, Calendar, BarChart3 } from 'lucide-react';
 

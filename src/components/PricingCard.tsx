@@ -1,7 +1,7 @@
 import React from 'react';
 import Card from './Card';
-import Badge from './Badge';
-import Button from './Button';
+import { Badge } from '@/lib/imports';
+import { Button } from '@/lib/imports';
 import { useSession } from 'next-auth/react';
 import { loadStripe } from '@stripe/stripe-js';
 import axios from 'axios';

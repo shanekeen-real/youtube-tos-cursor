@@ -3,22 +3,20 @@ import React, { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Plus, FileText, History } from 'lucide-react';
-import Button from '@/components/Button';
-import VideoReportsModal from '@/components/VideoReportsModal';
-import CPMSetupModal from '@/components/CPMSetupModal';
-import YouTubeWelcomeModal from '@/components/YouTubeWelcomeModal';
-
-// Import custom hooks
-import { useDashboardData } from '@/hooks/dashboard/useDashboardData';
-import { useYouTubeIntegration } from '@/hooks/dashboard/useYouTubeIntegration';
-import { useVideoManagement } from '@/hooks/dashboard/useVideoManagement';
-import { useRevenueAnalysis } from '@/hooks/dashboard/useRevenueAnalysis';
-import { useDashboardModals } from '@/hooks/dashboard/useDashboardModals';
-
-// Import dashboard components
-import DashboardHeader from '@/components/dashboard/DashboardHeader';
-import VideoList from '@/components/dashboard/VideoList';
-import RevenueAnalysis from '@/components/dashboard/RevenueAnalysis';
+import { Button } from '@/lib/imports';
+import { 
+  VideoReportsModal,
+  CPMSetupModal,
+  YouTubeWelcomeModal,
+  useDashboardData,
+  useYouTubeIntegration,
+  useVideoManagement,
+  useRevenueAnalysis,
+  useDashboardModals,
+  DashboardHeader,
+  VideoList,
+  RevenueAnalysis
+} from '@/lib/imports';
 
 export default function DashboardClient() {
   const router = useRouter();

@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from 'react';
 import { Session } from 'next-auth';
 import { YouTubeChannel, ChannelContext } from '@/components/dashboard/types';

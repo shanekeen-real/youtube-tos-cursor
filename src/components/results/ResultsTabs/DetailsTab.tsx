@@ -1,9 +1,7 @@
 import React from 'react';
 import { Globe, Target, Zap, AlertTriangle, Lock } from 'lucide-react';
 import Link from 'next/link';
-import Card from '@/components/Card';
-import Badge from '@/components/Badge';
-import HighlightedTranscript from '@/components/HighlightedTranscript';
+import { Card, Badge, HighlightedTranscript } from '@/lib/imports';
 import { ScanData } from '../types';
 import { getRiskBadgeVariant, severityOrder, isEnglish } from '../ResultsUtils';
 

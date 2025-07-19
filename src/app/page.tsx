@@ -2,14 +2,13 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { AuthContext } from '@/components/ClientLayout';
-import Button from '@/components/Button';
-import Card from '@/components/Card';
-import Badge from '@/components/Badge';
-import ProgressMeter from '@/components/ProgressMeter';
-import FeatureGrid, { FeatureSet } from '../components/FeatureGrid';
+import { AuthContext } from '@/lib/imports';
+import { Button } from '@/lib/imports';
+import { Card } from '@/lib/imports';
+import { Badge } from '@/lib/imports';
+import { ProgressMeter, FeatureGrid, type FeatureSet } from '@/lib/imports';
 import { SUBSCRIPTION_TIERS } from '@/types/subscription';
-import { Input } from '@/components/ui/input';
+import { UIInput as Input } from '@/lib/imports';
 import { Shield, AlertTriangle, CheckCircle } from 'lucide-react';
 import { useToastContext } from '@/contexts/ToastContext';
 

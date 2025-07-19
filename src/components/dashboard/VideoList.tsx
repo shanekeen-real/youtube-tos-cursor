@@ -1,8 +1,10 @@
+"use client";
+
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { Video, Calendar, AlertTriangle, RefreshCw } from 'lucide-react';
-import Card from '@/components/Card';
-import Button from '@/components/Button';
+import { Card } from '@/lib/imports';
+import { Button } from '@/lib/imports';
 import { Video as VideoType, VideoRiskLevels } from './types';
 
 interface VideoListProps {

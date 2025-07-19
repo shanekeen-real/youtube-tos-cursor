@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from 'react';
 import { ScanData } from '@/components/results/types';
 

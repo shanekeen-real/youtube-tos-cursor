@@ -4,7 +4,7 @@ import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 import Link from 'next/link';
 import { ArrowLeft, Home, RefreshCw, Shield, AlertTriangle } from 'lucide-react';
-import Button from '@/components/Button';
+import { Button } from '@/lib/imports';
 
 export default function GlobalError({ error }: { error: Error & { digest?: string } }) {
   useEffect(() => {

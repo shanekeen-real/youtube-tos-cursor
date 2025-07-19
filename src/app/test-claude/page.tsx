@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import Button from '@/components/Button';
-import Card from '@/components/Card';
+import { Button } from '@/lib/imports';
+import { Card } from '@/lib/imports';
 
 export default function TestClaudePage() {
   const [text, setText] = useState('This video contains explicit content and may not be suitable for all advertisers.');

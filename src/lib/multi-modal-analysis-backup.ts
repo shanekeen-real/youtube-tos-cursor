@@ -26,7 +26,7 @@ import { performConfidenceAnalysis } from './confidence-analysis';
 import { generateActionableSuggestions } from './suggestions';
 import { performAIDetection } from './ai-detection';
 import { calculateOverallRiskScore, getRiskLevel, generateHighlights, cleanRiskyPhrases } from './analysis-utils';
-import { VideoAnalysisData } from './video-processing';
+import { VideoAnalysisData } from '@/types/video-processing';
 
 /**
  * Multi-modal video analysis using Gemini 2.5 Flash Preview

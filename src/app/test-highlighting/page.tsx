@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from 'react';
-import HighlightedTranscript from '@/components/HighlightedTranscript';
+import { HighlightedTranscript } from '@/lib/imports';
 
 // Mock data for testing
 const mockRiskyPhrases = [

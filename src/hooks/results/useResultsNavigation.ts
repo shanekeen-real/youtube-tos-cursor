@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from 'react';
 import { BarChart3, FileText, Target, Brain } from 'lucide-react';
 import { TabType, TabConfig } from '@/components/results/types';

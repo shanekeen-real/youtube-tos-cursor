@@ -1,6 +1,8 @@
+"use client";
+
 import React, { useState } from 'react';
 import { signIn, signOut, useSession } from 'next-auth/react';
-import Button from './Button';
+import { Button } from '@/lib/imports';
 import { Shield, CheckCircle, LogOut, X, User } from 'lucide-react';
 
 interface AuthModalProps {

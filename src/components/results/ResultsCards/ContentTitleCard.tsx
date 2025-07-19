@@ -1,6 +1,6 @@
 import React from 'react';
 import { FileText } from 'lucide-react';
-import Card from '@/components/Card';
+import { Card } from '@/lib/imports';
 
 interface ContentTitleCardProps {
   title?: string;

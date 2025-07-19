@@ -35,6 +35,16 @@ import { generateActionableSuggestions } from './suggestions';
 import { performAIDetection } from './ai-detection';
 import { performAnalysis, analyzePolicyCategories } from './legacy-analysis';
 import { calculateOverallRiskScore, getRiskLevel, generateHighlights, cleanRiskyPhrases } from './analysis-utils';
+import { FALSE_POSITIVE_WORDS, filterFalsePositives as filterFalsePositivesOptimized } from './constants/false-positives';
+import { 
+  TEXT_PROCESSING, 
+  PERFORMANCE_LIMITS, 
+  RISK_THRESHOLDS, 
+  ANALYSIS_MODES,
+  getRiskLevel as getRiskLevelFromConfig,
+  getChunkConfig 
+} from './constants/analysis-config';
+import { detectLanguage, isNonEnglish as isNonEnglishText } from './constants/url-patterns';
 
 const rateLimiter = new RateLimiter();
 
@@ -47,22 +57,8 @@ export async function performEnhancedAnalysis(text: string, channelContext?: any
   }
 
   // Check if the text appears to be in a non-English language
-  const isArabic = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(text);
-  const isChinese = /[\u4E00-\u9FFF]/.test(text);
-  const isJapanese = /[\u3040-\u309F\u30A0-\u30FF]/.test(text);
-  const isKorean = /[\uAC00-\uD7AF]/.test(text);
-  const isThai = /[\u0E00-\u0E7F]/.test(text);
-  const isHindi = /[\u0900-\u097F]/.test(text);
-  
-  const isNonEnglish = isArabic || isChinese || isJapanese || isKorean || isThai || isHindi;
-  
-  let detectedLanguage = 'English';
-  if (isArabic) detectedLanguage = 'Arabic';
-  else if (isChinese) detectedLanguage = 'Chinese';
-  else if (isJapanese) detectedLanguage = 'Japanese';
-  else if (isKorean) detectedLanguage = 'Korean';
-  else if (isThai) detectedLanguage = 'Thai';
-  else if (isHindi) detectedLanguage = 'Hindi';
+  const detectedLanguage = detectLanguage(text);
+  const isNonEnglish = isNonEnglishText(text);
   
   if (isNonEnglish) {
     console.log(`Warning: Content appears to be in ${detectedLanguage}. This may affect analysis quality.`);
@@ -70,13 +66,12 @@ export async function performEnhancedAnalysis(text: string, channelContext?: any
   }
 
   const model = getModelWithFallback();
-  const CHUNK_SIZE = 3500;
-  const CHUNK_OVERLAP = 250;
   let allRiskySpans: any[] = [];
   let riskAssessment: any;
 
   // Double-decode transcript before chunking and sending to AI
   const decodedText = he.decode(he.decode(text));
+  const { chunkSize, overlap, needsChunking } = getChunkConfig(decodedText.length);
 
   try {
     // Stage 1: Content Classification
@@ -96,15 +91,15 @@ export async function performEnhancedAnalysis(text: string, channelContext?: any
     await rateLimiter.waitIfNeeded();
     let allRiskyPhrases: string[] = [];
     console.log('Policy analysis results:', JSON.stringify(policyAnalysis, null, 2));
-    if (decodedText.length > CHUNK_SIZE) {
+    if (needsChunking) {
       // Split decoded transcript into overlapping chunks
       const chunks: { text: string; start: number }[] = [];
       let pos = 0;
       while (pos < decodedText.length) {
-        const chunkText = decodedText.slice(pos, pos + CHUNK_SIZE);
+        const chunkText = decodedText.slice(pos, pos + chunkSize);
         chunks.push({ text: chunkText, start: pos });
-        if (pos + CHUNK_SIZE >= decodedText.length) break;
-        pos += CHUNK_SIZE - CHUNK_OVERLAP;
+        if (pos + chunkSize >= decodedText.length) break;
+        pos += chunkSize - overlap;
       }
       // Run risk assessment on each chunk and merge results
       for (const chunk of chunks) {
@@ -134,50 +129,14 @@ export async function performEnhancedAnalysis(text: string, channelContext?: any
     // Deduplicate risky phrases
     allRiskyPhrases = Array.from(new Set(allRiskyPhrases.filter(Boolean)));
     
-    // Filter out false positives - common words that shouldn't be flagged
-    const falsePositiveWords = [
-      'you', 'worried', 'rival', 'team', 'player', 'goal', 'score', 'match', 'game', 'play', 
-      'win', 'lose', 'good', 'bad', 'big', 'small', 'new', 'old', 'first', 'last', 'best', 'worst',
-      'money', 'dollar', 'price', 'cost', 'value', 'worth', 'expensive', 'cheap', 'million', 'billion',
-      'year', 'month', 'week', 'day', 'time', 'people', 'person', 'thing', 'way', 'day', 'work',
-      'make', 'take', 'get', 'go', 'come', 'see', 'know', 'think', 'feel', 'want', 'need', 'like',
-      'look', 'say', 'tell', 'ask', 'give', 'find', 'use', 'try', 'call', 'help', 'start', 'stop',
-      'keep', 'put', 'bring', 'turn', 'move', 'change', 'show', 'hear', 'play', 'run', 'walk',
-      'sit', 'stand', 'wait', 'watch', 'read', 'write', 'speak', 'talk', 'listen', 'learn', 'teach',
-      'buy', 'sell', 'pay', 'earn', 'spend', 'save', 'lose', 'win', 'beat', 'hit', 'catch', 'throw',
-      'kick', 'run', 'jump', 'swim', 'dance', 'sing', 'laugh', 'cry', 'smile', 'frown', 'love', 'hate',
-      'like', 'dislike', 'happy', 'sad', 'angry', 'excited', 'bored', 'tired', 'hungry', 'thirsty',
-      'hot', 'cold', 'warm', 'cool', 'fast', 'slow', 'quick', 'easy', 'hard', 'simple', 'complex',
-      'right', 'wrong', 'true', 'false', 'yes', 'no', 'maybe', 'sure', 'okay', 'fine', 'great', 'awesome',
-      // Add common harmless words that are being flagged
-      'kid', 'kids', 'phone', 'device', 'child', 'children', 'boy', 'girl', 'son', 'daughter',
-      'family', 'parent', 'mom', 'dad', 'mother', 'father', 'sister', 'brother', 'baby', 'toddler',
-      'teen', 'teenager', 'youth', 'young', 'old', 'elderly', 'senior', 'adult', 'grown', 'grownup',
-      'mobile', 'cell', 'smartphone', 'iphone', 'android', 'tablet', 'computer', 'laptop', 'desktop',
-      'screen', 'display', 'monitor', 'keyboard', 'mouse', 'touch', 'tap', 'swipe', 'click', 'type',
-      'text', 'message', 'call', 'ring', 'dial', 'number', 'contact', 'address', 'email', 'mail',
-      'home', 'house', 'room', 'bedroom', 'kitchen', 'bathroom', 'living', 'dining', 'office', 'work',
-      'school', 'class', 'teacher', 'student', 'classroom', 'homework', 'study', 'learn', 'education',
-      'friend', 'buddy', 'pal', 'mate', 'colleague', 'neighbor', 'cousin', 'uncle', 'aunt', 'grandma',
-      'grandpa', 'grandmother', 'grandfather', 'nephew', 'niece', 'relative', 'relation', 'family'
-    ];
-    
-    // Filter out false positives from all risky phrases
-    allRiskyPhrases = allRiskyPhrases.filter((phrase: string) => 
-      !falsePositiveWords.some(falsePositive => 
-        phrase.toLowerCase().includes(falsePositive.toLowerCase())
-      )
-    );
+    // Filter out false positives from all risky phrases using optimized function
+    allRiskyPhrases = filterFalsePositivesOptimized(allRiskyPhrases);
     
     // Also filter out false positives from risky_phrases_by_category
     if (riskAssessment && riskAssessment.risky_phrases_by_category) {
       for (const category in riskAssessment.risky_phrases_by_category) {
         riskAssessment.risky_phrases_by_category[category] = 
-          riskAssessment.risky_phrases_by_category[category].filter((phrase: string) => 
-            !falsePositiveWords.some(falsePositive => 
-              phrase.toLowerCase().includes(falsePositive.toLowerCase())
-            )
-          );
+          filterFalsePositivesOptimized(riskAssessment.risky_phrases_by_category[category]);
       }
     }
 
@@ -189,12 +148,12 @@ export async function performEnhancedAnalysis(text: string, channelContext?: any
     await rateLimiter.waitIfNeeded();
     const suggestions = await generateActionableSuggestions(decodedText, model, policyAnalysis, riskAssessment);
     
-    // Apply hard limit of 12 suggestions to prevent overwhelming users
-    const limitedSuggestions = suggestions.slice(0, 12);
+    // Apply hard limit to suggestions to prevent overwhelming users
+    const limitedSuggestions = suggestions.slice(0, PERFORMANCE_LIMITS.MAX_SUGGESTIONS);
     
     // Calculate overall risk score and level
     const overallRiskScore = calculateOverallRiskScore(policyAnalysis, riskAssessment);
-    const riskLevel = getRiskLevel(overallRiskScore);
+    const riskLevel = getRiskLevelFromConfig(overallRiskScore);
     console.log('Calculated overall risk score:', overallRiskScore, 'Risk level:', riskLevel);
     
     // Clean and validate risky phrases to remove false positives
@@ -264,7 +223,7 @@ export async function performEnhancedAnalysis(text: string, channelContext?: any
         analysis_timestamp: new Date().toISOString(),
         processing_time_ms: processingTime,
         content_length: decodedText.length,
-        analysis_mode: 'enhanced'
+        analysis_mode: ANALYSIS_MODES.ENHANCED
       }
     };
   } catch (error: any) {
@@ -287,7 +246,7 @@ export async function performEnhancedAnalysis(text: string, channelContext?: any
       return {
         risk_score: basicResult.risk_score,
         risk_level: basicResult.risk_level,
-        confidence_score: 75, // Default confidence for basic analysis
+        confidence_score: RISK_THRESHOLDS.DEFAULT_CONFIDENCE, // Default confidence for basic analysis
         flagged_section: basicResult.flagged_section,
         policy_categories: {}, // No detailed categories in basic mode
         context_analysis: {
@@ -307,7 +266,7 @@ export async function performEnhancedAnalysis(text: string, channelContext?: any
           analysis_timestamp: new Date().toISOString(),
           processing_time_ms: processingTime,
           content_length: text.length,
-          analysis_mode: 'fallback'
+          analysis_mode: ANALYSIS_MODES.FALLBACK
         }
       };
     } catch (basicError: any) {
@@ -328,7 +287,7 @@ export async function performEnhancedAnalysis(text: string, channelContext?: any
       const wordCount = text.split(' ').length;
       
       return {
-        risk_score: 50, // Neutral score
+        risk_score: RISK_THRESHOLDS.EMERGENCY_RISK_SCORE, // Neutral score
         risk_level: 'MEDIUM',
         confidence_score: 25, // Low confidence since no AI analysis
         flagged_section: 'Content analysis unavailable due to service limits',

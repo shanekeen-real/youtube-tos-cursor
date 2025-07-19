@@ -1,6 +1,14 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import Papa from 'papaparse';
+import { 
+  EXPORT_FORMATS, 
+  MIME_TYPES, 
+  FILE_EXTENSIONS, 
+  getMimeType,
+  getFileExtension,
+  generateFilename as generateFilenameFromConfig
+} from '@/lib/constants/export-config';
 
 export interface ExportOptions {
   includeMetadata?: boolean;
@@ -381,7 +389,6 @@ export function downloadFile(content: string | Blob, filename: string, mimeType:
 
 // Generate filename
 export function generateFilename(data: AnalysisData, format: string): string {
-  const timestamp = new Date().toISOString().split('T')[0];
-  const title = data.title ? data.title.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30) : 'analysis';
-  return `youtube_tos_analysis_${title}_${timestamp}.${format}`;
+  const title = data.title || 'analysis';
+  return generateFilenameFromConfig(title, format as any);
 }

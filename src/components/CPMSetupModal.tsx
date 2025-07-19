@@ -1,7 +1,8 @@
+"use client";
+
 import React, { useState } from 'react';
 import { X, DollarSign, TrendingUp, Shield, Calculator, Info, Zap, Settings } from 'lucide-react';
-import Button from './Button';
-import Card from './Card';
+import { Button, Card } from '@/lib/imports';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { useToastContext } from '@/contexts/ToastContext';
 

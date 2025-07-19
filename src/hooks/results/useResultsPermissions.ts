@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { checkUserCanExport, checkUserCanAccessAIDetection } from '@/lib/subscription-utils';

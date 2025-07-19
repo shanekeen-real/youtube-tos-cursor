@@ -2,17 +2,19 @@
 import React, { Suspense } from 'react';
 import { AlertTriangle, FileText, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import Card from '@/components/Card';
-import Button from '@/components/Button';
-import ExportModal from '@/components/ExportModal';
-import { useResultsData } from '@/hooks/results/useResultsData';
-import { useResultsPermissions } from '@/hooks/results/useResultsPermissions';
-import { useResultsNavigation } from '@/hooks/results/useResultsNavigation';
-import { useResultsExport } from '@/hooks/results/useResultsExport';
-import ResultsSummary from '@/components/results/ResultsSummary';
-import ResultsHeader from '@/components/results/ResultsHeader';
-import TabNavigation from '@/components/results/ResultsTabs/TabNavigation';
-import OverviewTab from '@/components/results/ResultsTabs/OverviewTab';
+import { 
+  Card,
+  Button,
+  ExportModal,
+  useResultsData,
+  useResultsPermissions,
+  useResultsNavigation,
+  useResultsExport,
+  ResultsSummary,
+  ResultsHeader,
+  TabNavigation,
+  OverviewTab
+} from '@/lib/imports';
 
 function ResultsPageContent() {
   const { data, loading, error, status } = useResultsData();

@@ -2,20 +2,22 @@
 import React, { Suspense } from 'react';
 import { AlertTriangle, FileText, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import Card from '@/components/Card';
-import Button from '@/components/Button';
-import ExportModal from '@/components/ExportModal';
-import { useResultsData } from '@/hooks/results/useResultsData';
-import { useResultsPermissions } from '@/hooks/results/useResultsPermissions';
-import { useResultsNavigation } from '@/hooks/results/useResultsNavigation';
-import { useResultsExport } from '@/hooks/results/useResultsExport';
-import ResultsSummary from '@/components/results/ResultsSummary';
-import ResultsHeader from '@/components/results/ResultsHeader';
-import TabNavigation from '@/components/results/ResultsTabs/TabNavigation';
-import OverviewTab from '@/components/results/ResultsTabs/OverviewTab';
-import DetailsTab from '@/components/results/ResultsTabs/DetailsTab';
-import SuggestionsTab from '@/components/results/ResultsTabs/SuggestionsTab';
-import AIDetectionTab from '@/components/results/ResultsTabs/AIDetectionTab';
+import { Card } from '@/lib/imports';
+import { Button } from '@/lib/imports';
+import { 
+  ExportModal,
+  useResultsData,
+  useResultsPermissions,
+  useResultsNavigation,
+  useResultsExport,
+  ResultsSummary,
+  ResultsHeader,
+  TabNavigation,
+  OverviewTab,
+  DetailsTab,
+  SuggestionsTab,
+  AIDetectionTab
+} from '@/lib/imports';
 
 function ResultsPageContent() {
   const { data, loading, error, status } = useResultsData();

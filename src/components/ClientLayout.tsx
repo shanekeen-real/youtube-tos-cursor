@@ -1,13 +1,13 @@
 "use client";
 import React, { useState, createContext } from 'react';
-import AuthModal from './AuthModal';
-import UserMenu from './UserMenu';
-import Button from './Button';
+import { AuthModal } from '@/lib/imports';
+import { UserMenu } from '@/lib/imports';
+import { Button } from '@/lib/imports';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { Shield } from 'lucide-react';
 import { usePathname } from 'next/navigation';
-import FirebaseAuthProvider from './FirebaseAuthProvider';
+import { FirebaseAuthProvider } from '@/lib/imports';
 
 export const AuthContext = createContext<{
   user: any;

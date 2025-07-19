@@ -1,6 +1,6 @@
 import React from 'react';
 import { BarChart3 } from 'lucide-react';
-import Card from '@/components/Card';
+import { Card } from '@/lib/imports';
 
 interface RiskScoreCardProps {
   riskScore: number;

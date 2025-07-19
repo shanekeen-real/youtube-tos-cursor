@@ -2,13 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
-import Card from '@/components/Card';
-import Button from '@/components/Button';
-import Badge from '@/components/Badge';
+import { 
+  Card,
+  Button,
+  Badge,
+  ExportModal,
+  HighlightedTranscript
+} from '@/lib/imports';
 import Link from 'next/link';
 import { Suspense } from "react";
-import ExportModal from '@/components/ExportModal';
-import HighlightedTranscript from '@/components/HighlightedTranscript';
 import { Download, Lock, AlertTriangle, CheckCircle, Clock, BarChart3, FileText, Target, Globe, Zap, Calendar, Settings, ArrowLeft, ExternalLink, ArrowRight, Shield, Check, Brain, Info } from 'lucide-react';
 
 import { checkUserCanExport } from '@/lib/subscription-utils';

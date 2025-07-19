@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from 'react';
 import { useToastContext } from '@/contexts/ToastContext';
 import { signOut } from 'next-auth/react';

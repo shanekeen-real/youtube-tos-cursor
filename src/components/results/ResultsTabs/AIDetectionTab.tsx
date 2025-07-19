@@ -1,7 +1,6 @@
 import React from 'react';
 import { Brain, AlertTriangle, Info } from 'lucide-react';
-import Card from '@/components/Card';
-import Badge from '@/components/Badge';
+import { Card, Badge } from '@/lib/imports';
 import { ScanData } from '../types';
 
 interface AIDetectionTabProps {
