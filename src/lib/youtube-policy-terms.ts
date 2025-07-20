@@ -8,8 +8,8 @@ export interface PolicyTerm {
   term: string;
   category: string;
   severity: SeverityLevel;
-  description: string;
-  examples?: string[];
+  explanation: string;
+  variations?: string[];
 }
 
 export const YOUTUBE_POLICY_TERMS: PolicyTerm[] = [

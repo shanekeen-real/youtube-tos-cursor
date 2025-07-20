@@ -12,15 +12,8 @@ interface UserProfile {
   scanLimit: number;
 }
 
-// Define the data interface for suggestions
-interface AnalysisData {
-  suggestions?: Array<{
-    title: string;
-    text: string;
-    priority: string;
-    impact_score: number;
-  }>;
-}
+// Import ScanData type from results types
+import { ScanData } from '@/components/results/types';
 
 export function useResultsPermissions() {
   const { data: session, status } = useSession();
@@ -49,7 +42,7 @@ export function useResultsPermissions() {
     fetchUserProfile();
   }, [session?.user?.id]);
 
-  const getSuggestionLimit = (data: AnalysisData) => {
+  const getSuggestionLimit = (data: ScanData | null) => {
     // If userProfile is still loading, return a high limit to show all suggestions temporarily
     if (!userProfile && status === 'authenticated') {
       console.log('[ResultsPage] User profile still loading, showing all suggestions temporarily');
