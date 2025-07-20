@@ -57,6 +57,7 @@ export default function ScanHistoryPage() {
             
             span.setAttribute("scansCount", data.totalCount);
             setScans(data.scans);
+            setLoading(false); // Set loading to false after successful fetch
           } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to fetch scan history';
             setError(errorMessage);

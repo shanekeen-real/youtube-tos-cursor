@@ -121,11 +121,11 @@ export function useVideoManagement(session: Session | null, ytChannel: YouTubeCh
         if (data.items && data.items.length > 0) {
           await fetchRiskLevels(data.items);
         }
-              }
-      } catch (err: unknown) {
-        setVideosError(err instanceof Error ? err.message : 'Network error while fetching videos');
-        setRecentVideos([]);
-      } finally {
+      }
+    } catch (err: unknown) {
+      setVideosError(err instanceof Error ? err.message : 'Network error while fetching videos');
+      setRecentVideos([]);
+    } finally {
       setVideosLoading(false);
     }
   };
