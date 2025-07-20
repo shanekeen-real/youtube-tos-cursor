@@ -11,7 +11,7 @@ interface ResultsSummaryProps {
 export default function ResultsSummary({ data }: ResultsSummaryProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-      <RiskLevelCard riskLevel={data.riskLevel} />
+      <RiskLevelCard riskLevel={data.riskLevel} riskScore={data.riskScore} />
       <RiskScoreCard riskScore={data.riskScore} />
       <ContentTitleCard title={data.title} />
     </div>
