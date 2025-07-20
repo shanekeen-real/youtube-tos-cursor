@@ -1,4 +1,4 @@
-import { PolicyCategoryAnalysis, ContextAnalysis, RiskAssessment, ConfidenceAnalysis, Suggestion, RiskLevel } from './ai-analysis';
+import { PolicyCategoryAnalysis, ContextAnalysis, RiskAssessment, ConfidenceAnalysis, Suggestion, RiskLevel, AnalysisMode, QueueStatusType } from './ai-analysis';
 
 // Analysis result types
 export interface AnalysisResult {
@@ -61,15 +61,15 @@ export interface AnalysisMetadata {
   analysis_timestamp: string;
   processing_time_ms: number;
   content_length: number;
-  analysis_mode: 'enhanced' | 'fallback' | 'emergency' | 'multi-modal';
+  analysis_mode: AnalysisMode;
   queue_status?: QueueStatus;
 }
 
 export interface QueueStatus {
-  position?: number;
-  total?: number;
-  estimated_wait?: number;
-  status: 'queued' | 'processing' | 'completed' | 'failed';
+  position?: number | null;
+  total?: number | null;
+  estimated_wait?: number | null;
+  status: QueueStatusType;
 }
 
 // Batch analysis types
@@ -126,7 +126,7 @@ export interface SchemaValidationResult {
   valid: boolean;
   errors?: string[];
   warnings?: string[];
-  data?: any;
+  data?: unknown;
 }
 
 // Error handling types
@@ -134,7 +134,7 @@ export interface AnalysisError {
   type: 'validation' | 'processing' | 'api' | 'timeout' | 'unknown';
   message: string;
   code?: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   retryable?: boolean;
 }
 
@@ -160,7 +160,7 @@ export interface ModelResponse {
     completion: number;
     total: number;
   };
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Content processing types

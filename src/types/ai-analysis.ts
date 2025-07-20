@@ -1,9 +1,24 @@
 import { z } from 'zod';
+import { ANALYSIS_MODES, QUEUE_STATUS } from '../lib/constants/analysis-config';
+
+// Use the constants for queue status types
+export type QueueStatusType = typeof QUEUE_STATUS[keyof typeof QUEUE_STATUS];
+
+// Queue status interface for analysis metadata
+export interface QueueStatus {
+  position?: number | null;
+  total?: number | null;
+  estimated_wait?: number | null;
+  status: QueueStatusType;
+}
 
 // Type aliases for reusability and consistency
 export type SeverityLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 export type PriorityLevel = 'HIGH' | 'MEDIUM' | 'LOW';
+
+// Use the constants for analysis mode types
+export type AnalysisMode = typeof ANALYSIS_MODES[keyof typeof ANALYSIS_MODES];
 
 // YouTube Policy Categories
 export const YOUTUBE_POLICY_CATEGORIES = {
@@ -97,8 +112,8 @@ export interface EnhancedAnalysisResult {
     analysis_timestamp: string;
     processing_time_ms: number;
     content_length: number;
-    analysis_mode: 'enhanced' | 'fallback' | 'emergency' | 'multi-modal';
-    queue_status?: any; // Optional queue status for monitoring
+    analysis_mode: AnalysisMode;
+    queue_status?: QueueStatus; // Optional queue status for monitoring
   };
 }
 

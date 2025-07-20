@@ -126,6 +126,14 @@ export async function performHybridMultiModalVideoAnalysis(
     const queueStatus = model.getQueueStatus();
     console.log('Queue status:', queueStatus);
     
+    // Convert queue status to the expected format for analysis metadata
+    const analysisQueueStatus = {
+      position: queueStatus.queueLength > 0 ? 1 : null,
+      total: queueStatus.queueLength > 0 ? queueStatus.queueLength : null,
+      estimated_wait: queueStatus.queueLength > 0 ? queueStatus.queueLength * 1000 : null, // Rough estimate: 1 second per queued request
+      status: queueStatus.queueLength > 0 ? 'queued' as const : 'completed' as const
+    };
+    
     // Combine all analysis results in the expected EnhancedAnalysisResult format
     const analysisResult: EnhancedAnalysisResult = {
       risk_score: overallRiskScore,
@@ -164,7 +172,7 @@ export async function performHybridMultiModalVideoAnalysis(
         processing_time_ms: Date.now() - startTime,
         content_length: (videoData.transcript || '').length,
         analysis_mode: 'multi-modal',
-        queue_status: queueStatus
+        queue_status: analysisQueueStatus
       }
     };
     

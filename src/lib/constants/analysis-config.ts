@@ -89,7 +89,19 @@ export const TARGET_AUDIENCES = {
 export const ANALYSIS_MODES = {
   ENHANCED: 'enhanced',
   BASIC: 'basic',
-  FALLBACK: 'fallback'
+  FALLBACK: 'fallback',
+  EMERGENCY: 'emergency',
+  MULTI_MODAL: 'multi-modal'
+} as const;
+
+/**
+ * Queue status values
+ */
+export const QUEUE_STATUS = {
+  QUEUED: 'queued',
+  PROCESSING: 'processing',
+  COMPLETED: 'completed',
+  FAILED: 'failed'
 } as const;
 
 /**
