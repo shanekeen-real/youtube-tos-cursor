@@ -1,10 +1,31 @@
 import { SmartAIModel } from './ai-models';
-import { PolicyCategoryAnalysis, ContextAnalysis } from '../types/ai-analysis';
-import { VideoAnalysisData } from '@/types/video-processing';
+import { PolicyCategoryAnalysis, SeverityLevel, ContextAnalysis } from '../types/ai-analysis';
+import { VideoAnalysisData } from '../types/video-processing';
 import { jsonParsingService } from './json-parsing-service';
 import { createJsonOnlyPrompt } from './prompt-utils';
 import { performPolicyCategoryAnalysisBatched } from './policy-analysis';
 import { getAllPolicyCategoryKeys, MULTI_MODAL_SCHEMAS, MULTI_MODAL_EXAMPLES } from './multi-modal-utils';
+
+interface PolicyCategoryData {
+  risk_score?: number;
+  confidence?: number;
+  violations?: string[];
+  severity?: SeverityLevel;
+  explanation?: string;
+  description?: string;
+  recommendations?: string[];
+  risk_level?: string;
+}
+
+interface PolicyAnalysisItem {
+  category?: string;
+  [key: string]: unknown;
+}
+
+interface PolicyAnalysisResult {
+  categories?: { [key: string]: PolicyCategoryData };
+  [key: string]: PolicyCategoryData | unknown;
+}
 
 /**
  * Multi-modal policy analysis
@@ -37,7 +58,7 @@ export async function performMultiModalPolicyAnalysis(
       videoData.transcript,
       videoData.metadata
     );
-    const parsingResult = await jsonParsingService.parseJson<any>(result, expectedSchema, model);
+    const parsingResult = await jsonParsingService.parseJson<PolicyAnalysisResult>(result, expectedSchema, model);
     if (parsingResult.success && parsingResult.data) {
       console.log(`Multi-modal policy analysis completed using ${parsingResult.strategy}`);
       console.log('Policy analysis parsed data type:', typeof parsingResult.data);
@@ -45,23 +66,23 @@ export async function performMultiModalPolicyAnalysis(
       console.log('Policy analysis parsed data preview:', JSON.stringify(parsingResult.data).substring(0, 200) + '...');
       
       // Handle different possible response formats
-      let resultObj: { [category: string]: PolicyCategoryAnalysis } = {};
+      let resultObj: { [category: string]: PolicyCategoryData } = {};
       if (Array.isArray(parsingResult.data)) {
         // Convert array to object
-        parsingResult.data.forEach((item: any) => {
+        parsingResult.data.forEach((item: PolicyAnalysisItem) => {
           if (item.category) {
             const { category, ...rest } = item;
-            resultObj[category] = rest;
+            resultObj[category] = rest as PolicyCategoryData;
           }
         });
-      } else if (parsingResult.data.categories) {
+      } else if (parsingResult.data?.categories) {
         // Already in object format with categories wrapper
         resultObj = parsingResult.data.categories;
       } else if (typeof parsingResult.data === 'object' && parsingResult.data !== null) {
         // Direct object format - check if it has policy category keys
-        const hasPolicyKeys = allCategoryKeys.some(key => key in parsingResult.data);
+        const hasPolicyKeys = allCategoryKeys.some(key => key in (parsingResult.data || {}));
         if (hasPolicyKeys) {
-          resultObj = parsingResult.data;
+          resultObj = parsingResult.data as { [category: string]: PolicyCategoryData };
         } else {
           // Unknown object format - try to extract categories or fallback
           console.warn('Unknown policy analysis response format, attempting fallback');
@@ -76,7 +97,7 @@ export async function performMultiModalPolicyAnalysis(
       // Convert multi-modal format to PolicyCategoryAnalysis format (robust, safe)
       const convertedResult: { [category: string]: PolicyCategoryAnalysis } = {};
       allCategoryKeys.forEach((key) => {
-        const categoryData = resultObj[key] as any;
+        const categoryData = resultObj[key] as PolicyCategoryData;
         if (categoryData && (categoryData.risk_score !== undefined || categoryData.confidence !== undefined)) {
           // Use actual risk_score from AI analysis (0-100 based on YouTube policies)
           let riskScore = 0;
@@ -105,7 +126,7 @@ export async function performMultiModalPolicyAnalysis(
           // Convert recommendations to violations
           const violations = Array.isArray(categoryData.recommendations) ? categoryData.recommendations : (Array.isArray(categoryData.violations) ? categoryData.violations : []);
           // Calculate severity based on actual risk score
-          let severity: 'LOW' | 'MEDIUM' | 'HIGH' = 'LOW';
+          let severity: SeverityLevel = 'LOW';
           if (riskScore >= 70) {
             severity = 'HIGH';
           } else if (riskScore >= 30) {
@@ -126,7 +147,7 @@ export async function performMultiModalPolicyAnalysis(
             risk_score: 0,
             confidence: 0,
             violations: [],
-            severity: 'LOW',
+            severity: 'LOW' as SeverityLevel,
             explanation: ''
           };
         }
@@ -161,7 +182,7 @@ export async function performMultiModalPolicyAnalysis(
  */
 export async function performAIDrivenPolicyAnalysis(
   text: string,
-  contextAnalysis: any,
+  contextAnalysis: ContextAnalysis,
   model: SmartAIModel,
   videoContext: string
 ): Promise<{ [category: string]: PolicyCategoryAnalysis }> {
@@ -169,9 +190,9 @@ export async function performAIDrivenPolicyAnalysis(
   const allCategoryKeys: string[] = getAllPolicyCategoryKeys();
 
   // Build expectedSchema as an object with all category keys
-  const expectedSchema: any = { categories: {} };
+  const expectedSchema: Record<string, unknown> = { categories: {} };
   allCategoryKeys.forEach((key) => {
-    expectedSchema.categories[key] = {
+    (expectedSchema.categories as Record<string, unknown>)[key] = {
       risk_score: 'number (0-100)',
       confidence: 'number (0-100)',
       violations: ['array of specific violations found'],
@@ -229,26 +250,26 @@ export async function performAIDrivenPolicyAnalysis(
   
   try {
     const result = await model.generateContent(robustPrompt);
-    const parsingResult = await jsonParsingService.parseJson<any>(result, expectedSchema, model);
+    const parsingResult = await jsonParsingService.parseJson<PolicyAnalysisResult>(result, expectedSchema, model);
     if (parsingResult.success && parsingResult.data) {
       // Validate that all required categories are present
-      const missingCategories = allCategoryKeys.filter((cat) => !parsingResult.data.categories?.[cat]);
+      const missingCategories = allCategoryKeys.filter((cat) => !parsingResult.data?.categories?.[cat]);
       if (missingCategories.length > 0) {
         console.warn(`Missing categories in AI response: ${missingCategories.join(', ')}`);
         // Add missing categories with default values
         missingCategories.forEach((category) => {
-          if (!parsingResult.data.categories) parsingResult.data.categories = {};
-          parsingResult.data.categories[category] = {
+          if (!parsingResult.data?.categories) parsingResult.data!.categories = {};
+          parsingResult.data!.categories[category] = {
             risk_score: 0,
             confidence: 0,
             violations: [],
-            severity: 'LOW',
-            explanation: 'Category not analyzed by AI - using default values',
+                      severity: 'LOW' as SeverityLevel,
+          explanation: 'Category not analyzed by AI - using default values',
           };
         });
       }
       // Convert to PolicyCategoryAnalysis object format
-      const policyCategories: { [category: string]: PolicyCategoryAnalysis } = Object.entries(parsingResult.data.categories || {}).reduce((acc: { [category: string]: PolicyCategoryAnalysis }, [category, data]: [string, any]) => {
+      const policyCategories: { [category: string]: PolicyCategoryAnalysis } = Object.entries(parsingResult.data?.categories || {}).reduce((acc: { [category: string]: PolicyCategoryAnalysis }, [category, data]: [string, PolicyCategoryData]) => {
         acc[category] = {
           ...data,
           risk_score: Math.min(100, Math.max(0, data.risk_score || 0)),
@@ -275,8 +296,8 @@ export async function performAIDrivenPolicyAnalysis(
         risk_score: 0,
         confidence: 0,
         violations: [],
-        severity: 'LOW' as const,
-        explanation: 'Policy analysis unavailable - using fallback',
+                  severity: 'LOW' as SeverityLevel,
+          explanation: 'Policy analysis unavailable - using fallback',
       };
     });
     return fallbackObj;
@@ -313,26 +334,26 @@ export async function performTextOnlyPolicyAnalysis(
   
   try {
     const result = await model.generateContent(robustPrompt);
-    const parsingResult = await jsonParsingService.parseJson<any>(result, expectedSchema, model);
+    const parsingResult = await jsonParsingService.parseJson<PolicyAnalysisResult>(result, expectedSchema, model);
     
     if (parsingResult.success && parsingResult.data) {
       console.log(`Text-only policy analysis completed using ${parsingResult.strategy}`);
       
       // Handle different possible response formats (same logic as multi-modal)
-      let resultObj: { [category: string]: PolicyCategoryAnalysis } = {};
+      let resultObj: { [category: string]: PolicyCategoryData } = {};
       if (Array.isArray(parsingResult.data)) {
-        parsingResult.data.forEach((item: any) => {
+        parsingResult.data.forEach((item: PolicyAnalysisItem) => {
           if (item.category) {
             const { category, ...rest } = item;
-            resultObj[category] = rest;
+            resultObj[category] = rest as PolicyCategoryData;
           }
         });
-      } else if (parsingResult.data.categories) {
+      } else if (parsingResult.data?.categories) {
         resultObj = parsingResult.data.categories;
       } else if (typeof parsingResult.data === 'object' && parsingResult.data !== null) {
-        const hasPolicyKeys = allCategoryKeys.some(key => key in parsingResult.data);
+        const hasPolicyKeys = allCategoryKeys.some(key => key in (parsingResult.data || {}));
         if (hasPolicyKeys) {
-          resultObj = parsingResult.data;
+          resultObj = parsingResult.data as { [category: string]: PolicyCategoryData };
         } else {
           console.warn('Unknown policy analysis response format, attempting fallback');
           return await performPolicyCategoryAnalysisBatched(transcript, model, contextAnalysis);
@@ -345,7 +366,7 @@ export async function performTextOnlyPolicyAnalysis(
       // Convert to PolicyCategoryAnalysis format (same logic as multi-modal)
       const convertedResult: { [category: string]: PolicyCategoryAnalysis } = {};
       allCategoryKeys.forEach((key) => {
-        const categoryData = resultObj[key] as any;
+        const categoryData = resultObj[key] as PolicyCategoryData;
         if (categoryData && (categoryData.risk_score !== undefined || categoryData.confidence !== undefined)) {
           let riskScore = 0;
           if (typeof categoryData.risk_score === 'number' && !isNaN(categoryData.risk_score)) {
@@ -364,7 +385,7 @@ export async function performTextOnlyPolicyAnalysis(
           const violations = Array.isArray(categoryData.recommendations) ? categoryData.recommendations : 
                            (Array.isArray(categoryData.violations) ? categoryData.violations : []);
           
-          let severity: 'LOW' | 'MEDIUM' | 'HIGH' = 'LOW';
+          let severity: SeverityLevel = 'LOW';
           if (riskScore >= 70) severity = 'HIGH';
           else if (riskScore >= 30) severity = 'MEDIUM';
           else severity = 'LOW';
@@ -381,8 +402,8 @@ export async function performTextOnlyPolicyAnalysis(
             risk_score: 0,
             confidence: 0,
             violations: [],
-            severity: 'LOW',
-            explanation: ''
+                      severity: 'LOW' as SeverityLevel,
+          explanation: ''
           };
         }
       });

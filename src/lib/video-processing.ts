@@ -4,13 +4,13 @@ import { promisify } from 'util';
 import { pipeline } from 'stream';
 import { exec } from 'child_process';
 import * as Sentry from '@sentry/nextjs';
-import fs from 'fs';
-import path from 'path';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const pipelineAsync = promisify(pipeline);
 const execAsync = promisify(exec);
 
-import { VideoProcessingResult, VideoAnalysisData } from '@/types/video-processing';
+import { VideoProcessingResult, VideoAnalysisData, FFprobeOutput, FFprobeStream } from '../types/video-processing';
 
 /**
  * Download YouTube video using yt-dlp
@@ -65,17 +65,17 @@ export async function downloadYouTubeVideo(videoId: string, outputDir: string = 
       console.error('ffprobe stderr:', probeStderr);
     }
     
-    const probeData = JSON.parse(probeStdout);
+    const probeData = JSON.parse(probeStdout) as FFprobeOutput;
     console.log('Video file analysis:', {
       duration: probeData.format?.duration,
       size: probeData.format?.size,
       bitrate: probeData.format?.bit_rate,
-      videoStreams: probeData.streams?.filter((s: any) => s.codec_type === 'video').length,
-      audioStreams: probeData.streams?.filter((s: any) => s.codec_type === 'audio').length
+      videoStreams: probeData.streams?.filter((s: FFprobeStream) => s.codec_type === 'video').length,
+      audioStreams: probeData.streams?.filter((s: FFprobeStream) => s.codec_type === 'audio').length
     });
     
     // Check if video stream has proper pixel format
-    const videoStream = probeData.streams?.find((s: any) => s.codec_type === 'video');
+    const videoStream = probeData.streams?.find((s: FFprobeStream) => s.codec_type === 'video');
     if (videoStream && (!videoStream.pix_fmt || videoStream.pix_fmt === 'none')) {
       console.warn('Warning: Video stream has no pixel format specified. This may cause frame extraction issues.');
     }
@@ -88,15 +88,16 @@ export async function downloadYouTubeVideo(videoId: string, outputDir: string = 
       success: true
     };
     
-  } catch (error: any) {
-    console.error('Video download failed:', error);
+  } catch (error: unknown) {
+    const downloadError = error as Error;
+    console.error('Video download failed:', downloadError);
     return {
       videoPath: '',
       duration: 0,
       resolution: 'unknown',
       fileSize: 0,
       success: false,
-      error: error.message
+      error: downloadError.message
     };
   }
 }
@@ -186,13 +187,14 @@ export async function extractKeyFrames(videoPath: string, outputDir: string = '/
         } else {
           console.error(`❌ ERROR: Frame ${i + 1} was not created at: ${framePath}`);
         }
-      } catch (frameError: any) {
+      } catch (frameError: unknown) {
+        const error = frameError as Error & { cmd?: string; stdout?: string; stderr?: string };
         console.error(`❌ ERROR: Failed to extract frame ${i + 1} at timestamp ${timestamp},`, {
           framePath,
-          error: frameError.message,
-          cmd: frameError.cmd,
-          stdout: frameError.stdout,
-          stderr: frameError.stderr
+          error: error.message,
+          cmd: error.cmd,
+          stdout: error.stdout,
+          stderr: error.stderr
         });
         
         // Dont break the loop, try to continue with other frames
@@ -203,17 +205,18 @@ export async function extractKeyFrames(videoPath: string, outputDir: string = '/
     console.log(`Successfully extracted ${framePaths.length}/${actualFrameCount} key frames`);
     return framePaths;
     
-  } catch (error: any) {
-    console.error('Key frame extraction failed:', error);
+  } catch (error: unknown) {
+    const extractionError = error as Error & { code?: string; cmd?: string; stdout?: string; stderr?: string };
+    console.error('Key frame extraction failed:', extractionError);
     console.error('Extraction error details:', {
-      message: error.message,
-      code: error.code,
-      cmd: error.cmd,
-      stdout: error.stdout,
-      stderr: error.stderr
+      message: extractionError.message,
+      code: extractionError.code,
+      cmd: extractionError.cmd,
+      stdout: extractionError.stdout,
+      stderr: extractionError.stderr
     });
     
-    Sentry.captureException(error, {
+    Sentry.captureException(extractionError, {
       tags: { component: 'video-processing', action: 'extract-frames' },
       extra: { videoPath, outputDir, frameCount }
     });
@@ -229,7 +232,7 @@ async function getVideoDuration(videoPath: string): Promise<number> {
     const command = `ffprobe -v quiet -show_entries format=duration -of csv=p=0 "${videoPath}"`;
     const { stdout } = await execAsync(command);
     return parseFloat(stdout.trim()) || 0;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Failed to get video duration:', error);
     return 0;
   }
@@ -255,7 +258,7 @@ export async function cleanupVideoFiles(videoPath: string, framePaths: string[] 
         console.warn(`Failed to clean up frame file: ${framePath}`, error);
       }
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Cleanup failed:', error);
   }
 }
@@ -275,9 +278,9 @@ export async function checkVideoProcessingTools(): Promise<{ ytdlp: boolean; ffm
     ]);
     
     console.log('Tool check results:', {
-      ytdlp: { status: results[0].status, error: results[0].status === 'rejected' ? (results[0] as any).reason : null },
-      ffmpeg: { status: results[1].status, error: results[1].status === 'rejected' ? (results[1] as any).reason : null },
-      ffprobe: { status: results[2].status, error: results[2].status === 'rejected' ? (results[2] as any).reason : null }
+      ytdlp: { status: results[0].status, error: results[0].status === 'rejected' ? (results[0] as PromiseRejectedResult).reason : null },
+      ffmpeg: { status: results[1].status, error: results[1].status === 'rejected' ? (results[1] as PromiseRejectedResult).reason : null },
+      ffprobe: { status: results[2].status, error: results[2].status === 'rejected' ? (results[2] as PromiseRejectedResult).reason : null }
     });
     
     return {
@@ -324,9 +327,10 @@ export async function prepareVideoForAnalysis(videoId: string): Promise<VideoAna
     // Clean up files after analysis (will be done by caller)
     return analysisData;
     
-  } catch (error: any) {
-    console.error('Video preparation failed:', error);
-    Sentry.captureException(error, {
+  } catch (error: unknown) {
+    const preparationError = error as Error;
+    console.error('Video preparation failed:', preparationError);
+    Sentry.captureException(preparationError, {
       tags: { component: 'video-processing', action: 'prepare-analysis' },
       extra: { videoId }
     });

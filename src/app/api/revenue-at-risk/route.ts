@@ -3,6 +3,42 @@ import { adminDb } from '@/lib/firebase-admin';
 import { auth, refreshGoogleAccessToken } from '@/lib/auth';
 import { usageTracker } from '@/lib/usage-tracker';
 import * as Sentry from "@sentry/nextjs";
+import { DocumentData, QueryDocumentSnapshot, Timestamp } from 'firebase-admin/firestore';
+
+// Type definitions for YouTube API responses
+interface YouTubeVideo {
+  id: {
+    videoId: string;
+  };
+  snippet?: {
+    title?: string;
+  };
+}
+
+interface YouTubeVideoStats {
+  id: string;
+  statistics?: {
+    viewCount?: string;
+  };
+  snippet?: {
+    title?: string;
+  };
+}
+
+interface VideoStats {
+  viewCount: number;
+  title: string;
+}
+
+interface ScanData {
+  video_id?: string;
+  analysisResult?: {
+    riskLevel?: string;
+    risk_level?: string;
+  };
+  timestamp?: Timestamp; // Firestore timestamp
+  createdAt?: Timestamp; // Firestore timestamp
+}
 
 export async function GET(req: NextRequest) {
   return Sentry.startSpan(
@@ -66,8 +102,8 @@ export async function GET(req: NextRequest) {
         const cacheRef = adminDb.collection('youtube_cache').doc(cacheKey);
         const cacheDoc = await cacheRef.get();
         
-        let allVideos: any[] = [];
-        let viewCounts = new Map();
+        let allVideos: YouTubeVideo[] = [];
+        let viewCounts = new Map<string, VideoStats>();
         
         if (cacheDoc.exists) {
           const cacheData = cacheDoc.data();
@@ -130,7 +166,7 @@ export async function GET(req: NextRequest) {
           } while (nextPageToken && allVideos.length < 200); // Limit to 200 for performance
 
           // 2. Get view counts for all videos
-          const videoIds = allVideos.map((v: any) => v.id.videoId).filter(Boolean);
+          const videoIds = allVideos.map((v: YouTubeVideo) => v.id.videoId).filter(Boolean);
           for (let i = 0; i < videoIds.length; i += 50) {
             const chunk = videoIds.slice(i, i + 50);
             const statsUrl = `https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet&id=${chunk.join(',')}`;
@@ -142,7 +178,7 @@ export async function GET(req: NextRequest) {
             });
             if (statsResponse.ok) {
               const statsData = await statsResponse.json();
-              statsData.items?.forEach((item: any) => {
+              statsData.items?.forEach((item: YouTubeVideoStats) => {
                 viewCounts.set(item.id, {
                   viewCount: parseInt(item.statistics?.viewCount || '0'),
                   title: item.snippet?.title || 'Untitled',
@@ -165,7 +201,7 @@ export async function GET(req: NextRequest) {
         }
 
         // Get video IDs for revenue calculation
-        const videoIds = allVideos.map((v: any) => v.id.videoId).filter(Boolean);
+        const videoIds = allVideos.map((v: YouTubeVideo) => v.id.videoId).filter(Boolean);
 
         // 3. For each video, check Firestore for latest scan result
         const scanSnaps = await adminDb.collection('analysis_cache')
@@ -173,8 +209,8 @@ export async function GET(req: NextRequest) {
           .where('isCache', '==', false)
           .get();
         const scanMap = new Map();
-        scanSnaps.docs.forEach((doc: any) => {
-          const data = doc.data();
+        scanSnaps.docs.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
+          const data = doc.data() as ScanData;
           const videoId = data.video_id;
           const timestamp = data.timestamp?.toDate?.() || data.timestamp || data.createdAt || new Date();
           const prev = scanMap.get(videoId);
@@ -233,10 +269,11 @@ export async function GET(req: NextRequest) {
           details,
           setupRequired: false
         });
-      } catch (error: any) {
-        console.error('Error in /api/revenue-at-risk:', error);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Error in /api/revenue-at-risk:', errorMessage);
         Sentry.captureException(error);
-        return NextResponse.json({ error: 'Failed to calculate revenue at risk', details: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to calculate revenue at risk', details: errorMessage }, { status: 500 });
       }
     }
   );

@@ -28,11 +28,12 @@ export async function GET(req: NextRequest) {
           envCheck,
           message: 'Environment variables check completed'
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         Sentry.captureException(error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         return NextResponse.json({ 
           error: 'Failed to check environment variables', 
-          details: error.message 
+          details: errorMessage 
         }, { status: 500 });
       }
     }

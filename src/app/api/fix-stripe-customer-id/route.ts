@@ -3,6 +3,11 @@ import Stripe from 'stripe';
 import { auth } from '@/lib/auth';
 import { adminDb } from '@/lib/firebase-admin';
 
+// Extended type for Stripe subscription with additional properties
+type ExtendedSubscription = Stripe.Subscription & {
+  current_period_end?: number;
+};
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: '2025-05-28.basil',
 });
@@ -107,7 +112,7 @@ export async function POST(req: NextRequest) {
           subscriptions: subscriptions.data.map(sub => ({
             id: sub.id,
             status: sub.status,
-            current_period_end: (sub as any).current_period_end
+            current_period_end: (sub as ExtendedSubscription).current_period_end
           }))
         }
       });

@@ -12,7 +12,7 @@ export interface JsonParsingOptions {
   logAttempts?: boolean;
 }
 
-export interface JsonParsingResult<T = any> {
+export interface JsonParsingResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -42,9 +42,9 @@ export class JsonParsingService {
   /**
    * Parse JSON with comprehensive fallback strategies
    */
-  async parseJson<T = any>(
+  async parseJson<T = unknown>(
     response: string,
-    expectedSchema?: any,
+    expectedSchema?: unknown,
     model?: AIModel
   ): Promise<JsonParsingResult<T>> {
     const result: JsonParsingResult<T> = {
@@ -88,7 +88,7 @@ export class JsonParsingService {
     try {
       const data = parseJSONSafely(response);
       result.success = true;
-      result.data = data;
+      result.data = data as T;
       result.strategy = 'legacy';
       result.attempts = 3;
       return result;
@@ -104,7 +104,7 @@ export class JsonParsingService {
         const aiRepaired = await this.repairWithAI(response, expectedSchema, model);
         if (aiRepaired.success) {
           result.success = true;
-          result.data = aiRepaired.data;
+          result.data = aiRepaired.data as T;
           result.strategy = 'ai-repair';
           result.attempts = 4;
           result.repairedResponse = aiRepaired.repairedResponse;
@@ -161,9 +161,9 @@ export class JsonParsingService {
    */
   private async repairWithAI(
     malformedJson: string,
-    expectedSchema: any,
+    expectedSchema: unknown,
     model: AIModel
-  ): Promise<JsonParsingResult> {
+  ): Promise<JsonParsingResult<unknown>> {
     const repairPrompt = createRepairPrompt(malformedJson, JSON.stringify(expectedSchema, null, 2));
     
     try {
@@ -276,9 +276,9 @@ Respond with only: {"valid": true} or {"valid": false, "error": "description"}
   /**
    * Extract structured data from narrative text
    */
-  async extractFromNarrative<T = any>(
+  async extractFromNarrative<T = unknown>(
     narrativeText: string,
-    targetSchema: any,
+    targetSchema: unknown,
     extractionRules: string[],
     model: AIModel
   ): Promise<JsonParsingResult<T>> {

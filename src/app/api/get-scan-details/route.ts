@@ -1,13 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { auth } from '@/lib/auth';
+import { Session } from 'next-auth';
+import { Timestamp } from 'firebase-admin/firestore';
 import * as Sentry from "@sentry/nextjs";
 import type { SubscriptionTier } from '@/types/subscription';
+
+// Type definitions for scan data
+interface ScanData {
+  userId?: string;
+  analysisResult?: {
+    riskLevel?: string;
+    risk_level?: string;
+    riskScore?: number;
+    risk_score?: number;
+    suggestions?: Array<{
+      id?: string;
+      title?: string;
+      description?: string;
+      category?: string;
+      priority?: string;
+    }>;
+    allSuggestionsCount?: number;
+  };
+  video_id?: string;
+  original_url?: string;
+  timestamp?: Timestamp;
+  createdAt?: Timestamp;
+}
+
+interface UserData {
+  subscriptionTier?: SubscriptionTier;
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const scanId = searchParams.get('scanId');
-  let session: any;
+  let session: Session | null;
   
   return Sentry.startSpan(
     {
@@ -35,7 +64,7 @@ export async function GET(req: NextRequest) {
           return NextResponse.json({ error: 'Scan not found' }, { status: 404 });
         }
 
-        const scanData = scanDoc.data();
+        const scanData = scanDoc.data() as ScanData;
 
         // Security check: ensure the user owns this scan
         if (scanData?.userId && scanData.userId !== userId) {
@@ -49,7 +78,7 @@ export async function GET(req: NextRequest) {
           const userRef = adminDb.collection('users').doc(userId);
           const userDoc = await userRef.get();
           if (userDoc.exists) {
-            const userData = userDoc.data();
+            const userData = userDoc.data() as UserData;
             userTier = userData?.subscriptionTier || 'free';
           }
         } catch (tierError) {
@@ -66,16 +95,17 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json(scanData);
 
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error fetching scan details:', error);
         Sentry.captureException(error, {
           tags: { component: 'get-scan-details', action: 'fetch-scan' },
           extra: { scanId: scanId, userId: session?.user?.id }
         });
+        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
         
         return NextResponse.json({ 
           error: 'Failed to fetch scan details',
-          details: error.message 
+          details: errorMessage 
         }, { status: 500 });
       }
     }

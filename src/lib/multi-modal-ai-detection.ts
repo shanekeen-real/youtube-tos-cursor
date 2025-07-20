@@ -1,6 +1,8 @@
 import { SmartAIModel } from './ai-models';
 import { ContextAnalysis } from '../types/ai-analysis';
 import { VideoAnalysisData } from '@/types/video-processing';
+import { ChannelContext } from '@/types/user';
+import { AIDetectionResult } from '@/types/analysis';
 import { jsonParsingService } from './json-parsing-service';
 import { createJsonOnlyPrompt } from './prompt-utils';
 import { performAIDetection } from './ai-detection';
@@ -12,9 +14,9 @@ import { MULTI_MODAL_SCHEMAS, MULTI_MODAL_EXAMPLES } from './multi-modal-utils';
 export async function performMultiModalAIDetection(
   videoData: VideoAnalysisData,
   model: SmartAIModel,
-  channelContext: any,
+  channelContext: ChannelContext,
   contextAnalysis: ContextAnalysis
-): Promise<any> {
+): Promise<AIDetectionResult> {
   console.log('Starting multi-modal AI detection...');
   console.log('Channel context available:', !!channelContext);
   console.log('Context analysis:', contextAnalysis);
@@ -49,10 +51,24 @@ export async function performMultiModalAIDetection(
       videoData.transcript,
       videoData.metadata
     );
-    const parsingResult = await jsonParsingService.parseJson<any>(result, expectedSchema, model);
+    const parsingResult = await jsonParsingService.parseJson<AIDetectionResult>(result, expectedSchema, model);
     if (parsingResult.success && parsingResult.data) {
-      console.log(`Multi-modal AI detection completed successfully using ${parsingResult.strategy}:`, parsingResult.data);
-      return parsingResult.data;
+      // Normalize the result to match AIDetectionResult interface
+      const normalizedResult: AIDetectionResult = {
+        probability: parsingResult.data.probability || 0,
+        confidence: parsingResult.data.confidence || 0,
+        patterns: Array.isArray(parsingResult.data.patterns) ? parsingResult.data.patterns : ['No specific AI patterns detected.'],
+        indicators: {
+          repetitive_language: parsingResult.data.indicators?.repetitive_language || 0,
+          structured_content: parsingResult.data.indicators?.structured_content || 0,
+          personal_voice: parsingResult.data.indicators?.personal_voice || 0,
+          grammar_consistency: parsingResult.data.indicators?.grammar_consistency || 0,
+          natural_flow: parsingResult.data.indicators?.natural_flow || 0
+        },
+        explanation: parsingResult.data.explanation || 'AI detection analysis completed'
+      };
+      console.log(`Multi-modal AI detection completed successfully using ${parsingResult.strategy}:`, normalizedResult);
+      return normalizedResult;
     } else {
       console.error(`AI detection JSON parsing failed: ${parsingResult.error}`);
       throw new Error(`AI detection JSON parsing failed: ${parsingResult.error}`);
@@ -62,7 +78,15 @@ export async function performMultiModalAIDetection(
     // Fallback to text-only AI detection
     if (videoData.transcript) {
       console.log('Falling back to transcript-based AI detection');
-      return await performAIDetection(videoData.transcript, model, channelContext);
+      const fallbackResult = await performAIDetection(videoData.transcript, model, channelContext);
+      // Convert to AIDetectionResult format
+      return {
+        probability: fallbackResult.ai_probability,
+        confidence: fallbackResult.confidence,
+        patterns: fallbackResult.patterns,
+        indicators: fallbackResult.indicators,
+        explanation: fallbackResult.explanation
+      };
     }
     throw error;
   }
@@ -71,7 +95,7 @@ export async function performMultiModalAIDetection(
 /**
  * AI-driven AI detection using existing AI models
  */
-export async function performAIDrivenAIDetection(text: string, model: SmartAIModel): Promise<any> {
+export async function performAIDrivenAIDetection(text: string, model: SmartAIModel): Promise<AIDetectionResult> {
   console.log('Performing AI-driven AI detection...');
   
   const expectedSchema = MULTI_MODAL_SCHEMAS.aiDetection;
@@ -115,11 +139,11 @@ export async function performAIDrivenAIDetection(text: string, model: SmartAIMod
   
   try {
     const result = await model.generateContent(robustPrompt);
-    const parsingResult = await jsonParsingService.parseJson<any>(result, expectedSchema, model);
+    const parsingResult = await jsonParsingService.parseJson<AIDetectionResult>(result, expectedSchema, model);
     if (parsingResult.success && parsingResult.data) {
       // Validate and normalize the result
-      const validatedResult = {
-        ai_probability: Math.min(100, Math.max(0, parsingResult.data.ai_probability || 0)),
+      const validatedResult: AIDetectionResult = {
+        probability: Math.min(100, Math.max(0, parsingResult.data.probability || 0)),
         confidence: Math.min(100, Math.max(0, parsingResult.data.confidence || 0)),
         patterns: Array.isArray(parsingResult.data.patterns) ? parsingResult.data.patterns : ['No specific AI patterns detected.'],
         indicators: {
@@ -143,7 +167,7 @@ export async function performAIDrivenAIDetection(text: string, model: SmartAIMod
     
     // Fallback to minimal AI detection
     return {
-      ai_probability: 0,
+      probability: 0,
       confidence: 0,
       patterns: ['No specific AI patterns detected.'],
       indicators: {
@@ -164,23 +188,35 @@ export async function performAIDrivenAIDetection(text: string, model: SmartAIMod
 export async function performAIDetectionWithContext(
   transcript: string, 
   model: SmartAIModel, 
-  channelContext: any, 
+  channelContext: ChannelContext, 
   videoContext: string
-): Promise<any> {
+): Promise<AIDetectionResult> {
   console.log('Performing AI detection with video context...');
   
   const expectedSchema = {
-    ai_probability: "number (0-100)",
+    probability: "number (0-100)",
     confidence: "number (0-100)",
     patterns: ["array of actual AI generation patterns - if none detected, use 'No specific AI patterns detected'"],
-    indicators: ["array of indicators that suggest AI generation"],
+    indicators: {
+      repetitive_language: "number (0-100)",
+      structured_content: "number (0-100)",
+      personal_voice: "number (0-100)",
+      grammar_consistency: "number (0-100)",
+      natural_flow: "number (0-100)"
+    },
     explanation: "string explaining the analysis"
   };
   const exampleResponse = {
-    ai_probability: 80,
+    probability: 80,
     confidence: 90,
     patterns: ["Repetitive sentence structure", "Artificial generation artifacts"],
-    indicators: ["Repetitive sentence structure", "Artificial generation artifacts"],
+    indicators: {
+      repetitive_language: 85,
+      structured_content: 70,
+      personal_voice: 20,
+      grammar_consistency: 95,
+      natural_flow: 30
+    },
     explanation: "High probability of AI generation detected, particularly in sentence structure and artificial artifacts."
   };
   const basePrompt = `Analyze this content for AI generation patterns and return ONLY this JSON structure:`;
@@ -193,11 +229,11 @@ export async function performAIDetectionWithContext(
     `CHANNEL CONTEXT:\n` +
     `${JSON.stringify(channelContext)}\n\n` +
     `ANALYSIS GUIDELINES:\n` +
-    `- AI Probability: Likelihood that this content was AI-generated (0-100)\n` +
+    `- Probability: Likelihood that this content was AI-generated (0-100)\n` +
     `- Confidence: Confidence in the AI detection assessment (0-100)\n` +
     `- Patterns: Specific patterns that indicate AI generation\n` +
-    `- Indicators: General indicators that suggest AI involvement\n` +
-    `- Explanation: Clear explanation of the assessment\n\n` +
+    `- Indicators: Detailed scoring of various AI indicators\n` +
+    `- Explanation: Clear explanation of the analysis results\n\n` +
     `IMPORTANT: Respond ONLY with valid JSON. Do not include any commentary, explanation, or text outside the JSON object.`,
     JSON.stringify(expectedSchema, null, 2),
     JSON.stringify(exampleResponse, null, 2)
@@ -208,35 +244,46 @@ export async function performAIDetectionWithContext(
       robustPrompt,
       videoContext,
       transcript,
-      channelContext
+      undefined // metadata parameter - not needed for this analysis
     );
-    const parsingResult = await jsonParsingService.parseJson<any>(result, expectedSchema, model);
+    const parsingResult = await jsonParsingService.parseJson<AIDetectionResult>(result, expectedSchema, model);
     if (parsingResult.success && parsingResult.data) {
-      // Validate and normalize the result
-      const validatedResult = {
-        ai_probability: Math.min(100, Math.max(0, parsingResult.data.ai_probability || 0)),
-        confidence: Math.min(100, Math.max(0, parsingResult.data.confidence || 0)),
-        patterns: Array.isArray(parsingResult.data.patterns) ? parsingResult.data.patterns : ['No specific AI patterns detected'],
-        indicators: Array.isArray(parsingResult.data.indicators) ? parsingResult.data.indicators : ['No specific indicators detected'],
+      // Normalize the result to match AIDetectionResult interface
+      const normalizedResult: AIDetectionResult = {
+        probability: parsingResult.data.probability || 0,
+        confidence: parsingResult.data.confidence || 0,
+        patterns: Array.isArray(parsingResult.data.patterns) ? parsingResult.data.patterns : ['No specific AI patterns detected.'],
+        indicators: {
+          repetitive_language: parsingResult.data.indicators?.repetitive_language || 0,
+          structured_content: parsingResult.data.indicators?.structured_content || 0,
+          personal_voice: parsingResult.data.indicators?.personal_voice || 0,
+          grammar_consistency: parsingResult.data.indicators?.grammar_consistency || 0,
+          natural_flow: parsingResult.data.indicators?.natural_flow || 0
+        },
         explanation: parsingResult.data.explanation || 'AI detection analysis completed'
       };
-
-      console.log(`AI detection with context completed using ${parsingResult.strategy}:`, validatedResult);
-      return validatedResult;
+      console.log(`AI detection with context completed using ${parsingResult.strategy}:`, normalizedResult);
+      return normalizedResult;
     } else {
-      console.error(`AI detection with context JSON parsing failed: ${parsingResult.error}`);
-      throw new Error(`AI detection with context JSON parsing failed: ${parsingResult.error}`);
+      console.error(`AI detection JSON parsing failed: ${parsingResult.error}`);
+      throw new Error(`AI detection JSON parsing failed: ${parsingResult.error}`);
     }
   } catch (error) {
     console.error('AI detection with context failed:', error);
     
-    // Fallback to basic AI detection
+    // Fallback to minimal AI detection
     return {
-      ai_probability: 0,
+      probability: 0,
       confidence: 0,
-      patterns: ['Analysis unavailable'],
-      indicators: ['Analysis unavailable'],
-      explanation: 'AI detection analysis failed'
+      patterns: ['No specific AI patterns detected.'],
+      indicators: {
+        repetitive_language: 0,
+        structured_content: 0,
+        personal_voice: 0,
+        grammar_consistency: 0,
+        natural_flow: 0
+      },
+      explanation: 'AI detection analysis failed - defaulting to 0%'
     };
   }
 } 

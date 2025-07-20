@@ -50,8 +50,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.idToken = token.idToken as string | undefined
       // Always set session.user.id to the Google Account ID (string)
       session.user.id = String(token.userId || '');
-      // Optionally, add googleAccountId to session for clarity
-      (session.user as any).googleAccountId = String(token.userId || '');
+      // Add googleAccountId to session for clarity
+      session.user.googleAccountId = String(token.userId || '');
       return session;
     },
     async signIn({ user, account, profile }) {

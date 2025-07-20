@@ -1,7 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { auth } from '@/lib/auth';
+import { DocumentData, QueryDocumentSnapshot, Timestamp } from 'firebase-admin/firestore';
 import * as Sentry from "@sentry/nextjs";
+
+// Type definitions for analysis cache data
+interface AnalysisCacheData {
+  video_id?: string;
+  analysisResult?: {
+    riskLevel?: string;
+    risk_level?: string;
+    riskScore?: number;
+    risk_score?: number;
+  };
+  timestamp?: Timestamp;
+}
+
+interface VideoAnalysis {
+  analysis: AnalysisCacheData['analysisResult'];
+  scanId: string;
+  timestamp: Timestamp | null;
+}
+
+interface RiskLevelInfo {
+  riskLevel: string;
+  riskScore: number;
+  scanId?: string;
+}
+
+interface RiskLevelsResponse {
+  [videoId: string]: RiskLevelInfo | null;
+}
 
 export async function POST(req: NextRequest) {
   return Sentry.startSpan(
@@ -23,7 +52,7 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: 'videoIds must be an array' }, { status: 400 });
         }
 
-        const riskLevels: { [videoId: string]: { riskLevel: string; riskScore: number; scanId?: string } | null } = {};
+        const riskLevels: RiskLevelsResponse = {};
 
         // Query the analysis cache for this user (without orderBy to avoid index requirement)
         const cacheRef = adminDb.collection('analysis_cache');
@@ -34,10 +63,10 @@ export async function POST(req: NextRequest) {
           .get();
 
         // Create a map of video IDs to their latest analysis
-        const videoAnalysisMap = new Map<string, { analysis: any; scanId: string; timestamp: any }>();
+        const videoAnalysisMap = new Map<string, VideoAnalysis>();
         
-        userAnalyses.forEach((doc: any) => {
-          const data = doc.data();
+        userAnalyses.docs.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
+          const data = doc.data() as AnalysisCacheData;
           const videoId = data.video_id;
           
           // Only store the latest analysis for each video (sort by timestamp in memory)
@@ -48,7 +77,7 @@ export async function POST(req: NextRequest) {
               videoAnalysisMap.set(videoId, {
                 analysis: data.analysisResult,
                 scanId: doc.id,
-                timestamp: data.timestamp
+                timestamp: data.timestamp || null
               });
             }
           }
@@ -70,13 +99,14 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({ riskLevels });
 
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error fetching risk levels:', error);
         Sentry.captureException(error);
+        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
         
         return NextResponse.json({ 
           error: 'Failed to fetch risk levels',
-          details: error.message 
+          details: errorMessage 
         }, { status: 500 });
       }
     }

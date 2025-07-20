@@ -4,6 +4,23 @@ import { adminDb } from '@/lib/firebase-admin';
 import { generateCSV, generatePDF, downloadFile, generateFilename, type AnalysisData } from '@/lib/export-utils';
 import { checkUserCanExport } from '@/lib/subscription-utils';
 import * as Sentry from '@sentry/nextjs';
+import { Session } from 'next-auth';
+
+// Type definitions for export functionality
+type CSVRow = (string | number)[];
+type CSVData = CSVRow[];
+
+interface Suggestion {
+  title: string;
+  text: string;
+  priority: string;
+}
+
+interface PolicyAnalysis {
+  risk_score: number;
+  confidence: number;
+  severity: string;
+}
 
 export async function POST(req: NextRequest) {
   return Sentry.startSpan(
@@ -12,7 +29,7 @@ export async function POST(req: NextRequest) {
       name: "POST /api/export-scans",
     },
     async () => {
-      let session: any = null;
+      let session: Session | null = null;
       try {
         session = await auth();
         const userId = session?.user?.id;
@@ -89,7 +106,7 @@ export async function POST(req: NextRequest) {
 
         if (format === 'csv') {
           // For CSV, we'll create a combined report
-          const csvData: any[] = [];
+          const csvData: CSVData = [];
           
           csvData.push(['YouTube TOS Analysis - Bulk Export Report']);
           csvData.push(['Generated:', new Date().toLocaleString()]);
@@ -109,7 +126,7 @@ export async function POST(req: NextRequest) {
             if (scan.policy_categories) {
               csvData.push(['Policy Categories:']);
               csvData.push(['Category', 'Risk Score', 'Confidence', 'Severity']);
-              Object.entries(scan.policy_categories).forEach(([category, analysis]: [string, any]) => {
+              Object.entries(scan.policy_categories).forEach(([category, analysis]: [string, PolicyAnalysis]) => {
                 csvData.push([
                   category.replace(/_/g, ' '),
                   `${analysis.risk_score}%`,
@@ -123,7 +140,7 @@ export async function POST(req: NextRequest) {
             // Add suggestions if available
             if (scan.suggestions && scan.suggestions.length > 0 && options?.includeSuggestions) {
               csvData.push(['Suggestions:']);
-              scan.suggestions.forEach((suggestion: any) => {
+              scan.suggestions.forEach((suggestion: Suggestion) => {
                 csvData.push([suggestion.title, suggestion.text, suggestion.priority]);
               });
               csvData.push([]);
@@ -188,9 +205,9 @@ export async function POST(req: NextRequest) {
             if (scan.policy_categories) {
               yPosition = addText('Policy Categories:', yPosition + 5);
               Object.entries(scan.policy_categories)
-                .sort((a: any, b: any) => b[1].risk_score - a[1].risk_score)
+                .sort((a: [string, PolicyAnalysis], b: [string, PolicyAnalysis]) => b[1].risk_score - a[1].risk_score)
                 .slice(0, 3) // Show top 3
-                .forEach(([category, analysis]: [string, any]) => {
+                .forEach(([category, analysis]: [string, PolicyAnalysis]) => {
                   yPosition = addText(`• ${category.replace(/_/g, ' ')}: ${analysis.risk_score}% risk`, yPosition + 2);
                 });
             }
@@ -215,8 +232,9 @@ export async function POST(req: NextRequest) {
           },
         });
 
-      } catch (error: any) {
-        console.error('Export scans error:', error);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Export scans error:', errorMessage);
         
         Sentry.captureException(error, {
           tags: { component: 'api', endpoint: 'export-scans' },
@@ -228,7 +246,7 @@ export async function POST(req: NextRequest) {
         
         return NextResponse.json({
           error: 'Failed to export scans',
-          details: error.message
+          details: errorMessage
         }, { status: 500 });
       }
     }

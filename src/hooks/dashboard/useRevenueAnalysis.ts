@@ -24,8 +24,8 @@ export function useRevenueAnalysis(session: Session | null, ytChannel: YouTubeCh
         if (!res.ok) throw new Error('Failed to fetch revenue at risk');
         const data = await res.json();
         setRevenueData(data);
-      } catch (err: any) {
-        setRevenueError(err.message || 'Failed to fetch revenue at risk');
+      } catch (err: unknown) {
+        setRevenueError(err instanceof Error ? err.message : 'Failed to fetch revenue at risk');
       } finally {
         setRevenueLoading(false);
       }
@@ -53,8 +53,8 @@ export function useRevenueAnalysis(session: Session | null, ytChannel: YouTubeCh
         if (!res.ok) throw new Error('Failed to fetch revenue at risk');
         const data = await res.json();
         setRevenueData(data);
-      } catch (err: any) {
-        setRevenueError(err.message || 'Failed to fetch revenue at risk');
+      } catch (err: unknown) {
+        setRevenueError(err instanceof Error ? err.message : 'Failed to fetch revenue at risk');
       } finally {
         setRevenueLoading(false);
       }
@@ -72,8 +72,8 @@ export function useRevenueAnalysis(session: Session | null, ytChannel: YouTubeCh
       if (!res.ok) throw new Error('Failed to fetch revenue at risk');
       const data = await res.json();
       setRevenueData(data);
-    } catch (err: any) {
-      setRevenueError(err.message || 'Failed to fetch revenue at risk');
+    } catch (err: unknown) {
+      setRevenueError(err instanceof Error ? err.message : 'Failed to fetch revenue at risk');
     } finally {
       setRevenueLoading(false);
     }

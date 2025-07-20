@@ -20,8 +20,8 @@ export default function TestPrivacyPage() {
       a.click();
       a.remove();
       setExportStatus("Export successful. Check your downloads.");
-    } catch (err: any) {
-      setExportStatus("Export failed: " + err.message);
+    } catch (err: unknown) {
+      setExportStatus("Export failed: " + (err instanceof Error ? err.message : 'Unknown error'));
     }
   };
 
@@ -34,8 +34,8 @@ export default function TestPrivacyPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Delete failed");
       setDeleteStatus("Account deleted successfully.");
-    } catch (err: any) {
-      setDeleteStatus("Delete failed: " + err.message);
+    } catch (err: unknown) {
+      setDeleteStatus("Delete failed: " + (err instanceof Error ? err.message : 'Unknown error'));
     } finally {
       setDeleting(false);
     }

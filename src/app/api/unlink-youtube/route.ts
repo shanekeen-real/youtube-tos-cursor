@@ -26,12 +26,13 @@ export async function POST(req: NextRequest) {
         
         return NextResponse.json({ success: true });
         
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error in unlink-youtube:', error);
         Sentry.captureException(error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         return NextResponse.json({ 
           error: 'Failed to unlink YouTube', 
-          details: error.message 
+          details: errorMessage 
         }, { status: 500 });
       }
     }

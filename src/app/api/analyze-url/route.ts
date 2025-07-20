@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { performEnhancedAnalysis } from '@/lib/ai-analysis';
 import { performHybridMultiModalVideoAnalysis } from '@/lib/hybrid-multi-modal-analysis';
 import { prepareVideoForAnalysis, cleanupVideoFiles } from '@/lib/video-processing';
-import { getChannelContext } from '@/lib/channel-context';
+import { getChannelContext, ChannelContext as ChannelContextFromLib } from '@/lib/channel-context';
+import { ChannelContext } from '@/types/user';
+import { NormalizedAnalysisResult, YouTubeTranscriptSegment, PageStructureAnalysis } from '@/types/analysis';
+import { VideoAnalysisData } from '@/types/video-processing';
+import { EnhancedAnalysisResult } from '@/types/ai-analysis';
 import axios from 'axios';
 import { adminDb } from '@/lib/firebase-admin'; // Correctly import adminDb
 import { createHash } from 'crypto';
@@ -38,6 +42,30 @@ function createCacheKey(url: string): string {
     return createHash('sha256').update(url).digest('hex');
 }
 
+// Convert channel context from lib format to user types format
+function convertChannelContext(context: ChannelContextFromLib | null): ChannelContext | undefined {
+    if (!context) return undefined;
+    
+    return {
+        channelId: context.channelData.channelId,
+        channelTitle: context.channelData.title,
+        subscriberCount: context.channelData.subscriberCount,
+        totalViews: context.channelData.viewCount,
+        videoCount: context.channelData.videoCount,
+        uploadFrequency: context.channelData.uploadFrequency?.toString(),
+        contentCategories: [context.channelData.category],
+        monetizationStatus: 'enabled', // Default assumption
+        channelData: {
+            accountDate: context.channelData.accountDate,
+            subscriberCount: context.channelData.subscriberCount,
+            videoCount: context.channelData.videoCount,
+        },
+        aiIndicators: {
+            aiProbability: context.aiIndicators.aiProbability,
+        },
+    };
+}
+
 // Use imported utility functions from constants
 
 // Get transcript using the working @danielxceron/youtube-transcript library
@@ -51,15 +79,16 @@ async function getTranscriptViaNodeLibrary(videoId: string): Promise<string | nu
         const transcript = await YoutubeTranscript.fetchTranscript(videoId, { lang: langCode });
         if (transcript && transcript.length > 0) {
           const transcriptText = transcript
-            .map((segment: any) => segment.text)
+            .map((segment: YouTubeTranscriptSegment) => segment.text)
             .join('\n');
           if (transcriptText && transcriptText.length > 0) {
             console.log(`Successfully fetched ${langCode} transcript via @danielxceron/youtube-transcript: ${transcriptText.length} characters`);
             return transcriptText;
           }
         }
-      } catch (englishError: any) {
-        console.log(`${langCode} transcript not available: ${englishError.message}`);
+      } catch (englishError: unknown) {
+        const error = englishError as Error;
+        console.log(`${langCode} transcript not available: ${error.message}`);
       }
     }
     
@@ -69,7 +98,7 @@ async function getTranscriptViaNodeLibrary(videoId: string): Promise<string | nu
     const transcript = await YoutubeTranscript.fetchTranscript(videoId);
     if (transcript && transcript.length > 0) {
       const transcriptText = transcript
-        .map((segment: any) => segment.text)
+        .map((segment: YouTubeTranscriptSegment) => segment.text)
         .join('\n');
       if (transcriptText && transcriptText.length > 0) {
         // Check if the transcript appears to be in a non-English language
@@ -86,19 +115,20 @@ async function getTranscriptViaNodeLibrary(videoId: string): Promise<string | nu
       }
     }
     return null;
-  } catch (error: any) {
-    console.error(`@danielxceron/youtube-transcript library failed:`, error.message);
+  } catch (error: unknown) {
+    const transcriptError = error as Error;
+    console.error(`@danielxceron/youtube-transcript library failed:`, transcriptError.message);
     return null;
   }
 }
 
 // Analyze page structure and extract form information
-function analyzePageStructure(html: string, domain: string) {
-  const analysis = {
-    forms: [] as any[],
-    inputs: [] as any[],
-    buttons: [] as any[],
-    potentialEndpoints: [] as string[],
+function analyzePageStructure(html: string, domain: string): PageStructureAnalysis {
+  const analysis: PageStructureAnalysis = {
+    forms: [],
+    inputs: [],
+    buttons: [],
+    potentialEndpoints: [],
     hasJavaScript: false,
     hasReact: false,
     hasVue: false
@@ -201,8 +231,9 @@ async function getTranscriptViaWebScraping(videoId: string): Promise<string | nu
     
     console.log(`Failed to extract transcript from youtubetotranscript.com`);
     return null;
-  } catch (error: any) {
-    console.error('Transcript extraction error:', error.message);
+  } catch (error: unknown) {
+    const scrapingError = error as Error;
+    console.error('Transcript extraction error:', scrapingError.message);
     return null;
   }
 }
@@ -228,8 +259,9 @@ async function getVideoMetadata(videoId: string): Promise<{ title: string; descr
       description: video.snippet.description,
       channelId: video.snippet.channelId
     };
-  } catch (error: any) {
-    console.error('YouTube Data API fetch failed:', error.message);
+  } catch (error: unknown) {
+    const apiError = error as Error;
+    console.error('YouTube Data API fetch failed:', apiError.message);
     return null;
   }
 }
@@ -249,8 +281,9 @@ async function isVideoOwnedByUser(videoId: string, userChannelId: string, access
     console.log(`Video ownership check: ${videoId} belongs to ${metadata.channelId}, user channel: ${userChannelId}, owned: ${isOwned}`);
     
     return isOwned;
-  } catch (error: any) {
-    console.warn('Failed to check video ownership:', error.message);
+  } catch (error: unknown) {
+    const ownershipError = error as Error;
+    console.warn('Failed to check video ownership:', ownershipError.message);
     return false; // Default to false on error to avoid applying context incorrectly
   }
 }
@@ -326,7 +359,7 @@ export async function POST(req: NextRequest) {
     let analyzedContent = '';
     let analysisSource = '';
     let metadata: { title: string; description: string } | null = null;
-    let videoAnalysisData: any = null;
+    let videoAnalysisData: VideoAnalysisData | null = null;
     metadata = await getVideoMetadata(videoId); // Always fetch metadata first
 
     // 1. Try multi-modal video analysis first (primary method)
@@ -371,8 +404,12 @@ export async function POST(req: NextRequest) {
         // 4. Fallback to video metadata
         if (metadata) {
           analyzedContent = `Title: ${metadata.title}\n\nDescription:\n${metadata.description}`;
-          if (videoAnalysisData) {
-            videoAnalysisData.metadata = metadata;
+          if (videoAnalysisData && metadata) {
+            videoAnalysisData.metadata = {
+              id: videoId,
+              title: metadata.title,
+              description: metadata.description
+            };
           } else {
           contentToAnalyze = `Analyze the following YouTube video title and description: \n\n---${analyzedContent}---`;
           analysisSource = 'metadata';
@@ -391,11 +428,11 @@ export async function POST(req: NextRequest) {
       const userDoc = await adminDb.collection('users').doc(userId).get();
       if (userDoc.exists) {
         const userData = userDoc.data();
-                  if (userData?.youtube?.channel?.id && (session as any).accessToken) {
-            // Handle token refresh if needed for video ownership check
-            let accessToken = (session as any).accessToken;
-            let refreshToken = (session as any).refreshToken;
-            let expiresAt = (session as any).expiresAt;
+                          if (userData?.youtube?.channel?.id && session?.accessToken) {
+          // Handle token refresh if needed for video ownership check
+          let accessToken = session.accessToken;
+          let refreshToken = session.refreshToken;
+          let expiresAt = session.expiresAt;
             
             // Check if token is expired or about to expire (within 60 seconds)
             if (expiresAt && Date.now() / 1000 > expiresAt - 60 && refreshToken) {
@@ -431,25 +468,21 @@ export async function POST(req: NextRequest) {
     let analysisResult;
     if (videoAnalysisData && videoAnalysisData.videoInfo?.success) {
       console.log('Performing hybrid multi-modal video analysis');
-      analysisResult = await performHybridMultiModalVideoAnalysis(videoAnalysisData, channelContext);
+      analysisResult = await performHybridMultiModalVideoAnalysis(videoAnalysisData, convertChannelContext(channelContext));
     } else {
       console.log('Performing text-only analysis');
-      analysisResult = await performEnhancedAnalysis(contentToAnalyze, channelContext);
+      analysisResult = await performEnhancedAnalysis(contentToAnalyze, convertChannelContext(channelContext));
     }
     console.log('AI analysisResult:', analysisResult);
 
     // Normalize output for frontend compatibility
-    const result: any = analysisResult;
-    // Always set the title from metadata if AI did not provide it
-    if (!result.title && metadata?.title) {
-      result.title = metadata.title;
-    }
-    const safeResult = {
+    const result = analysisResult as EnhancedAnalysisResult;
+    const safeResult: NormalizedAnalysisResult = {
       ...result,
-      riskLevel: result.riskLevel || result.risk_level || 'Unknown',
-      riskScore: result.riskScore || result.risk_score || 0,
-      title: result.title || metadata?.title || '',
-      flaggedSections: result.flaggedSections || result.flagged_section || [],
+      riskLevel: result.risk_level || 'Unknown',
+      riskScore: result.risk_score || 0,
+      title: metadata?.title || '',
+      flaggedSections: result.flagged_section ? [result.flagged_section] : [],
       suggestions: result.suggestions || [],
     };
 
@@ -521,11 +554,12 @@ export async function POST(req: NextRequest) {
       scanId: cacheKey,
     });
 
-  } catch (error: any) {
-    console.error('Enhanced URL Analysis API error:', error);
+  } catch (error: unknown) {
+    const apiError = error as Error;
+    console.error('Enhanced URL Analysis API error:', apiError);
     
     // Check if it's a quota error and provide a specific message
-    if (error.status === 429 || (error.message && error.message.includes('429'))) {
+    if ('status' in apiError && apiError.status === 429 || (apiError.message && apiError.message.includes('429'))) {
       return NextResponse.json({
         error: 'AI analysis service is temporarily unavailable due to high usage. Please try again in a few minutes.',
         details: 'Daily quota limit reached. The service will reset at midnight UTC.'
@@ -534,7 +568,7 @@ export async function POST(req: NextRequest) {
     
     return NextResponse.json({
       error: 'An unexpected error occurred during analysis.',
-      details: error.message
+      details: apiError.message
     }, { status: 500 });
   }
 } 

@@ -43,8 +43,9 @@ export function useSettingsData() {
         setError('Your account data is missing. Please contact support.');
         setUserProfile(null);
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch user profile.');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch user profile.';
+      setError(errorMessage);
       setUserProfile(null);
     } finally {
       setLoading(false);

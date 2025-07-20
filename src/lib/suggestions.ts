@@ -1,10 +1,16 @@
 import { AIModel } from './ai-models';
+import { PolicyCategoryAnalysis, RiskAssessment, Suggestion } from '../types/ai-analysis';
 import { jsonParsingService } from './json-parsing-service';
 import { SuggestionsSchema } from '../types/ai-analysis';
 import * as Sentry from '@sentry/nextjs';
 
+// Interface for the parsed suggestions response
+interface SuggestionsResponse {
+  suggestions: Suggestion[];
+}
+
 // Stage 5: Generate Actionable Suggestions
-export async function generateActionableSuggestions(text: string, model: AIModel, policyAnalysis: any, riskAssessment: any): Promise<any[]> {
+export async function generateActionableSuggestions(text: string, model: AIModel, policyAnalysis: { [category: string]: PolicyCategoryAnalysis }, riskAssessment: RiskAssessment): Promise<Suggestion[]> {
   const basePrompt = `
     IMPORTANT: Respond ONLY with valid JSON. Do not include any commentary, explanation, or text outside the JSON object.
     CRITICAL JSON FORMATTING RULES:
@@ -43,7 +49,7 @@ export async function generateActionableSuggestions(text: string, model: AIModel
       const result = await model.generateContent(basePrompt);
       
       // Use the robust JSON parsing service
-      const parsingResult = await jsonParsingService.parseJson<any>(result, SuggestionsSchema, model);
+      const parsingResult = await jsonParsingService.parseJson<SuggestionsResponse>(result, SuggestionsSchema, model);
       
       if (parsingResult.success && parsingResult.data) {
         console.log(`Suggestions generated using ${parsingResult.strategy}`);
@@ -74,17 +80,17 @@ export async function generateActionableSuggestions(text: string, model: AIModel
         }
       });
       if (retryCount > maxRetries) {
-        const suggestions = [{
+        const suggestions: Suggestion[] = [{
           title: 'Review Content',
           text: 'Please review your content for potential policy violations.',
-          priority: 'MEDIUM',
+          priority: 'MEDIUM' as const,
           impact_score: 50
         }];
         while (suggestions.length < 5) {
           suggestions.push({
             title: 'General Best Practice',
             text: 'Consider reviewing your content for further improvements in engagement, compliance, or monetization.',
-            priority: 'LOW',
+            priority: 'LOW' as const,
             impact_score: 40
           });
         }
@@ -94,17 +100,17 @@ export async function generateActionableSuggestions(text: string, model: AIModel
     }
   }
   // Final fallback
-  const suggestions = [{
+  const suggestions: Suggestion[] = [{
     title: 'Review Content',
     text: 'Please review your content for potential policy violations.',
-    priority: 'MEDIUM',
+    priority: 'MEDIUM' as const,
     impact_score: 50
   }];
   while (suggestions.length < 5) {
     suggestions.push({
       title: 'General Best Practice',
       text: 'Consider reviewing your content for further improvements in engagement, compliance, or monetization.',
-      priority: 'LOW',
+      priority: 'LOW' as const,
       impact_score: 40
     });
   }

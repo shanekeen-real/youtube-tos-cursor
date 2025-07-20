@@ -50,12 +50,13 @@ export async function POST(req: NextRequest) {
           monetizedPercent: monetized,
           includeCut: cut
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error in setup-revenue-calculator:', error);
         Sentry.captureException(error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         return NextResponse.json({ 
           error: 'Failed to setup revenue calculator', 
-          details: error.message 
+          details: errorMessage 
         }, { status: 500 });
       }
     }

@@ -18,9 +18,8 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
     setLoading(true);
     try {
       await signIn('google', { callbackUrl: '/dashboard' });
-    } catch (err: any) {
-      console.error('Sign in error:', err);
-    } finally {
+    } catch (err: unknown) {
+      console.error('Sign in error:', err instanceof Error ? err.message : 'Authentication failed.');
       setLoading(false);
     }
   };

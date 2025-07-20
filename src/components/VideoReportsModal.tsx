@@ -47,9 +47,9 @@ export default function VideoReportsModal({ isOpen, onClose, videoId, videoTitle
       }
       const data = await response.json();
       setScans(data.scans);
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch video scans');
-    } finally {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch video reports.';
+      setError(errorMessage);
       setLoading(false);
     }
   };

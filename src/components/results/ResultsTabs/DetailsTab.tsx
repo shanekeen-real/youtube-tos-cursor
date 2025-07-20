@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Card, Badge, HighlightedTranscript } from '@/lib/imports';
 import { ScanData } from '../types';
 import { getRiskBadgeVariant, severityOrder, isEnglish } from '../ResultsUtils';
+import { PolicyCategoryAnalysis } from '@/types/ai-analysis';
 
 interface DetailsTabProps {
   data: ScanData;
@@ -97,7 +98,7 @@ export default function DetailsTab({ data, canAccessAIDetection }: DetailsTabPro
                     }
                     return (severityOrder[b[1].severity] || 0) - (severityOrder[a[1].severity] || 0);
                   })
-                  .map(([cat, val]: any) => {
+                  .map(([cat, val]: [string, PolicyCategoryAnalysis]) => {
                     const isAIGeneratedContent = cat === 'AI_GENERATED_CONTENT';
                     const isLocked = isAIGeneratedContent && !canAccessAIDetection;
                     

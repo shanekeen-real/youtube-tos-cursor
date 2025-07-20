@@ -7,8 +7,21 @@ import {
   FILE_EXTENSIONS, 
   getMimeType,
   getFileExtension,
-  generateFilename as generateFilenameFromConfig
+  generateFilename as generateFilenameFromConfig,
+  ExportFormat
 } from '@/lib/constants/export-config';
+import { PolicyCategoryAnalysis, SeverityLevel, RiskLevel, PriorityLevel, Suggestion } from '../types/ai-analysis';
+
+// Suggestion interface based on the existing codebase
+interface SuggestionExport {
+  title: string;
+  text: string;
+  priority: PriorityLevel;
+  impact_score: number;
+}
+
+// CSV data row type
+type CSVRow = (string | number)[];
 
 export interface ExportOptions {
   includeMetadata?: boolean;
@@ -21,10 +34,10 @@ export interface AnalysisData {
   id?: string;
   url?: string;
   title?: string;
-  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  riskLevel: RiskLevel;
   riskScore: number;
   flaggedSections: string[];
-  suggestions: any[];
+  suggestions: Suggestion[];
   createdAt?: string;
   userId?: string;
   context_analysis?: {
@@ -39,7 +52,7 @@ export interface AnalysisData {
       risk_score: number;
       confidence: number;
       violations: string[];
-      severity: 'LOW' | 'MEDIUM' | 'HIGH';
+      severity: SeverityLevel;
       explanation: string;
     };
   };
@@ -61,16 +74,16 @@ export interface AnalysisData {
 }
 
 // Helper function to ensure value is an array
-function toArray(val: any): any[] {
+function toArray<T>(val: T | T[] | undefined | null): T[] {
   if (Array.isArray(val)) return val;
   if (val === undefined || val === null) return [];
-  if (typeof val === 'string') return [val];
-  return Array.from(val);
+  if (typeof val === 'string') return [val] as T[];
+  return [val];
 }
 
 // Generate CSV export
 export function generateCSV(data: AnalysisData, options: ExportOptions): string {
-  const csvData: any[] = [];
+  const csvData: CSVRow[] = [];
 
   // Summary section
   csvData.push(['YouTube TOS Analysis Report']);
@@ -390,5 +403,5 @@ export function downloadFile(content: string | Blob, filename: string, mimeType:
 // Generate filename
 export function generateFilename(data: AnalysisData, format: string): string {
   const title = data.title || 'analysis';
-  return generateFilenameFromConfig(title, format as any);
+  return generateFilenameFromConfig(title, format as ExportFormat);
 }

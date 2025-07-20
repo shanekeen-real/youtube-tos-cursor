@@ -1,13 +1,29 @@
-import { PolicyCategoryAnalysis } from '../types/ai-analysis';
+import { PolicyCategoryAnalysis, RiskLevel, RiskAssessment } from '../types/ai-analysis';
+import { AnalysisHighlight } from '../types/analysis';
 import { filterFalsePositives } from './false-positive-filter';
 
+// Type for backward compatibility with old category format
+type CategoryAnalysis = PolicyCategoryAnalysis | { risk_score?: number; risk_level?: string };
+
 // Helper function to get category score from either risk_score or risk_level
-function getCategoryScore(category: any): number {
+function getCategoryScore(category: CategoryAnalysis): number {
   if (category.risk_score !== undefined) {
     return category.risk_score;
-  } else if (category.risk_level) {
+  } else if ('risk_level' in category && category.risk_level) {
     const riskLevel = category.risk_level.toLowerCase();
     switch (riskLevel) {
+      case 'high':
+        return 80;
+      case 'medium':
+        return 50;
+      case 'low':
+        return 0; // Low risk should be 0%, not 20%
+      default:
+        return 0;
+    }
+  } else if ('severity' in category && category.severity) {
+    const severity = category.severity.toLowerCase();
+    switch (severity) {
       case 'high':
         return 80;
       case 'medium':
@@ -30,7 +46,10 @@ export function cleanRiskyPhrases(phrases: string[]): string[] {
 }
 
 // Helper functions
-export function calculateOverallRiskScore(policyAnalysis: any, riskAssessment: any): number {
+export function calculateOverallRiskScore(
+  policyAnalysis: { [category: string]: PolicyCategoryAnalysis }, 
+  riskAssessment?: RiskAssessment
+): number {
   // Debug logging to understand what we're working with
   console.log('calculateOverallRiskScore input:', {
     policyAnalysisKeys: Object.keys(policyAnalysis || {}),
@@ -81,12 +100,12 @@ export function calculateOverallRiskScore(policyAnalysis: any, riskAssessment: a
     
     // Handle both risk_score (numerical) and risk_level (string) formats
     let score = 0;
-    if ((analysis as any).risk_score !== undefined) {
-      score = (analysis as any).risk_score;
-    } else if ((analysis as any).risk_level) {
-      // Convert risk_level strings to numerical scores
-      const riskLevel = (analysis as any).risk_level.toLowerCase();
-      switch (riskLevel) {
+    if (analysis.risk_score !== undefined) {
+      score = analysis.risk_score;
+    } else if (analysis.severity) {
+      // Convert severity strings to numerical scores
+      const severity = analysis.severity.toLowerCase();
+      switch (severity) {
         case 'high':
           score = 80;
           break;
@@ -109,15 +128,15 @@ export function calculateOverallRiskScore(policyAnalysis: any, riskAssessment: a
   const weightedAverage = totalWeight > 0 ? totalWeightedScore / totalWeight : 0;
   
   // Apply severity adjustments based on risk distribution
-  const highRiskCategories = Object.values(policyAnalysis).filter((cat: any) => {
+  const highRiskCategories = Object.values(policyAnalysis).filter((cat: PolicyCategoryAnalysis) => {
     const score = getCategoryScore(cat);
     return score >= 80;
   });
-  const mediumRiskCategories = Object.values(policyAnalysis).filter((cat: any) => {
+  const mediumRiskCategories = Object.values(policyAnalysis).filter((cat: PolicyCategoryAnalysis) => {
     const score = getCategoryScore(cat);
     return score >= 40 && score < 80;
   });
-  const lowRiskCategories = Object.values(policyAnalysis).filter((cat: any) => {
+  const lowRiskCategories = Object.values(policyAnalysis).filter((cat: PolicyCategoryAnalysis) => {
     const score = getCategoryScore(cat);
     return score >= 20 && score < 40;
   });
@@ -143,7 +162,7 @@ export function calculateOverallRiskScore(policyAnalysis: any, riskAssessment: a
   
   // Additional adjustment: If the content has multiple concerning categories,
   // ensure the score reflects the cumulative risk
-  const concerningCategories = Object.values(policyAnalysis).filter((cat: any) => getCategoryScore(cat) >= 30);
+  const concerningCategories = Object.values(policyAnalysis).filter((cat: PolicyCategoryAnalysis) => getCategoryScore(cat) >= 30);
   if (concerningCategories.length >= 4) {
     adjustedScore = Math.min(100, Math.max(adjustedScore, 35)); // Minimum 35 if 4+ concerning categories
   } else if (concerningCategories.length >= 2) {
@@ -164,23 +183,23 @@ export function calculateOverallRiskScore(policyAnalysis: any, riskAssessment: a
   return Math.round(adjustedScore);
 }
 
-export function getRiskLevel(score: number): 'LOW' | 'MEDIUM' | 'HIGH' {
+export function getRiskLevel(score: number): RiskLevel {
   if (score <= 25) return 'LOW';
   if (score <= 65) return 'MEDIUM';
   return 'HIGH';
 }
 
-export function generateHighlights(policyAnalysis: { [key: string]: PolicyCategoryAnalysis }): any[] {
-  const highlights = [];
+export function generateHighlights(policyAnalysis: { [key: string]: PolicyCategoryAnalysis }): AnalysisHighlight[] {
+  const highlights: AnalysisHighlight[] = [];
   
   for (const [category, analysis] of Object.entries(policyAnalysis)) {
     const score = getCategoryScore(analysis);
     if (score > 20) { // Only include significant risks
       highlights.push({
         category: category.replace(/_/g, ' '),
-        risk: (analysis as PolicyCategoryAnalysis).severity || (analysis as any).risk_level || 'LOW',
+        risk: analysis.severity || 'LOW',
         score: score,
-        confidence: (analysis as PolicyCategoryAnalysis).confidence
+        confidence: analysis.confidence
       });
     }
   }

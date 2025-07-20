@@ -73,9 +73,9 @@ export function useVideoManagement(session: Session | null, ytChannel: YouTubeCh
             await fetchRiskLevels(data.items);
           }
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Network error fetching videos:', err);
-        setVideosError(err.message || 'Network error while fetching videos');
+        setVideosError(err instanceof Error ? err.message : 'Network error while fetching videos');
         setRecentVideos([]);
       } finally {
         setVideosLoading(false);
@@ -121,11 +121,11 @@ export function useVideoManagement(session: Session | null, ytChannel: YouTubeCh
         if (data.items && data.items.length > 0) {
           await fetchRiskLevels(data.items);
         }
-      }
-    } catch (err: any) {
-      setVideosError(err.message || 'Network error while fetching videos');
-      setRecentVideos([]);
-    } finally {
+              }
+      } catch (err: unknown) {
+        setVideosError(err instanceof Error ? err.message : 'Network error while fetching videos');
+        setRecentVideos([]);
+      } finally {
       setVideosLoading(false);
     }
   };

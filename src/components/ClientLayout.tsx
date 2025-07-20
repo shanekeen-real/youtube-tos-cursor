@@ -8,9 +8,10 @@ import Link from 'next/link';
 import { Shield } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { FirebaseAuthProvider } from '@/lib/imports';
+import { Session } from 'next-auth';
 
 export const AuthContext = createContext<{
-  user: any;
+  user: Session['user'] | null;
   setAuthOpen: (open: boolean) => void;
 } | null>(null);
 

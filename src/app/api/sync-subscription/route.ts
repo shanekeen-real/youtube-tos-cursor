@@ -9,6 +9,35 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: '2025-05-28.basil',
 });
 
+// Extended types for Stripe objects with additional properties
+type ExtendedSubscriptionItem = Stripe.SubscriptionItem & {
+  current_period_end?: number;
+};
+
+type ExtendedSubscription = Stripe.Subscription & {
+  items?: {
+    data: ExtendedSubscriptionItem[];
+  };
+  cancel_at?: number;
+  canceled_at?: number;
+  current_period_end?: number;
+};
+
+interface SubscriptionData {
+  tier: SubscriptionTier;
+  limits: typeof SUBSCRIPTION_TIERS[SubscriptionTier]['limits'];
+  updatedAt: string;
+  cancelledAt?: string;
+  expiresAt?: string;
+  renewalDate?: string;
+}
+
+interface UpdatePayload {
+  subscriptionTier: SubscriptionTier;
+  scanLimit: number | 'unlimited' | 'custom';
+  subscriptionData: SubscriptionData;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
@@ -79,7 +108,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Get current_period_end from the subscription item
-      const activeSub = activeSubscription as any;
+      const activeSub = activeSubscription as ExtendedSubscription;
       if (activeSub.items && activeSub.items.data && activeSub.items.data.length > 0) {
         const firstItem = activeSub.items.data[0];
         if (firstItem.current_period_end) {
@@ -95,8 +124,8 @@ export async function POST(req: NextRequest) {
       if (cancelledSubscription) {
         console.log('Found cancelled subscription:', cancelledSubscription.id);
         
-        // Use type assertion to access subscription properties
-        const cancelledSub = cancelledSubscription as any;
+        // Use proper typing for subscription properties
+        const cancelledSub = cancelledSubscription as ExtendedSubscription;
         
         if (cancelledSub.canceled_at) {
           cancelledAt = new Date(cancelledSub.canceled_at * 1000).toISOString();
@@ -114,7 +143,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Update Firestore with the correct data
-    const updatePayload: any = {
+    const updatePayload: UpdatePayload = {
       subscriptionTier: newTier,
       scanLimit: newScanLimit,
       subscriptionData: {

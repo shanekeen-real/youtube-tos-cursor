@@ -37,6 +37,11 @@ interface Video {
   };
 }
 
+// Type definitions for form controls
+type SortByValue = 'date' | 'title' | 'views' | 'likes';
+type DateRangeValue = 'all' | 'week' | 'month' | 'year';
+type PrivacyValue = 'public' | 'unlisted' | 'private' | 'all';
+
 interface VideoFilters {
   search: string;
   sortBy: 'date' | 'title' | 'views' | 'likes';
@@ -132,7 +137,7 @@ export default function AllVideosClient() {
     
     // Sort
     filtered.sort((a, b) => {
-      let aValue: any, bValue: any;
+      let aValue: string | number | Date, bValue: string | number | Date;
       
       switch (filters.sortBy) {
         case 'title':
@@ -216,10 +221,10 @@ export default function AllVideosClient() {
           
           setHasMore(!!data.nextPageToken);
           
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.error('Error fetching videos:', err);
           Sentry.captureException(err);
-          setError(err.message || 'Failed to fetch videos');
+          setError(err instanceof Error ? err.message : 'Failed to fetch videos');
         } finally {
           setLoading(false);
           setIsLoadingMore(false);
@@ -331,8 +336,8 @@ export default function AllVideosClient() {
       } else {
         router.push(`/results?videoId=${videoId}`);
       }
-    } catch (err: any) {
-      setAnalyzeError(err.message || 'Failed to analyze video');
+    } catch (err: unknown) {
+      setAnalyzeError(err instanceof Error ? err.message : 'Failed to analyze video');
     } finally {
       setAnalyzingVideoId(null);
     }
@@ -425,7 +430,7 @@ export default function AllVideosClient() {
               <div className="flex gap-2">
                 <select
                   value={filters.sortBy}
-                  onChange={(e) => setFilters(prev => ({ ...prev, sortBy: e.target.value as any }))}
+                  onChange={(e) => setFilters(prev => ({ ...prev, sortBy: e.target.value as SortByValue }))}
                   className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                 >
                   <option value="date">Date</option>
@@ -448,7 +453,7 @@ export default function AllVideosClient() {
               {/* Date Filter */}
               <select
                 value={filters.dateRange}
-                onChange={(e) => setFilters(prev => ({ ...prev, dateRange: e.target.value as any }))}
+                onChange={(e) => setFilters(prev => ({ ...prev, dateRange: e.target.value as DateRangeValue }))}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
               >
                 <option value="all">All Time</option>
@@ -460,7 +465,7 @@ export default function AllVideosClient() {
               {/* Privacy Filter */}
               <select
                 value={filters.privacy}
-                onChange={e => setFilters(prev => ({ ...prev, privacy: e.target.value as any }))}
+                onChange={e => setFilters(prev => ({ ...prev, privacy: e.target.value as PrivacyValue }))}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
               >
                 <option value="public">Public</option>

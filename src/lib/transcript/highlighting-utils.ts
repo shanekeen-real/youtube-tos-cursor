@@ -7,6 +7,7 @@ import {
   ALWAYS_HIGHLIGHT_KEYWORDS, 
   PERFORMANCE_CONFIG 
 } from '@/lib/constants/policy-terms';
+import { ContextAnalysis } from '@/types/ai-analysis';
 
 export interface PhraseInfo {
   label: string;
@@ -56,10 +57,7 @@ function getCachedRegex(phrases: string[]): RegExp {
  */
 export function getPhraseCategoryAndExplanation(
   phrase: string, 
-  contextAnalysis?: {
-    content_type?: string;
-    target_audience?: string;
-  }
+  contextAnalysis?: ContextAnalysis
 ): PhraseInfo | null {
   const policyTerm = findPolicyTerm(phrase);
   if (!policyTerm) return null;
@@ -186,7 +184,7 @@ export function buildHighlightingRegex(phrases: string[]): RegExp {
 export function processTextInChunks(
   text: string, 
   phrases: string[], 
-  contextAnalysis?: any
+  contextAnalysis?: ContextAnalysis
 ): (string | React.ReactElement)[] {
   // For small texts, use normal processing
   if (text.length <= CHUNK_SIZE) {
@@ -214,7 +212,7 @@ export function processTextInChunks(
 function processTextWithRegex(
   text: string, 
   phrases: string[], 
-  contextAnalysis?: any
+  contextAnalysis?: ContextAnalysis
 ): (string | React.ReactElement)[] {
   if (!phrases.length) return [text];
   

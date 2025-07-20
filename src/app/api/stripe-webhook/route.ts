@@ -10,6 +10,56 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
 });
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
+// Type definitions for Stripe metadata and extended objects
+interface StripeMetadata {
+  userId?: string;
+  tier?: string;
+  billingCycle?: string;
+}
+
+interface StripeObjectWithMetadata {
+  metadata?: StripeMetadata;
+}
+
+// Extended types for Stripe objects with additional properties
+type ExtendedSubscriptionItem = Stripe.SubscriptionItem & {
+  current_period_end?: number;
+};
+
+type ExtendedSubscription = Stripe.Subscription & {
+  items?: {
+    data: ExtendedSubscriptionItem[];
+  };
+  cancel_at?: number;
+  canceled_at?: number;
+  current_period_end?: number;
+};
+
+type ExtendedInvoice = Stripe.Invoice & {
+  customer?: string;
+  subscription?: string;
+};
+
+interface InvoicePaymentObject {
+  invoice?: string;
+}
+
+interface SubscriptionData {
+  tier: SubscriptionTier;
+  limits: typeof SUBSCRIPTION_TIERS[SubscriptionTier]['limits'];
+  updatedAt: string;
+  cancelledAt?: string;
+  expiresAt?: string;
+  renewalDate?: string;
+}
+
+interface UpdatePayload {
+  subscriptionTier: SubscriptionTier;
+  scanLimit: number;
+  stripeCustomerId?: string;
+  subscriptionData: SubscriptionData;
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.text();
   const sig = req.headers.get('stripe-signature')!;
@@ -27,10 +77,11 @@ export async function POST(req: NextRequest) {
     console.log('================================');
     
     // Type assertion for metadata
-    const objectWithMetadata = event.data.object as { metadata?: any };
+    const objectWithMetadata = event.data.object as StripeObjectWithMetadata;
     console.log('Received Stripe event:', event.type, objectWithMetadata.metadata);
-  } catch (err: any) {
-    console.error('Webhook signature verification failed:', err.message);
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    console.error('Webhook signature verification failed:', errorMessage);
     return NextResponse.json({ error: 'Webhook signature verification failed' }, { status: 400 });
   }
 
@@ -40,7 +91,7 @@ export async function POST(req: NextRequest) {
       console.log('=== CHECKOUT SESSION COMPLETED ===');
       const session = event.data.object as Stripe.Checkout.Session;
       // Type assertion for metadata
-      const sessionMetadata = (session as any).metadata || {};
+      const sessionMetadata = (session as Stripe.Checkout.Session & StripeObjectWithMetadata).metadata || {};
       console.log('Session metadata:', sessionMetadata);
       console.log('Session subscription:', session.subscription);
       console.log('Session customer:', session.customer);
@@ -74,7 +125,7 @@ export async function POST(req: NextRequest) {
         if (session.subscription) {
           const stripeSubResp = await stripe.subscriptions.retrieve(session.subscription as string);
           console.log('Stripe subscription object:', JSON.stringify(stripeSubResp, null, 2));
-          const sub: any = stripeSubResp;
+          const sub = stripeSubResp as ExtendedSubscription;
           if (sub.current_period_end) {
             renewalDate = new Date(sub.current_period_end * 1000).toISOString();
             console.log('Found current_period_end at top level:', sub.current_period_end);
@@ -115,7 +166,7 @@ export async function POST(req: NextRequest) {
     case 'customer.subscription.updated':
     case 'customer.subscription.deleted':
       // Handle subscription changes for recurring payments
-      const subscription = event.data.object as any; // Stripe.Subscription but allow any for CLI/test
+      const subscription = event.data.object as ExtendedSubscription;
       let subscriptionUserId = subscription.metadata?.userId;
       
       console.log('=== SUBSCRIPTION UPDATE DEBUG ===');
@@ -226,7 +277,7 @@ export async function POST(req: NextRequest) {
             }
 
             // Get current_period_end from the subscription item
-            const activeSub = activeSubscription as any;
+            const activeSub = activeSubscription as ExtendedSubscription;
             if (activeSub.items && activeSub.items.data && activeSub.items.data.length > 0) {
               const firstItem = activeSub.items.data[0];
               if (firstItem.current_period_end) {
@@ -236,7 +287,7 @@ export async function POST(req: NextRequest) {
 
             // Handle cancellation info if subscription is scheduled for cancellation
             if (activeSubscription.cancel_at_period_end) {
-              const scheduledSub = activeSubscription as any;
+              const scheduledSub = activeSubscription as ExtendedSubscription;
               if (scheduledSub.cancel_at) {
                 expiresAt = new Date(scheduledSub.cancel_at * 1000).toISOString();
               } else if (scheduledSub.items && scheduledSub.items.data && scheduledSub.items.data.length > 0) {
@@ -262,7 +313,7 @@ export async function POST(req: NextRequest) {
               // User is fully cancelled, downgrade to free
               newTier = 'free';
               newScanLimit = SUBSCRIPTION_TIERS.free.limits.scanLimit;
-              const cancelledSub = cancelledSubscription as any;
+              const cancelledSub = cancelledSubscription as ExtendedSubscription;
               if (cancelledSub.canceled_at) {
                 cancelledAt = new Date(cancelledSub.canceled_at * 1000).toISOString();
               } else {
@@ -286,7 +337,7 @@ export async function POST(req: NextRequest) {
           }
           
           // Build subscriptionData dynamically to avoid undefined fields
-          const subscriptionData: any = {
+          const subscriptionData: SubscriptionData = {
             tier: newTier,
             limits: SUBSCRIPTION_TIERS[newTier].limits,
             updatedAt: new Date().toISOString(),
@@ -296,7 +347,7 @@ export async function POST(req: NextRequest) {
           };
           
           // Prepare updatePayload
-          const updatePayload: any = {
+          const updatePayload: UpdatePayload = {
             subscriptionTier: newTier,
             scanLimit: newScanLimit,
             ...(stripeCustomerId && { stripeCustomerId }),
@@ -313,7 +364,7 @@ export async function POST(req: NextRequest) {
       break;
     case 'invoice.payment_succeeded':
       console.log('Handling invoice.payment_succeeded event...');
-      const invoice = event.data.object as any;
+      const invoice = event.data.object as ExtendedInvoice;
       console.log('Invoice customer:', invoice.customer);
       console.log('Invoice subscription:', invoice.subscription);
       
@@ -324,7 +375,7 @@ export async function POST(req: NextRequest) {
           const stripeSub = await stripe.subscriptions.retrieve(invoice.subscription as string);
           console.log('Retrieved subscription for invoice:', stripeSub.id);
           
-          const subscription = stripeSub as any;
+          const subscription = stripeSub as ExtendedSubscription;
           let subscriptionUserId = subscription.metadata?.userId;
           
           console.log('Processing invoice payment with automatic sync...');
@@ -419,7 +470,7 @@ export async function POST(req: NextRequest) {
               }
               
               // Get current_period_end from the subscription item
-              const activeSub = activeSubscription as any;
+              const activeSub = activeSubscription as ExtendedSubscription;
               if (activeSub.items && activeSub.items.data && activeSub.items.data.length > 0) {
                 const firstItem = activeSub.items.data[0];
                 if (firstItem.current_period_end) {
@@ -429,7 +480,7 @@ export async function POST(req: NextRequest) {
 
               // Handle cancellation info if subscription is scheduled for cancellation
               if (activeSubscription.cancel_at_period_end) {
-                const scheduledSub = activeSubscription as any;
+                const scheduledSub = activeSubscription as ExtendedSubscription;
                 if (scheduledSub.cancel_at) {
                   expiresAt = new Date(scheduledSub.cancel_at * 1000).toISOString();
                 } else if (scheduledSub.items && scheduledSub.items.data && scheduledSub.items.data.length > 0) {
@@ -454,7 +505,7 @@ export async function POST(req: NextRequest) {
                 console.log('Found cancelled subscription for invoice payment sync:', cancelledSubscription.id);
                 
                 // Use type assertion to access subscription properties
-                const cancelledSub = cancelledSubscription as any;
+                const cancelledSub = cancelledSubscription as ExtendedSubscription;
                 
                 if (cancelledSub.canceled_at) {
                   cancelledAt = new Date(cancelledSub.canceled_at * 1000).toISOString();
@@ -477,7 +528,7 @@ export async function POST(req: NextRequest) {
             }
             
             // Build subscriptionData dynamically to avoid undefined fields
-            const subscriptionData: any = {
+            const subscriptionData: SubscriptionData = {
               tier: newTier,
               limits: SUBSCRIPTION_TIERS[newTier].limits,
               updatedAt: new Date().toISOString(),
@@ -487,7 +538,7 @@ export async function POST(req: NextRequest) {
             };
             
             // Prepare updatePayload
-            const updatePayload: any = {
+            const updatePayload: UpdatePayload = {
               subscriptionTier: newTier,
               scanLimit: newScanLimit,
               ...(stripeCustomerId && { stripeCustomerId }),
@@ -506,13 +557,13 @@ export async function POST(req: NextRequest) {
       console.log('Handling invoice_payment.paid event...');
       // This event is similar to invoice.payment_succeeded but for invoice payments specifically
       // We can handle it the same way
-      const invoicePayment = event.data.object as any;
+      const invoicePayment = event.data.object as InvoicePaymentObject;
       console.log('Invoice payment customer:', invoicePayment.invoice);
       
       // If this payment is for an invoice with a subscription, handle it
       if (invoicePayment.invoice) {
         try {
-          const invoice = await stripe.invoices.retrieve(invoicePayment.invoice as string) as any;
+          const invoice = await stripe.invoices.retrieve(invoicePayment.invoice as string) as ExtendedInvoice;
           if (invoice.subscription) {
             console.log('Invoice payment is for subscription:', invoice.subscription);
             // Handle this the same way as invoice.payment_succeeded

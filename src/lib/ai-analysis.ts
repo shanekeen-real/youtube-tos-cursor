@@ -1,4 +1,5 @@
 import { getAIModel, AIModel, GeminiModel, ClaudeModel, RateLimiter, callAIWithRetry, getModelWithFallback } from './ai-models';
+import { ChannelContext } from '../types/user';
 import { parseJSONSafely, normalizeBatchScores, extractPartialAnalysis } from './json-utils';
 import { jsonParsingService } from './json-parsing-service';
 import { 
@@ -20,8 +21,30 @@ import {
   ConfidenceAnalysisSchema,
   SuggestionSchema,
   SuggestionsSchema,
-  ContentClassificationSchema
+  ContentClassificationSchema,
+  RiskLevel,
+  PriorityLevel,
+  SeverityLevel
 } from '../types/ai-analysis';
+
+// Type for basic analysis result
+interface BasicAnalysisResult {
+  risk_score: number;
+  risk_level: RiskLevel;
+  flagged_section: string;
+  highlights: Array<{
+    category: string;
+    risk: string;
+    score: number;
+    confidence: number;
+  }>;
+  suggestions: Array<{
+    title: string;
+    text: string;
+    priority: PriorityLevel;
+    impact_score: number;
+  }>;
+}
 import { usageTracker } from './usage-tracker';
 import { z } from 'zod';
 import * as Sentry from '@sentry/nextjs';
@@ -49,7 +72,7 @@ import { detectLanguage, isNonEnglish as isNonEnglishText } from './constants/ur
 const rateLimiter = new RateLimiter();
 
 // Multi-stage analysis pipeline with fallback
-export async function performEnhancedAnalysis(text: string, channelContext?: any): Promise<EnhancedAnalysisResult> {
+export async function performEnhancedAnalysis(text: string, channelContext?: ChannelContext): Promise<EnhancedAnalysisResult> {
   const startTime = Date.now();
   
   if (!text || text.trim().length === 0) {
@@ -66,8 +89,8 @@ export async function performEnhancedAnalysis(text: string, channelContext?: any
   }
 
   const model = getModelWithFallback();
-  let allRiskySpans: any[] = [];
-  let riskAssessment: any;
+  let allRiskySpans: RiskSpan[] = [];
+  let riskAssessment: RiskAssessment | undefined;
 
   // Double-decode transcript before chunking and sending to AI
   const decodedText = he.decode(he.decode(text));
@@ -146,7 +169,13 @@ export async function performEnhancedAnalysis(text: string, channelContext?: any
     
     // Stage 5: Generate Actionable Suggestions
     await rateLimiter.waitIfNeeded();
-    const suggestions = await generateActionableSuggestions(decodedText, model, policyAnalysis, riskAssessment);
+    const suggestions = await generateActionableSuggestions(decodedText, model, policyAnalysis, riskAssessment || {
+      overall_risk_score: 0,
+      flagged_section: 'Analysis incomplete',
+      risk_factors: [],
+      severity_level: 'LOW',
+      risky_phrases_by_category: {},
+    });
     
     // Apply hard limit to suggestions to prevent overwhelming users
     const limitedSuggestions = suggestions.slice(0, PERFORMANCE_LIMITS.MAX_SUGGESTIONS);
@@ -197,7 +226,7 @@ export async function performEnhancedAnalysis(text: string, channelContext?: any
       risk_score: overallRiskScore,
       risk_level: riskLevel,
       confidence_score: confidenceAnalysis.overall_confidence,
-      flagged_section: riskAssessment.flagged_section,
+      flagged_section: riskAssessment?.flagged_section || 'Analysis incomplete',
       policy_categories: policyAnalysis,
       context_analysis: {
         content_type: contextAnalysis.content_type,
@@ -210,7 +239,7 @@ export async function performEnhancedAnalysis(text: string, channelContext?: any
       suggestions: limitedSuggestions,
       risky_spans: allRiskySpans,
       risky_phrases: allRiskyPhrases,
-      risky_phrases_by_category: riskAssessment.risky_phrases_by_category || {},
+      risky_phrases_by_category: riskAssessment?.risky_phrases_by_category || {},
       ai_detection: aiDetectionResult ? {
         probability: aiDetectionResult.ai_probability,
         confidence: aiDetectionResult.confidence,
@@ -226,11 +255,12 @@ export async function performEnhancedAnalysis(text: string, channelContext?: any
         analysis_mode: ANALYSIS_MODES.ENHANCED
       }
     };
-  } catch (error: any) {
-    console.log('Enhanced analysis failed, falling back to basic analysis:', error.message);
+  } catch (error: unknown) {
+    const enhancedError = error as Error;
+    console.log('Enhanced analysis failed, falling back to basic analysis:', enhancedError.message);
     
     // Track critical errors with Sentry
-    Sentry.captureException(error, {
+    Sentry.captureException(enhancedError, {
       tags: { component: 'ai-analysis', stage: 'enhanced' },
       extra: { 
         textLength: text.length,
@@ -269,16 +299,17 @@ export async function performEnhancedAnalysis(text: string, channelContext?: any
           analysis_mode: ANALYSIS_MODES.FALLBACK
         }
       };
-    } catch (basicError: any) {
-      console.log('Basic analysis also failed, using emergency fallback:', basicError.message);
+    } catch (basicError: unknown) {
+      const basicAnalysisError = basicError as Error;
+      console.log('Basic analysis also failed, using emergency fallback:', basicAnalysisError.message);
       
       // Track fallback failures with Sentry
-      Sentry.captureException(basicError, {
+      Sentry.captureException(basicAnalysisError, {
         tags: { component: 'ai-analysis', stage: 'basic-fallback' },
         extra: { 
           textLength: text.length,
           modelUsed: model.name,
-          originalError: error.message
+          originalError: enhancedError.message
         }
       });
       
@@ -387,7 +418,7 @@ async function performBasicAnalysis(text: string, model: AIModel) {
     }))
   });
 
-  const parsingResult = await jsonParsingService.parseJson<any>(result, expectedSchema, model);
+  const parsingResult = await jsonParsingService.parseJson<BasicAnalysisResult>(result, expectedSchema, model);
   
   if (parsingResult.success && parsingResult.data) {
     const parsedResult = parsingResult.data;
@@ -398,7 +429,23 @@ async function performBasicAnalysis(text: string, model: AIModel) {
       parsedResult.suggestions = parsedResult.suggestions.slice(0, 12);
     }
     
-    return parsedResult;
+    // Transform the parsed result to match the expected structure
+    const transformedResult: BasicAnalysisResult = {
+      risk_score: parsedResult.risk_score,
+      risk_level: parsedResult.risk_level as RiskLevel,
+      flagged_section: parsedResult.flagged_section,
+      highlights: parsedResult.highlights.map(highlight => ({
+        ...highlight,
+        confidence: 75 // Default confidence for basic analysis
+      })),
+      suggestions: parsedResult.suggestions.map(suggestion => ({
+        ...suggestion,
+        priority: 'MEDIUM' as const, // Default priority for basic analysis
+        impact_score: 50 // Default impact score for basic analysis
+      }))
+    };
+    
+    return transformedResult;
   } else {
     throw new Error(`Basic analysis JSON parsing failed: ${parsingResult.error}`);
   }

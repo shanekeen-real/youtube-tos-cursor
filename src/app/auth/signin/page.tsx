@@ -23,8 +23,9 @@ export default function SignInPage() {
     setLoading(true);
     try {
       await signIn('google', { callbackUrl: '/auth/2fa-verify' });
-    } catch (err: any) {
-      console.error('Sign in error:', err);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Sign in failed';
+      console.error('Sign in error:', errorMessage);
     } finally {
       setLoading(false);
     }

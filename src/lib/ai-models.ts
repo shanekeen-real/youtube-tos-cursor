@@ -1,11 +1,22 @@
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 import Anthropic from '@anthropic-ai/sdk';
 import { usageTracker } from './usage-tracker';
+import { VideoMetadata } from '../types/user';
+import { 
+  AIError, 
+  GeminiError, 
+  ContentPart, 
+  GeminiModelInstance, 
+  AnthropicInstance,
+  QueueRequest,
+  TokenUsage,
+  QueueStatus
+} from '../types/ai-models';
 
 // Model abstraction layer for seamless switching between Gemini and Claude
 export interface AIModel {
   generateContent: (prompt: string) => Promise<string>;
-  generateMultiModalContent?: (prompt: string, videoUrl: string, transcript?: string, metadata?: any) => Promise<string>;
+  generateMultiModalContent?: (prompt: string, videoUrl: string, transcript?: string, metadata?: VideoMetadata) => Promise<string>;
   name: string;
   supportsMultiModal: boolean;
 }
@@ -38,7 +49,7 @@ class TokenTracker {
     console.log(`Tokens used: ${count}, Total this minute: ${this.minuteTokens}/${this.MINUTE_LIMIT}`);
   }
 
-  getCurrentUsage(): { used: number; limit: number; remaining: number } {
+  getCurrentUsage(): TokenUsage {
     return {
       used: this.minuteTokens,
       limit: this.MINUTE_LIMIT,
@@ -49,7 +60,7 @@ class TokenTracker {
 
 // Request queuing system
 class AIRequestQueue {
-  private queue: Array<() => Promise<any>> = [];
+  private queue: Array<QueueRequest<unknown>> = [];
   private processing = false;
   private tokenTracker = new TokenTracker();
 
@@ -96,7 +107,7 @@ class AIRequestQueue {
 export class GeminiModel implements AIModel {
   name = 'gemini-2.0-flash';
   supportsMultiModal = true;
-  private model: any;
+  private model: GeminiModelInstance;
 
   constructor() {
     const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY as string);
@@ -126,10 +137,11 @@ export class GeminiModel implements AIModel {
       try {
         const result = await this.model.generateContent(prompt);
         return result.response.text();
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const aiError = error as GeminiError;
         // Check for 503 Service Unavailable (model overloaded)
-        if (error.status === 503 || (error.message && error.message.includes('503')) || 
-            (error.message && error.message.includes('overloaded'))) {
+        if (aiError.status === 503 || (aiError.message && aiError.message.includes('503')) || 
+            (aiError.message && aiError.message.includes('overloaded'))) {
           console.log(`Gemini model overloaded on attempt ${attempt + 1}, retrying in ${Math.pow(2, attempt)}s...`);
           if (attempt < maxRetries - 1) {
             await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
@@ -142,7 +154,7 @@ export class GeminiModel implements AIModel {
     throw new Error('Max retries exceeded for Gemini API call');
   }
 
-  async generateMultiModalContent(prompt: string, videoPath: string, transcript?: string, metadata?: any): Promise<string> {
+  async generateMultiModalContent(prompt: string, videoPath: string, transcript?: string, metadata?: VideoMetadata): Promise<string> {
     usageTracker.recordCall('gemini');
     
     // Add retry logic for 503rs (model overloaded)
@@ -155,7 +167,7 @@ export class GeminiModel implements AIModel {
         const videoBase64 = videoBuffer.toString('base64');
         
         // Create multi-modal content parts
-        const parts: any[] = [
+        const parts: ContentPart[] = [
           { text: prompt }
         ];
 
@@ -179,10 +191,11 @@ export class GeminiModel implements AIModel {
 
         const result = await this.model.generateContent(parts);
         return result.response.text();
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const aiError = error as GeminiError;
         // Check for 503 Service Unavailable (model overloaded)
-        if (error.status === 503 || (error.message && error.message.includes('503')) || 
-            (error.message && error.message.includes('overloaded'))) {
+        if (aiError.status === 503 || (aiError.message && aiError.message.includes('503')) || 
+            (aiError.message && aiError.message.includes('overloaded'))) {
           console.log(`Gemini model overloaded on attempt ${attempt + 1}, retrying in ${Math.pow(2, attempt)}s...`);
           if (attempt < maxRetries - 1) {
             await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
@@ -203,7 +216,7 @@ export class GeminiModel implements AIModel {
 export class ClaudeModel implements AIModel {
   name = 'claude-3-5-sonnet-20241022';
   supportsMultiModal = false;
-  private anthropic: any;
+  private anthropic: AnthropicInstance;
 
   constructor() {
     this.anthropic = new Anthropic({
@@ -221,8 +234,8 @@ export class ClaudeModel implements AIModel {
     });
     // Join all text blocks from the response
     return message.content
-      .filter((c: any) => c.type === 'text' && typeof c.text === 'string')
-      .map((c: any) => c.text)
+      .filter((c) => c.type === 'text' && typeof c.text === 'string')
+      .map((c) => c.text!)
       .join('');
   }
 }
@@ -230,7 +243,7 @@ export class ClaudeModel implements AIModel {
 export class Gemini15ProModel implements AIModel {
   name = 'gemini-1.5-pro';
   supportsMultiModal = true;
-  private model: any;
+  private model: GeminiModelInstance;
 
   constructor() {
     const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY as string);
@@ -258,9 +271,10 @@ export class Gemini15ProModel implements AIModel {
       try {
         const result = await this.model.generateContent(prompt);
         return result.response.text();
-      } catch (error: any) {
-        if (error.status === 503 || (error.message && error.message.includes('503')) || 
-            (error.message && error.message.includes('overloaded'))) {
+      } catch (error: unknown) {
+        const aiError = error as GeminiError;
+        if (aiError.status === 503 || (aiError.message && aiError.message.includes('503')) || 
+            (aiError.message && aiError.message.includes('overloaded'))) {
           console.log(`Gemini 1.5 Pro model overloaded on attempt ${attempt + 1}, retrying in ${Math.pow(2, attempt)}s...`);
           if (attempt < maxRetries - 1) {
             await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
@@ -273,7 +287,7 @@ export class Gemini15ProModel implements AIModel {
     throw new Error('Max retries exceeded for Gemini 1.5 Pro API call');
   }
 
-  async generateMultiModalContent(prompt: string, videoPath: string, transcript?: string, metadata?: any): Promise<string> {
+  async generateMultiModalContent(prompt: string, videoPath: string, transcript?: string, metadata?: VideoMetadata): Promise<string> {
     usageTracker.recordCall('gemini');
     const maxRetries = 3;
     for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -281,7 +295,7 @@ export class Gemini15ProModel implements AIModel {
         const fs = await import('fs');
         const videoBuffer = fs.readFileSync(videoPath);
         const videoBase64 = videoBuffer.toString('base64');
-        const parts: any[] = [ { text: prompt } ];
+        const parts: ContentPart[] = [ { text: prompt } ];
         parts.push({
           inlineData: {
             mimeType: 'video/mp4',
@@ -296,9 +310,10 @@ export class Gemini15ProModel implements AIModel {
         }
         const result = await this.model.generateContent(parts);
         return result.response.text();
-      } catch (error: any) {
-        if (error.status === 503 || (error.message && error.message.includes('503')) || 
-            (error.message && error.message.includes('overloaded'))) {
+      } catch (error: unknown) {
+        const aiError = error as GeminiError;
+        if (aiError.status === 503 || (aiError.message && aiError.message.includes('503')) || 
+            (aiError.message && aiError.message.includes('overloaded'))) {
           console.log(`Gemini 1.5 Pro model overloaded on attempt ${attempt + 1}, retrying in ${Math.pow(2, attempt)}s...`);
           if (attempt < maxRetries - 1) {
             await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
@@ -338,20 +353,22 @@ export class SmartAIModel implements AIModel {
         () => this.geminiModel.generateContent(prompt),
         this.estimateTokens(prompt)
       );
-    } catch (error: any) {
-      if (error.status === 429 || (error.message && error.message.includes('429')) ||
-          error.status === 503 || (error.message && error.message.includes('503')) ||
-          (error.message && error.message.includes('overloaded'))) {
+    } catch (error: unknown) {
+      const aiError = error as GeminiError;
+      if (aiError.status === 429 || (aiError.message && aiError.message.includes('429')) ||
+          aiError.status === 503 || (aiError.message && aiError.message.includes('503')) ||
+          (aiError.message && aiError.message.includes('overloaded'))) {
         console.log('Gemini 2.0 Flash unavailable, trying Gemini 1.5 Pro for text analysis');
         try {
           return await this.queue.addRequest(
             () => this.gemini15ProModel.generateContent(prompt),
             this.estimateTokens(prompt)
           );
-        } catch (error2: any) {
-          if (error2.status === 429 || (error2.message && error2.message.includes('429')) ||
-              error2.status === 503 || (error2.message && error2.message.includes('503')) ||
-              (error2.message && error2.message.includes('overloaded'))) {
+        } catch (error2: unknown) {
+          const aiError2 = error2 as GeminiError;
+          if (aiError2.status === 429 || (aiError2.message && aiError2.message.includes('429')) ||
+              aiError2.status === 503 || (aiError2.message && aiError2.message.includes('503')) ||
+              (aiError2.message && aiError2.message.includes('overloaded'))) {
             console.log('Gemini 1.5 Pro unavailable, switching to Claude');
             return await this.claudeModel.generateContent(prompt);
           }
@@ -362,7 +379,7 @@ export class SmartAIModel implements AIModel {
     }
   }
 
-  async generateMultiModalContent(prompt: string, videoPath: string, transcript?: string, metadata?: any): Promise<string> {
+  async generateMultiModalContent(prompt: string, videoPath: string, transcript?: string, metadata?: VideoMetadata): Promise<string> {
     // Try Gemini 2.0 Flash, then Gemini 1.5 Pro, then fallback to text-only with Claude
     const maxRetries = 3;
     for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -371,20 +388,22 @@ export class SmartAIModel implements AIModel {
           () => this.geminiModel.generateMultiModalContent(prompt, videoPath, transcript, metadata),
           this.estimateTokens(prompt) + (transcript ? this.estimateTokens(transcript) : 0) + 5000
         );
-      } catch (error: any) {
-        if (error.status === 429 || (error.message && error.message.includes('429')) ||
-            error.status === 503 || (error.message && error.message.includes('503')) ||
-            (error.message && error.message.includes('overloaded'))) {
+      } catch (error: unknown) {
+        const aiError = error as GeminiError;
+        if (aiError.status === 429 || (aiError.message && aiError.message.includes('429')) ||
+            aiError.status === 503 || (aiError.message && aiError.message.includes('503')) ||
+            (aiError.message && aiError.message.includes('overloaded'))) {
           console.log('Gemini 2.0 Flash unavailable, trying Gemini 1.5 Pro for multi-modal analysis');
           try {
             return await this.queue.addRequest(
               () => this.gemini15ProModel.generateMultiModalContent(prompt, videoPath, transcript, metadata),
               this.estimateTokens(prompt) + (transcript ? this.estimateTokens(transcript) : 0) + 5000
             );
-          } catch (error2: any) {
-            if (error2.status === 429 || (error2.message && error2.message.includes('429')) ||
-                error2.status === 503 || (error2.message && error2.message.includes('503')) ||
-                (error2.message && error2.message.includes('overloaded'))) {
+          } catch (error2: unknown) {
+            const aiError2 = error2 as GeminiError;
+            if (aiError2.status === 429 || (aiError2.message && aiError2.message.includes('429')) ||
+                aiError2.status === 503 || (aiError2.message && aiError2.message.includes('503')) ||
+                (aiError2.message && aiError2.message.includes('overloaded'))) {
               console.log('Gemini 1.5 Pro unavailable, falling back to text-only with Claude');
               const fallbackPrompt = `${prompt}\n\n${transcript ? `Transcript: ${transcript}` : ''}\n\n${metadata ? `Metadata: ${JSON.stringify(metadata)}` : ''}`;
               return await this.claudeModel.generateContent(fallbackPrompt);
@@ -399,7 +418,7 @@ export class SmartAIModel implements AIModel {
   }
 
   // Method to get video context from Gemini, then use Claude for subsequent analysis
-  async getVideoContextWithGemini(videoPath: string, transcript?: string, metadata?: any): Promise<string> {
+  async getVideoContextWithGemini(videoPath: string, transcript?: string, metadata?: VideoMetadata): Promise<string> {
     const contextPrompt = `
       Analyze this video content and provide a comprehensive context summary including:
       - Visual content description
@@ -419,7 +438,7 @@ export class SmartAIModel implements AIModel {
     analysisPrompt: string, 
     videoContext: string, 
     transcript?: string, 
-    metadata?: any
+    metadata?: VideoMetadata
   ): Promise<string> {
     const enhancedPrompt = `
       ${analysisPrompt}
@@ -442,7 +461,7 @@ export class SmartAIModel implements AIModel {
     return Math.ceil(text.length / 4);
   }
 
-  getQueueStatus() {
+  getQueueStatus(): QueueStatus {
     return {
       queueLength: this.queue.getQueueLength(),
       usage: this.queue.getCurrentUsage()
@@ -487,16 +506,17 @@ export async function callAIWithRetry<T>(aiCall: (model: AIModel) => Promise<T>,
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await aiCall(model);
-    } catch (error: any) {
-      if (error.status === 429 || (error.message && error.message.includes('429'))) {
+    } catch (error: unknown) {
+      const aiError = error as AIError;
+      if (aiError.status === 429 || (aiError.message && aiError.message.includes('429'))) {
         console.log(`Quota limit hit on attempt ${attempt + 1}, retrying in ${Math.pow(2, attempt)}s...`);
         if (attempt < maxRetries - 1) {
           await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
           continue;
         }
       }
-      if (error.status === 503 || (error.message && error.message.includes('503')) || 
-          (error.message && error.message.includes('overloaded'))) {
+      if (aiError.status === 503 || (aiError.message && aiError.message.includes('503')) || 
+          (aiError.message && aiError.message.includes('overloaded'))) {
         console.log(`Model overloaded on attempt ${attempt + 1}, retrying in ${Math.pow(2, attempt)}s...`);
         if (attempt < maxRetries - 1) {
           await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));

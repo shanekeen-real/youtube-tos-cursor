@@ -5,9 +5,26 @@ import { useSession } from 'next-auth/react';
 import { checkUserCanExport, checkUserCanAccessAIDetection } from '@/lib/subscription-utils';
 import { getTierLimits } from '@/types/subscription';
 
+// Define the user profile interface
+interface UserProfile {
+  subscriptionTier: 'free' | 'pro' | 'advanced' | 'enterprise';
+  scanCount: number;
+  scanLimit: number;
+}
+
+// Define the data interface for suggestions
+interface AnalysisData {
+  suggestions?: Array<{
+    title: string;
+    text: string;
+    priority: string;
+    impact_score: number;
+  }>;
+}
+
 export function useResultsPermissions() {
   const { data: session, status } = useSession();
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [canExport, setCanExport] = useState(false);
   const [canAccessAIDetection, setCanAccessAIDetection] = useState(false);
 
@@ -32,7 +49,7 @@ export function useResultsPermissions() {
     fetchUserProfile();
   }, [session?.user?.id]);
 
-  const getSuggestionLimit = (data: any) => {
+  const getSuggestionLimit = (data: AnalysisData) => {
     // If userProfile is still loading, return a high limit to show all suggestions temporarily
     if (!userProfile && status === 'authenticated') {
       console.log('[ResultsPage] User profile still loading, showing all suggestions temporarily');

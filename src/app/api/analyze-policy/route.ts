@@ -2,13 +2,27 @@ import { NextRequest, NextResponse } from 'next/server';
 import { performEnhancedAnalysis } from '@/lib/ai-analysis';
 import { auth } from '@/lib/auth';
 import { adminDb } from '@/lib/firebase-admin';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, DocumentData, Timestamp } from 'firebase-admin/firestore';
 import * as Sentry from '@sentry/nextjs';
 import { checkUserCanScan, checkSuggestionsPerScan } from '@/lib/subscription-utils';
-import { getTierLimits } from '@/types/subscription';
+import { getTierLimits, SubscriptionTier } from '@/types/subscription';
+import { Session } from 'next-auth';
+
+// Type definition for user data from Firestore
+interface UserData extends DocumentData {
+  subscriptionTier?: SubscriptionTier;
+  scanCount?: number;
+  lastScanAt?: Timestamp; // Firestore timestamp
+}
+
+// Type for subscription check - ensures compatibility with checkUserCanScan
+type UserDataForSubscription = {
+  subscriptionTier: SubscriptionTier;
+  scanCount: number;
+};
 
 export async function POST(req: NextRequest) {
-  let session: any;
+  let session: Session | null = null;
   let text: string | undefined = undefined;
   return Sentry.startSpan(
     {
@@ -33,15 +47,15 @@ export async function POST(req: NextRequest) {
 
         // Check user's scan limit and get subscription data
         let userRef;
-        let userData: any = null;
+        let userData: UserData | null = null;
         try {
           userRef = adminDb.collection('users').doc(userId);
           const userDoc = await userRef.get();
           
           if (userDoc.exists) {
-            userData = userDoc.data();
-            if (userData) {
-              const canScan = checkUserCanScan(userData);
+            userData = userDoc.data() as UserData;
+            if (userData && userData.subscriptionTier && typeof userData.scanCount === 'number') {
+              const canScan = checkUserCanScan(userData as UserDataForSubscription);
               
               if (!canScan.canScan) {
                 return NextResponse.json({ 
@@ -91,8 +105,9 @@ export async function POST(req: NextRequest) {
         }
 
         return NextResponse.json(analysisResult);
-      } catch (error: any) {
-        console.error('Analysis error:', error);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Analysis error:', errorMessage);
         
         Sentry.captureException(error, {
           tags: { component: 'analyze-policy-api' },

@@ -500,7 +500,7 @@ async function performMultiModalRiskAssessment(
     console.error('Multi-modal risk assessment failed:', error);
     // Fallback to text-only risk assessment
     if (videoData.transcript) {
-      return await performRiskAssessment(videoData.transcript, model, contextAnalysis, contextAnalysis);
+      return await performRiskAssessment(videoData.transcript, model, {}, contextAnalysis);
     }
     throw error;
   }

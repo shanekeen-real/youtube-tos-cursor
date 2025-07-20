@@ -1,13 +1,15 @@
+import { RiskLevel } from '../../types/ai-analysis';
 import { ScanData } from './types';
 
-export function toArray(val: any): any[] {
+export function toArray<T>(val: T | T[] | undefined | null): T[] {
   if (Array.isArray(val)) return val;
   if (val === undefined || val === null) return [];
-  if (typeof val === 'string') return [val];
-  return Array.from(val);
+  if (typeof val === 'string') return [val] as T[];
+  // For other types, wrap in array if not already iterable
+  return [val] as T[];
 }
 
-export function getRiskBadgeVariant(level: 'LOW' | 'MEDIUM' | 'HIGH') {
+export function getRiskBadgeVariant(level: RiskLevel) {
   switch (level) {
     case 'LOW': return 'safe';
     case 'MEDIUM': return 'yellow';
@@ -16,7 +18,7 @@ export function getRiskBadgeVariant(level: 'LOW' | 'MEDIUM' | 'HIGH') {
   }
 }
 
-export function getRiskColor(level: 'LOW' | 'MEDIUM' | 'HIGH') {
+export function getRiskColor(level: RiskLevel) {
   switch (level) {
     case 'LOW': return 'safe';
     case 'MEDIUM': return 'yellow';

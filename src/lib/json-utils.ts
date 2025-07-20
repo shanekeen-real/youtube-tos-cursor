@@ -1,6 +1,12 @@
 import * as Sentry from '@sentry/nextjs';
-import { PolicyCategoryAnalysis } from '../types/ai-analysis';
+import { PolicyCategoryAnalysis, SeverityLevel } from '../types/ai-analysis';
 import { jsonrepair } from 'jsonrepair';
+
+// Batch category interface based on the existing codebase
+interface BatchCategory {
+  key: string;
+  name: string;
+}
 
 // Batch normalization utility for risk scores and confidence
 export function normalizeBatchScores(scores: number[]) {
@@ -22,7 +28,7 @@ export function normalizeBatchScores(scores: number[]) {
 }
 
 // Enhanced JSON parsing utility with jsonrepair as primary strategy
-export function parseJSONSafely(jsonString: string): any {
+export function parseJSONSafely(jsonString: string): unknown {
   // Strategy 0: Clean up common AI model artifacts
   let cleaned = jsonString.trim();
   
@@ -155,11 +161,11 @@ export function parseJSONSafely(jsonString: string): any {
 
   // Strategy 8: Manual parsing as last resort
   try {
-    const result: any = {};
+    const result: Record<string, unknown> = {};
     // Extract categories using regex
     const categoryMatches = cleaned.match(/"([^"]+)"\s*:\s*\{[^}]+\}/g);
     if (categoryMatches) {
-      result.categories = {};
+      result.categories = {} as Record<string, unknown>;
       for (const match of categoryMatches) {
         const keyMatch = match.match(/"([^"]+)"/);
         if (keyMatch) {
@@ -168,7 +174,7 @@ export function parseJSONSafely(jsonString: string): any {
           const riskScoreMatch = match.match(/"risk_score":\s*(\d+)/);
           const confidenceMatch = match.match(/"confidence":\s*(\d+)/);
           const severityMatch = match.match(/"severity":\s*"([^"]+)"/);
-          result.categories[key] = {
+          (result.categories as Record<string, unknown>)[key] = {
             risk_score: riskScoreMatch ? parseInt(riskScoreMatch[1]) : 0,
             confidence: confidenceMatch ? parseInt(confidenceMatch[1]) : 0,
             violations: [],
@@ -201,7 +207,7 @@ export function parseJSONSafely(jsonString: string): any {
 }
 
 // Helper function to extract partial analysis from malformed JSON
-export function extractPartialAnalysis(jsonString: string, batch: any[]): {[key: string]: PolicyCategoryAnalysis} {
+export function extractPartialAnalysis(jsonString: string, batch: BatchCategory[]): {[key: string]: PolicyCategoryAnalysis} {
   const partialAnalysis: {[key: string]: PolicyCategoryAnalysis} = {};
   
   for (const category of batch) {
@@ -225,7 +231,7 @@ export function extractPartialAnalysis(jsonString: string, batch: any[]): {[key:
           confidence: normalizeBatchScores([confidenceMatch ? parseInt(confidenceMatch[1]) : 0])[0],
           violations: violationsMatch ? 
             violationsMatch[1].split(',').map(v => v.trim().replace(/"/g, '')).filter(v => v) : [],
-          severity: (severityMatch ? severityMatch[1].toUpperCase() : 'LOW') as 'LOW' | 'MEDIUM' | 'HIGH',
+          severity: (severityMatch ? severityMatch[1].toUpperCase() : 'LOW') as SeverityLevel,
           explanation: explanationMatch ? 
             explanationMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\') : 
             'Analysis partially extracted from malformed response'

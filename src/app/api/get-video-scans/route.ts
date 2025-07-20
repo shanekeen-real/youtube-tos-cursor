@@ -2,6 +2,35 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { auth } from '@/lib/auth';
 import * as Sentry from "@sentry/nextjs";
+import { DocumentData, QueryDocumentSnapshot, Timestamp } from 'firebase-admin/firestore';
+
+// Type definitions for video scan data
+interface VideoScanData {
+  video_id?: string;
+  isCache?: boolean;
+  analysisResult?: {
+    riskLevel?: string;
+    risk_level?: string;
+    riskScore?: number;
+    risk_score?: number;
+    title?: string;
+    analysis_source?: string;
+  };
+  timestamp?: Timestamp; // Firestore timestamp
+  createdAt?: Timestamp; // Firestore timestamp
+  original_url?: string;
+}
+
+interface VideoScanResult {
+  scanId: string;
+  videoId: string;
+  riskLevel: string;
+  riskScore: number;
+  title: string;
+  timestamp: Date;
+  url: string;
+  analysisSource: string;
+}
 
 export async function GET(req: NextRequest) {
   return Sentry.startSpan(
@@ -32,23 +61,23 @@ export async function GET(req: NextRequest) {
           .get();
 
         const scans = videoScans.docs
-          .filter((doc: any) => !doc.data().isCache) // Exclude cache docs
-          .map((doc: any) => {
-            const data = doc.data();
+          .filter((doc: QueryDocumentSnapshot<DocumentData>) => !(doc.data() as VideoScanData).isCache) // Exclude cache docs
+          .map((doc: QueryDocumentSnapshot<DocumentData>) => {
+            const data = doc.data() as VideoScanData;
             return {
               scanId: doc.id,
-              videoId: data.video_id,
+              videoId: data.video_id || '',
               riskLevel: data.analysisResult?.riskLevel || data.analysisResult?.risk_level || 'Unknown',
               riskScore: data.analysisResult?.riskScore || data.analysisResult?.risk_score || 0,
               title: data.analysisResult?.title || 'Untitled',
               timestamp: data.timestamp?.toDate() || data.createdAt || new Date(),
               url: data.original_url || `https://www.youtube.com/watch?v=${videoId}`,
               analysisSource: data.analysisResult?.analysis_source || 'Unknown'
-            };
+            } as VideoScanResult;
           });
 
         // Sort by timestamp (newest first)
-        scans.sort((a: any, b: any) => {
+        scans.sort((a: VideoScanResult, b: VideoScanResult) => {
           const dateA = new Date(a.timestamp);
           const dateB = new Date(b.timestamp);
           return dateB.getTime() - dateA.getTime();
@@ -60,13 +89,14 @@ export async function GET(req: NextRequest) {
           totalScans: scans.length
         });
 
-      } catch (error: any) {
-        console.error('Error fetching video scans:', error);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Error fetching video scans:', errorMessage);
         Sentry.captureException(error);
         
         return NextResponse.json({ 
           error: 'Failed to fetch video scans',
-          details: error.message 
+          details: errorMessage 
         }, { status: 500 });
       }
     }

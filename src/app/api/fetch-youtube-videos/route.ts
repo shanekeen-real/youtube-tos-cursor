@@ -5,6 +5,76 @@ import { adminDb } from '@/lib/firebase-admin';
 import { usageTracker } from '@/lib/usage-tracker';
 import * as Sentry from "@sentry/nextjs";
 
+// Type definitions for YouTube API responses
+interface YouTubeVideoItem {
+  id: {
+    videoId: string;
+  };
+  snippet: {
+    title: string;
+    description: string;
+    publishedAt: string;
+    thumbnails: {
+      default?: { url: string; width: number; height: number };
+      medium?: { url: string; width: number; height: number };
+      high?: { url: string; width: number; height: number };
+    };
+    channelTitle: string;
+    channelId: string;
+  };
+}
+
+interface YouTubeVideoStats {
+  id: string;
+  statistics?: {
+    viewCount?: string;
+    likeCount?: string;
+    commentCount?: string;
+  };
+  status?: {
+    privacyStatus?: string;
+    uploadStatus?: string;
+    embeddable?: boolean;
+  };
+}
+
+interface YouTubeSearchResponse {
+  items?: YouTubeVideoItem[];
+  nextPageToken?: string;
+  pageInfo?: {
+    totalResults: number;
+    resultsPerPage: number;
+  };
+}
+
+interface YouTubeStatsResponse {
+  items?: YouTubeVideoStats[];
+}
+
+interface YouTubeChannelResponse {
+  items?: Array<{
+    id: string;
+    snippet?: {
+      title: string;
+    };
+  }>;
+}
+
+interface VideoWithStats extends YouTubeVideoItem {
+  statistics?: YouTubeVideoStats['statistics'] | null;
+  status?: YouTubeVideoStats['status'] | null;
+}
+
+interface YouTubeErrorResponse {
+  error?: {
+    message?: string;
+    errors?: Array<{
+      reason?: string;
+      message?: string;
+    }>;
+  };
+}
+
 export async function POST(req: NextRequest) {
   return Sentry.startSpan(
     {
@@ -140,7 +210,7 @@ export async function POST(req: NextRequest) {
               },
             });
             if (!retryResponse.ok) {
-              let errorData;
+              let errorData: YouTubeErrorResponse;
               try {
                 errorData = await retryResponse.json();
               } catch (parseError) {
@@ -154,7 +224,7 @@ export async function POST(req: NextRequest) {
                 details: errorData.error?.message || `HTTP ${retryResponse.status}: ${retryResponse.statusText}` 
               }, { status: retryResponse.status });
             }
-            const retryData = await retryResponse.json();
+            const retryData = await retryResponse.json() as YouTubeSearchResponse;
             return NextResponse.json({ success: true, ...retryData });
           } catch (err) {
             console.error('Token refresh on retry failed:', err);
@@ -164,7 +234,7 @@ export async function POST(req: NextRequest) {
         }
 
         if (!response.ok) {
-          let errorData;
+          let errorData: YouTubeErrorResponse;
           try {
             errorData = await response.json();
           } catch (parseError) {
@@ -189,7 +259,7 @@ export async function POST(req: NextRequest) {
               );
               
               if (channelResponse.ok) {
-                const channelData = await channelResponse.json();
+                const channelData = await channelResponse.json() as YouTubeChannelResponse;
                 if (channelData.items && channelData.items.length > 0) {
                   const channelId = channelData.items[0].id;
                   console.log('Found channel ID:', channelId);
@@ -206,7 +276,7 @@ export async function POST(req: NextRequest) {
                   });
                   
                   if (fallbackResponse.ok) {
-                    const fallbackData = await fallbackResponse.json();
+                    const fallbackData = await fallbackResponse.json() as YouTubeSearchResponse;
                     console.log('Fallback successful, found videos:', fallbackData.items?.length || 0);
                     return NextResponse.json({ success: true, ...fallbackData });
                   } else {
@@ -230,7 +300,7 @@ export async function POST(req: NextRequest) {
           }, { status: response.status });
         }
 
-        const data = await response.json();
+        const data = await response.json() as YouTubeSearchResponse;
         console.log('Successfully fetched videos:', data.items?.length || 0, 'videos');
         console.log('Full YouTube API response:', JSON.stringify(data, null, 2));
 
@@ -262,7 +332,7 @@ export async function POST(req: NextRequest) {
         // Fetch video statistics and status for each video
         if (data.items && data.items.length > 0) {
           try {
-            const videoIds = data.items.map((item: any) => item.id.videoId).join(',');
+            const videoIds = data.items.map((item: YouTubeVideoItem) => item.id.videoId).join(',');
             const statsUrl = `https://www.googleapis.com/youtube/v3/videos?part=statistics,status&id=${videoIds}`;
             
             const statsResponse = await fetch(statsUrl, {
@@ -273,19 +343,19 @@ export async function POST(req: NextRequest) {
             });
 
             if (statsResponse.ok) {
-              const statsData = await statsResponse.json();
+              const statsData = await statsResponse.json() as YouTubeStatsResponse;
               console.log('Successfully fetched video statistics and status:', statsData.items?.length || 0, 'videos');
               
               // Track quota usage for the statistics API call
               await usageTracker.trackUsage('youtube', 1);
               
               // Merge statistics and status with video data
-              const videosWithStats = data.items.map((video: any) => {
-                const stats = statsData.items?.find((stat: any) => stat.id === video.id.videoId);
+              const videosWithStats: VideoWithStats[] = data.items.map((video: YouTubeVideoItem) => {
+                const stats = statsData.items?.find((stat: YouTubeVideoStats) => stat.id === video.id.videoId);
                 return {
                   ...video,
-                  statistics: stats?.statistics || null,
-                  status: stats?.status || null
+                  statistics: stats?.statistics,
+                  status: stats?.status
                 };
               });
               
@@ -316,10 +386,11 @@ export async function POST(req: NextRequest) {
         }
 
         return NextResponse.json({ success: true, ...data });
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Unexpected error in fetch-youtube-videos:', error);
         Sentry.captureException(error);
-        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
+        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+        return NextResponse.json({ error: 'Internal server error', details: errorMessage }, { status: 500 });
       }
     }
   );

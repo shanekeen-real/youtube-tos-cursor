@@ -1,7 +1,8 @@
 import { AIModel } from './ai-models';
 import { jsonParsingService } from './json-parsing-service';
-import { ContextAnalysis, RiskAssessmentSchema } from '../types/ai-analysis';
+import { ContextAnalysis, RiskAssessmentSchema, RiskAssessment as RiskAssessmentType, PolicyCategoryAnalysis } from '../types/ai-analysis';
 import { YOUTUBE_POLICY_CATEGORIES } from '../types/ai-analysis';
+import { RiskSpan } from '../types/analysis';
 import * as Sentry from '@sentry/nextjs';
 
 function getAllPolicyCategoryKeysAndNames() {
@@ -15,7 +16,7 @@ function getAllPolicyCategoryKeysAndNames() {
 }
 
 // Stage 3: Risk Assessment
-export async function performRiskAssessment(text: string, model: AIModel, policyAnalysis: any, context: ContextAnalysis, isChunked = false): Promise<any> {
+export async function performRiskAssessment(text: string, model: AIModel, policyAnalysis: { [category: string]: PolicyCategoryAnalysis }, context: ContextAnalysis, isChunked = false): Promise<RiskAssessmentType> {
   const allCategoriesList = getAllPolicyCategoryKeysAndNames();
   const allCategoryKeys = allCategoriesList.map(cat => cat.key);
 
@@ -93,7 +94,7 @@ export async function performRiskAssessment(text: string, model: AIModel, policy
       const result = await model.generateContent(basePrompt);
       
       // Use the robust JSON parsing service
-      const parsingResult = await jsonParsingService.parseJson<any>(result, RiskAssessmentSchema, model);
+      const parsingResult = await jsonParsingService.parseJson<RiskAssessmentType>(result, RiskAssessmentSchema, model);
       
       if (parsingResult.success && parsingResult.data) {
         console.log(`Risk assessment completed using ${parsingResult.strategy}`);
@@ -123,21 +124,30 @@ export async function performRiskAssessment(text: string, model: AIModel, policy
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
+  
+  // This should never be reached, but TypeScript requires it
+  return {
+    flagged_section: 'Analysis failed',
+    overall_risk_score: 0,
+    risk_factors: [],
+    severity_level: 'LOW',
+    risky_phrases_by_category: {},
+  };
 }
 
 // Helper to merge/expand overlapping or adjacent risky spans
-export function mergeOverlappingSpans(spans: any[], decodedText: string): any[] {
+export function mergeOverlappingSpans(spans: RiskSpan[], decodedText: string): RiskSpan[] {
   if (!spans.length) return [];
   // Sort by start_index
-  spans = spans.slice().sort((a, b) => a.start_index - b.start_index);
-  const merged: any[] = [];
+  spans = spans.slice().sort((a, b) => (a.start_index || 0) - (b.start_index || 0));
+  const merged: RiskSpan[] = [];
   let prev = spans[0];
   for (let i = 1; i < spans.length; i++) {
     const curr = spans[i];
     // If overlapping or adjacent, merge
-    if (curr.start_index <= prev.end_index + 1 && curr.risk_level === prev.risk_level && curr.policy_category === prev.policy_category) {
-      prev.end_index = Math.max(prev.end_index, curr.end_index);
-      prev.text += decodedText.slice(prev.end_index, curr.end_index);
+    if ((curr.start_index || 0) <= (prev.end_index || 0) + 1 && curr.risk_level === prev.risk_level && curr.policy_category === prev.policy_category) {
+      prev.end_index = Math.max(prev.end_index || 0, curr.end_index || 0);
+      prev.text += decodedText.slice(prev.end_index || 0, curr.end_index || 0);
     } else {
       merged.push(prev);
       prev = curr;

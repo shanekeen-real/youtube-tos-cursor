@@ -79,11 +79,9 @@ export default function CPMSetupModal({ isOpen, onClose, onSetupComplete }: CPMS
       showSuccess('Revenue Calculator Setup', 'Your CPM/RPM settings have been saved successfully!');
       onSetupComplete();
       onClose();
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to setup revenue calculator';
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update CPM settings.';
       setError(errorMessage);
-      showError('Setup Error', errorMessage);
-    } finally {
       setLoading(false);
     }
   };

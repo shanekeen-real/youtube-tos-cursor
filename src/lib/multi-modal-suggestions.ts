@@ -57,9 +57,9 @@ export async function generateActionableSuggestionsWithContext(
     const parsingResult = await jsonParsingService.parseJson<Suggestion[]>(result, expectedSchema, model);
     if (parsingResult.success && parsingResult.data) {
       // Validate and normalize the suggestions
-      const suggestions: Suggestion[] = parsingResult.data.map((s: any, index: number) => {
+      const suggestions: Suggestion[] = parsingResult.data.map((s: Suggestion, index: number) => {
         // Ensure we have meaningful text
-        let suggestionText = s.text || s.description || s.explanation || '';
+        let suggestionText = s.text || '';
         if (!suggestionText || suggestionText === 'No suggestion text provided') {
           // Generate a fallback suggestion based on the title or index
           if (s.title && s.title !== `Suggestion ${index + 1}`) {

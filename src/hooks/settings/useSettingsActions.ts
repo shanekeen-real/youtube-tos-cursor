@@ -76,8 +76,8 @@ export function useSettingsActions() {
       a.click();
       a.remove();
       setExportStatus("Export successful. Check your downloads.");
-    } catch (err: any) {
-      setExportStatus("Export failed: " + err.message);
+    } catch (err: unknown) {
+      setExportStatus("Export failed: " + (err instanceof Error ? err.message : 'Unknown error'));
     }
   };
 
@@ -95,8 +95,8 @@ export function useSettingsActions() {
       setTimeout(() => {
         signOut({ callbackUrl: "/" });
       }, 1500);
-    } catch (err: any) {
-      setDeleteStatus("Delete failed: " + err.message);
+    } catch (err: unknown) {
+      setDeleteStatus("Delete failed: " + (err instanceof Error ? err.message : 'Unknown error'));
     } finally {
       setDeleting(false);
     }

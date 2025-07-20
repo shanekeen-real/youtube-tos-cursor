@@ -2,9 +2,11 @@ import React from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { Card, Badge } from '@/lib/imports';
 import { getRiskBadgeVariant } from '../ResultsUtils';
+import { RiskLevel } from '../../../types/ai-analysis';
 
 interface RiskLevelCardProps {
-  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  riskLevel: RiskLevel;
+  riskScore: number;
 }
 
 export default function RiskLevelCard({ riskLevel }: RiskLevelCardProps) {

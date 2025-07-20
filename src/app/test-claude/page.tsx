@@ -3,10 +3,25 @@
 import { useState } from 'react';
 import { Button } from '@/lib/imports';
 import { Card } from '@/lib/imports';
+import { AnalysisHighlight } from '@/types/analysis';
+import { Suggestion } from '@/types/ai-analysis';
+
+interface TestClaudeResult {
+  message: string;
+  model_used: string;
+  risk_score: number;
+  risk_level: string;
+  confidence_score: number;
+  processing_time_ms: number;
+  content_length: number;
+  highlights: AnalysisHighlight[];
+  suggestions: Suggestion[];
+  test_text: string;
+}
 
 export default function TestClaudePage() {
   const [text, setText] = useState('This video contains explicit content and may not be suitable for all advertisers.');
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<TestClaudeResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -93,7 +108,7 @@ export default function TestClaudePage() {
               <div>
                 <strong>Highlights:</strong>
                 <ul className="list-disc list-inside mt-2">
-                  {result.highlights.map((highlight: any, index: number) => (
+                  {result.highlights.map((highlight: AnalysisHighlight, index: number) => (
                     <li key={index}>
                       {highlight.category}: {highlight.risk} (Score: {highlight.score})
                     </li>
@@ -106,7 +121,7 @@ export default function TestClaudePage() {
               <div>
                 <strong>Suggestions:</strong>
                 <ul className="list-disc list-inside mt-2">
-                  {result.suggestions.map((suggestion: any, index: number) => (
+                  {result.suggestions.map((suggestion: Suggestion, index: number) => (
                     <li key={index}>
                       <strong>{suggestion.title}:</strong> {suggestion.text}
                     </li>

@@ -11,6 +11,7 @@ import { SUBSCRIPTION_TIERS } from '@/types/subscription';
 import { UIInput as Input } from '@/lib/imports';
 import { Shield, AlertTriangle, CheckCircle } from 'lucide-react';
 import { useToastContext } from '@/contexts/ToastContext';
+import { EnhancedAnalysisResult } from '@/types/analysis';
 
 const featureSets: FeatureSet[] = [
   {
@@ -55,7 +56,7 @@ export default function Home() {
   const [inputValue, setInputValue] = useState('');
   const [loadingFree, setLoadingFree] = useState(false);
   const [loadingFull, setLoadingFull] = useState(false);
-  const [freeScanResult, setFreeScanResult] = useState<any | null>(null);
+  const [freeScanResult, setFreeScanResult] = useState<EnhancedAnalysisResult | null>(null);
   const router = useRouter();
   const [progress, setProgress] = useState(0);
   const progressRef = useRef<NodeJS.Timeout | null>(null);
@@ -107,13 +108,18 @@ export default function Home() {
       // No need to manually save to Firestore here
       
       router.push(`/results?scanId=${res.data.scanId}`);
-    } catch (e: any) {
-       if (e.response && e.response.status === 400) {
-        showError('Analysis Error', e.response.data.error);
-      } else if (e.response && e.response.status === 429) {
-        // Display the actual error message from the backend instead of generic message
-        const errorMessage = e.response.data.error || 'Rate limit exceeded. Please try again later.';
-        showError('Rate Limit Exceeded', errorMessage);
+    } catch (e: unknown) {
+      if (e && typeof e === 'object' && 'response' in e && e.response && typeof e.response === 'object' && 'status' in e.response) {
+        const response = e.response as { status: number; data?: { error?: string } };
+        if (response.status === 400) {
+          showError('Analysis Error', response.data?.error || 'Bad request');
+        } else if (response.status === 429) {
+          // Display the actual error message from the backend instead of generic message
+          const errorMessage = response.data?.error || 'Rate limit exceeded. Please try again later.';
+          showError('Rate Limit Exceeded', errorMessage);
+        } else {
+          showError('Analysis Error', 'Error analyzing content. Please try again.');
+        }
       } else {
         showError('Analysis Error', 'Error analyzing content. Please try again.');
       }
@@ -135,19 +141,19 @@ export default function Home() {
       // The scan is now automatically saved by the server-side API
       // No need to manually save to Firestore here
       
-      setFreeScanResult({
-        risk_score: res.data.risk_score,
-        flagged_section: res.data.flagged_section,
-        risk_level: res.data.risk_level,
-        highlights: res.data.highlights
-      });
-    } catch (e: any) {
-      if (e.response && e.response.status === 400) {
-        showError('Analysis Error', e.response.data.error);
-      } else if (e.response && e.response.status === 429) {
-        // Display the actual error message from the backend instead of generic message
-        const errorMessage = e.response.data.error || 'Rate limit exceeded. Please try again later.';
-        showError('Rate Limit Exceeded', errorMessage);
+      setFreeScanResult(res.data as EnhancedAnalysisResult);
+    } catch (e: unknown) {
+      if (e && typeof e === 'object' && 'response' in e && e.response && typeof e.response === 'object' && 'status' in e.response) {
+        const response = e.response as { status: number; data?: { error?: string } };
+        if (response.status === 400) {
+          showError('Analysis Error', response.data?.error || 'Bad request');
+        } else if (response.status === 429) {
+          // Display the actual error message from the backend instead of generic message
+          const errorMessage = response.data?.error || 'Rate limit exceeded. Please try again later.';
+          showError('Rate Limit Exceeded', errorMessage);
+        } else {
+          showError('Analysis Error', 'Error analyzing policy. Please try again.');
+        }
       } else {
         showError('Analysis Error', 'Error analyzing policy. Please try again.');
       }
@@ -157,8 +163,8 @@ export default function Home() {
   };
 
   const getRiskIcon = (riskLevel: string) => {
-    if (riskLevel === 'high') return <AlertTriangle className="h-6 w-6 text-risk" />;
-    if (riskLevel === 'medium') return <AlertTriangle className="h-6 w-6 text-yellow-500" />;
+    if (riskLevel === 'HIGH') return <AlertTriangle className="h-6 w-6 text-risk" />;
+    if (riskLevel === 'MEDIUM') return <AlertTriangle className="h-6 w-6 text-yellow-500" />;
     return <CheckCircle className="h-6 w-6 text-safe" />;
   };
 
@@ -265,11 +271,11 @@ export default function Home() {
                   {freeScanResult.flagged_section}
                 </div>
                 <Badge 
-                  variant={freeScanResult.risk_level === 'high' ? 'risk' : 
-                          freeScanResult.risk_level === 'medium' ? 'neutral' : 'safe'}
+                  variant={freeScanResult.risk_level === 'HIGH' ? 'risk' : 
+                          freeScanResult.risk_level === 'MEDIUM' ? 'neutral' : 'safe'}
                   className="mx-auto"
                 >
-                  {freeScanResult.risk_level.toUpperCase()} RISK
+                  {freeScanResult.risk_level} RISK
                 </Badge>
               </Card>
               

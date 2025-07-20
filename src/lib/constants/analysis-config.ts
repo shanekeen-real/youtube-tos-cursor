@@ -1,3 +1,5 @@
+import { RiskLevel } from '../../types/ai-analysis';
+
 /**
  * Centralized constants for analysis configuration
  * These constants define performance limits, thresholds, and processing parameters
@@ -124,7 +126,7 @@ export function getAIDetectionSensitivity(contentType: string): number {
  * @param score - The risk score (0-100)
  * @returns The risk level
  */
-export function getRiskLevel(score: number): 'LOW' | 'MEDIUM' | 'HIGH' {
+export function getRiskLevel(score: number): RiskLevel {
   if (score >= RISK_THRESHOLDS.HIGH_RISK) return 'HIGH';
   if (score >= RISK_THRESHOLDS.MEDIUM_RISK) return 'MEDIUM';
   return 'LOW';

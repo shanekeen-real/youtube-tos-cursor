@@ -1,7 +1,7 @@
 import { AIModel, callAIWithRetry, RateLimiter } from './ai-models';
 import { parseJSONSafely, normalizeBatchScores, extractPartialAnalysis } from './json-utils';
 import { jsonParsingService } from './json-parsing-service';
-import { PolicyCategoryAnalysis, ContextAnalysis, BatchAnalysisSchema } from '../types/ai-analysis';
+import { PolicyCategoryAnalysis, ContextAnalysis, BatchAnalysisSchema, BatchAnalysisResult } from '../types/ai-analysis';
 import { YOUTUBE_POLICY_CATEGORIES } from '../types/ai-analysis';
 import * as Sentry from '@sentry/nextjs';
 import { z } from 'zod';
@@ -85,7 +85,7 @@ export async function performPolicyCategoryAnalysisBatched(text: string, model: 
       const result = await callAIWithRetry((model: AIModel) => model.generateContent(prompt));
       
       // Use the robust JSON parsing service
-      const parsingResult = await jsonParsingService.parseJson<any>(result, BatchAnalysisSchema, model);
+      const parsingResult = await jsonParsingService.parseJson<BatchAnalysisResult>(result, BatchAnalysisSchema, model);
       
       if (parsingResult.success && parsingResult.data) {
         const validatedAnalysis = parsingResult.data;

@@ -1,19 +1,7 @@
 import { SubscriptionTier, SUBSCRIPTION_TIERS, getTierLimits } from '@/types/subscription';
+import { UserSubscriptionData } from '@/types/user';
 
-export interface UserSubscriptionData {
-  subscriptionTier: SubscriptionTier;
-  scanCount: number;
-  scanLimit: number | 'unlimited' | 'custom';
-  suggestionsPerScan?: number | 'all';
-  subscriptionData?: {
-    tier: SubscriptionTier;
-    limits: any;
-    updatedAt: string;
-    cancelledAt?: string;
-  };
-}
-
-export const checkUserCanScan = (userData: any): { canScan: boolean; reason?: string } => {
+export const checkUserCanScan = (userData: UserSubscriptionData): { canScan: boolean; reason?: string } => {
   if (!userData || !userData.subscriptionTier || typeof userData.scanCount !== 'number') {
     return { canScan: false, reason: `Unable to verify subscription status. Please contact support.` };
   }
@@ -154,7 +142,7 @@ export const getTierBenefits = (tier: SubscriptionTier): string[] => {
   return benefits;
 };
 
-export const checkUserCanExport = (userData: any): { canExport: boolean; reason?: string } => {
+export const checkUserCanExport = (userData: UserSubscriptionData): { canExport: boolean; reason?: string } => {
   if (!userData || !userData.subscriptionTier) {
     return { canExport: false, reason: 'Unable to verify subscription status. Please contact support.' };
   }
@@ -172,7 +160,7 @@ export const checkUserCanExport = (userData: any): { canExport: boolean; reason?
   return { canExport: true };
 };
 
-export const checkUserCanAccessAIDetection = (userData: any): { canAccess: boolean; reason?: string } => {
+export const checkUserCanAccessAIDetection = (userData: UserSubscriptionData): { canAccess: boolean; reason?: string } => {
   if (!userData || !userData.subscriptionTier) {
     return { canAccess: false, reason: 'Unable to verify subscription status. Please contact support.' };
   }

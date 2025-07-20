@@ -1,8 +1,11 @@
 import { getAIModel, SmartAIModel } from './ai-models';
 import { 
-  EnhancedAnalysisResult
+  EnhancedAnalysisResult,
+  PolicyCategoryAnalysis
 } from '../types/ai-analysis';
+import { AIDetectionResult } from '@/types/analysis';
 import { VideoAnalysisData } from '@/types/video-processing';
+import { ChannelContext } from '@/types/user';
 import * as Sentry from '@sentry/nextjs';
 import { calculateOverallRiskScore, getRiskLevel, generateHighlights, cleanRiskyPhrases } from './analysis-utils';
 
@@ -25,7 +28,7 @@ import { performTextOnlyRiskAssessment } from './multi-modal-risk-assessment';
  */
 export async function performHybridMultiModalVideoAnalysis(
   videoData: VideoAnalysisData,
-  channelContext?: any
+  channelContext?: ChannelContext
 ): Promise<EnhancedAnalysisResult> {
   const startTime = Date.now();
   
@@ -52,37 +55,34 @@ export async function performHybridMultiModalVideoAnalysis(
     // Stages 2-5: PARALLEL PROCESSING
     console.log('Stages 2-5: Starting parallel processing');
     
-    const parallelTasks = [
-      // Stage 2: Multi-modal content classification
-      performMultiModalContextAnalysis(videoData, model, videoContext),
-      
-      // Stage 3: AI Detection (if channel context available)
-      channelContext ? 
-        (videoData.transcript ? 
-          performAIDetectionWithContext(videoData.transcript, model, channelContext, videoContext) :
-          performMultiModalAIDetection(videoData, model, channelContext, { content_type: 'video', target_audience: 'general', monetization_impact: 50, content_length: videoData.transcript?.length || 0, language_detected: 'English' })
-        ) : 
-        Promise.resolve(null),
-      
-      // Stage 4: Text-only policy analysis with video context
-      performTextOnlyPolicyAnalysis(
-        videoData.transcript || 'Video content analysis',
-        { content_type: 'video', target_audience: 'general', monetization_impact: 50, content_length: videoData.transcript?.length || 0, language_detected: 'English' },
-        videoContext,
-        model
-      ),
-      
-      // Stage 5: Text-only risk assessment with video context
-      performTextOnlyRiskAssessment(
-        videoData.transcript || 'Video content analysis',
-        { content_type: 'video', target_audience: 'general', monetization_impact: 50, content_length: videoData.transcript?.length || 0, language_detected: 'English' },
-        videoContext,
-        model
-      )
-    ];
-
-    // Execute all parallel tasks
-    const [contextAnalysis, aiDetectionResult, policyCategories, riskAssessment] = await Promise.all(parallelTasks);
+    // Execute parallel tasks with proper type handling
+    const contextAnalysis = await performMultiModalContextAnalysis(videoData, model, videoContext);
+    
+    // Stage 3: AI Detection (if channel context available)
+    let aiDetectionResult: AIDetectionResult | null = null;
+    if (channelContext) {
+      if (videoData.transcript) {
+        aiDetectionResult = await performAIDetectionWithContext(videoData.transcript, model, channelContext, videoContext);
+      } else {
+        aiDetectionResult = await performMultiModalAIDetection(videoData, model, channelContext, { content_type: 'video', target_audience: 'general', monetization_impact: 50, content_length: videoData.transcript?.length || 0, language_detected: 'English' });
+      }
+    }
+    
+    // Stage 4: Text-only policy analysis with video context
+    const policyCategories = await performTextOnlyPolicyAnalysis(
+      videoData.transcript || 'Video content analysis',
+      { content_type: 'video', target_audience: 'general', monetization_impact: 50, content_length: videoData.transcript?.length || 0, language_detected: 'English' },
+      videoContext,
+      model
+    );
+    
+    // Stage 5: Text-only risk assessment with video context
+    const riskAssessment = await performTextOnlyRiskAssessment(
+      videoData.transcript || 'Video content analysis',
+      { content_type: 'video', target_audience: 'general', monetization_impact: 50, content_length: videoData.transcript?.length || 0, language_detected: 'English' },
+      videoContext,
+      model
+    );
     
     console.log('Parallel processing completed:');
     console.log('- Context analysis:', contextAnalysis ? 'success' : 'failed');
@@ -95,7 +95,7 @@ export async function performHybridMultiModalVideoAnalysis(
     const confidenceAnalysis = await performConfidenceAnalysisWithContext(
       videoData.transcript || 'Video content analysis',
       model,
-      Object.entries(policyCategories || {}).map(([category, data]) => ({ ...(data as any), category })),
+      Object.entries(policyCategories || {}).map(([category, data]) => ({ ...(data as PolicyCategoryAnalysis), category })),
       contextAnalysis || { content_type: 'video', target_audience: 'general', monetization_impact: 50, content_length: videoData.transcript?.length || 0, language_detected: 'English' },
       videoContext
     );
@@ -105,7 +105,7 @@ export async function performHybridMultiModalVideoAnalysis(
     const suggestions = await generateActionableSuggestionsWithContext(
       videoData.transcript || 'Video content analysis',
       model,
-      Object.entries(policyCategories || {}).map(([category, data]) => ({ ...(data as any), category })),
+      Object.entries(policyCategories || {}).map(([category, data]) => ({ ...(data as PolicyCategoryAnalysis), category })),
       riskAssessment || { overall_risk_score: 0, flagged_section: 'No content analyzed', risk_factors: [], severity_level: 'LOW', risky_spans: [], risky_phrases_by_category: {} },
       videoContext
     );
@@ -152,7 +152,7 @@ export async function performHybridMultiModalVideoAnalysis(
       risky_phrases: cleanedRiskyPhrases,
       risky_phrases_by_category: riskAssessment?.risky_phrases_by_category || {},
       ai_detection: aiDetectionResult ? {
-        probability: aiDetectionResult.ai_probability,
+        probability: aiDetectionResult.probability,
         confidence: aiDetectionResult.confidence,
         patterns: aiDetectionResult.patterns,
         indicators: aiDetectionResult.indicators,
@@ -172,7 +172,7 @@ export async function performHybridMultiModalVideoAnalysis(
     console.log('Total processing time:', Date.now() - startTime, 'ms');
     return analysisResult;
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Hybrid multi-modal analysis failed:', error);
     Sentry.captureException(error, {
       tags: { component: 'hybrid-multi-modal-analysis', action: 'perform-analysis' },
@@ -180,7 +180,7 @@ export async function performHybridMultiModalVideoAnalysis(
     });
     
     // Fallback to text-only analysis
-    console.log('Falling back to text-only analysis due to error:', error.message);
+    console.log('Falling back to text-only analysis due to error:', (error as Error).message);
     const fallbackResult = await performTextOnlyAnalysis(videoData, channelContext);
     console.log('Fallback analysis completed with risk score:', fallbackResult.risk_score);
     return fallbackResult;
@@ -190,7 +190,7 @@ export async function performHybridMultiModalVideoAnalysis(
 /**
  * Fallback to text-only analysis
  */
-async function performTextOnlyAnalysis(videoData: VideoAnalysisData, channelContext?: any): Promise<EnhancedAnalysisResult> {
+async function performTextOnlyAnalysis(videoData: VideoAnalysisData, channelContext?: ChannelContext): Promise<EnhancedAnalysisResult> {
   console.log('Performing text-only analysis as fallback');
   
   // Try to get video context from Gemini for better analysis
@@ -205,8 +205,8 @@ async function performTextOnlyAnalysis(videoData: VideoAnalysisData, channelCont
         videoData.metadata
       );
     }
-  } catch (error: any) {
-    console.log('Could not get video context for fallback:', error.message);
+  } catch (error: unknown) {
+    console.log('Could not get video context for fallback:', (error as Error).message);
   }
   
   // Build comprehensive content for analysis

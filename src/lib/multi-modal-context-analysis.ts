@@ -1,10 +1,29 @@
 import { SmartAIModel } from './ai-models';
 import { ContextAnalysis, ContextAnalysisSchema } from '../types/ai-analysis';
-import { VideoAnalysisData } from '@/types/video-processing';
+import { VideoAnalysisData } from '../types/video-processing';
 import { jsonParsingService } from './json-parsing-service';
 import { createJsonOnlyPrompt } from './prompt-utils';
 import { performContextAnalysis } from './context-analysis';
 import { MULTI_MODAL_SCHEMAS, MULTI_MODAL_EXAMPLES } from './multi-modal-utils';
+
+/**
+ * Extended context analysis interface that matches the multi-modal schema
+ */
+interface ExtendedContextAnalysis {
+  content_type: string;
+  target_audience: string;
+  monetization_impact: number;
+  content_length: number;
+  language_detected: string;
+  content_quality: string;
+  engagement_level: string;
+  visual_elements: string[];
+  audio_quality: string;
+  production_value: string;
+  content_complexity: string;
+  brand_safety_concerns: string[];
+  monetization_potential: string;
+}
 
 /**
  * Multi-modal context analysis
@@ -35,7 +54,7 @@ export async function performMultiModalContextAnalysis(
       videoData.transcript,
       videoData.metadata
     );
-    const parsingResult = await jsonParsingService.parseJson<ContextAnalysis>(result, expectedSchema, model);
+    const parsingResult = await jsonParsingService.parseJson<ExtendedContextAnalysis>(result, expectedSchema, model);
     if (parsingResult.success && parsingResult.data) {
       console.log(`Multi-modal context analysis completed using ${parsingResult.strategy}`);
       // Handle case where AI returns array instead of object
@@ -46,7 +65,16 @@ export async function performMultiModalContextAnalysis(
         dataToValidate = parsingResult.data[0] || {};
       }
       
-      const validationResult = ContextAnalysisSchema.safeParse(dataToValidate);
+      // Convert extended context analysis to basic ContextAnalysis
+      const basicContextAnalysis: ContextAnalysis = {
+        content_type: dataToValidate.content_type || 'Other',
+        target_audience: dataToValidate.target_audience || 'General Audience',
+        monetization_impact: Math.min(100, Math.max(0, dataToValidate.monetization_impact || 50)),
+        content_length: dataToValidate.content_length || 0,
+        language_detected: dataToValidate.language_detected || 'English'
+      };
+      
+      const validationResult = ContextAnalysisSchema.safeParse(basicContextAnalysis);
       if (validationResult.success) {
         return validationResult.data;
       } else {
@@ -70,7 +98,7 @@ export async function performMultiModalContextAnalysis(
 /**
  * Parse plain text response to structured context analysis
  */
-export async function performAIDrivenContextAnalysis(text: string, model: SmartAIModel): Promise<any> {
+export async function performAIDrivenContextAnalysis(text: string, model: SmartAIModel): Promise<ContextAnalysis> {
   console.log('Performing AI-driven context analysis...');
   
   const expectedSchema = MULTI_MODAL_SCHEMAS.contextAnalysis;
@@ -100,23 +128,15 @@ export async function performAIDrivenContextAnalysis(text: string, model: SmartA
   
   try {
     const result = await model.generateContent(robustPrompt);
-    const parsingResult = await jsonParsingService.parseJson<any>(result, expectedSchema, model);
+    const parsingResult = await jsonParsingService.parseJson<ExtendedContextAnalysis>(result, expectedSchema, model);
     if (parsingResult.success && parsingResult.data) {
-      // Validate and normalize the result
-      const validatedResult = {
+      // Convert extended context analysis to basic ContextAnalysis
+      const validatedResult: ContextAnalysis = {
         content_type: parsingResult.data.content_type || 'Other',
         target_audience: parsingResult.data.target_audience || 'General Audience',
         monetization_impact: Math.min(100, Math.max(0, parsingResult.data.monetization_impact || 50)),
         content_length: parsingResult.data.content_length || text.split(' ').length,
-        language_detected: parsingResult.data.language_detected || 'English',
-        content_quality: parsingResult.data.content_quality || 'medium',
-        engagement_level: parsingResult.data.engagement_level || 'medium',
-        visual_elements: Array.isArray(parsingResult.data.visual_elements) ? parsingResult.data.visual_elements : [],
-        audio_quality: parsingResult.data.audio_quality || 'medium',
-        production_value: parsingResult.data.production_value || 'medium',
-        content_complexity: parsingResult.data.content_complexity || 'moderate',
-        brand_safety_concerns: Array.isArray(parsingResult.data.brand_safety_concerns) ? parsingResult.data.brand_safety_concerns : [],
-        monetization_potential: parsingResult.data.monetization_potential || 'medium'
+        language_detected: parsingResult.data.language_detected || 'English'
       };
 
       console.log(`AI-driven context analysis completed using ${parsingResult.strategy}:`, validatedResult);
@@ -134,15 +154,7 @@ export async function performAIDrivenContextAnalysis(text: string, model: SmartA
       target_audience: 'General Audience',
       monetization_impact: 50,
       content_length: text.split(' ').length,
-      language_detected: 'English',
-      content_quality: 'medium',
-      engagement_level: 'medium',
-      visual_elements: [],
-      audio_quality: 'medium',
-      production_value: 'medium',
-      content_complexity: 'moderate',
-      brand_safety_concerns: [],
-      monetization_potential: 'medium'
+      language_detected: 'English'
     };
   }
 } 

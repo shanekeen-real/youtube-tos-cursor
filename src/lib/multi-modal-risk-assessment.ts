@@ -1,6 +1,6 @@
 import { SmartAIModel } from './ai-models';
-import { RiskAssessment, RiskAssessmentSchema, ContextAnalysis } from '../types/ai-analysis';
-import { VideoAnalysisData } from '@/types/video-processing';
+import { RiskAssessment, SeverityLevel, ContextAnalysis, PolicyCategoryAnalysis, RiskAssessmentSchema } from '../types/ai-analysis';
+import { VideoAnalysisData } from '../types/video-processing';
 import { jsonParsingService } from './json-parsing-service';
 import { createJsonOnlyPrompt } from './prompt-utils';
 import { performRiskAssessment } from './risk-assessment';
@@ -36,7 +36,7 @@ export async function performMultiModalRiskAssessment(
       videoData.transcript,
       videoData.metadata
     );
-    const parsingResult = await jsonParsingService.parseJson<any>(result, expectedSchema, model);
+    const parsingResult = await jsonParsingService.parseJson<RiskAssessment>(result, expectedSchema, model);
     if (parsingResult.success && parsingResult.data) {
       console.log(`Multi-modal risk assessment completed using ${parsingResult.strategy}`);
       // Handle case where AI returns array instead of object
@@ -66,7 +66,7 @@ export async function performMultiModalRiskAssessment(
             if (Array.isArray(value)) {
               // Flatten nested arrays and filter out non-string values
               const flattenedArray: string[] = [];
-              const flattenArray = (arr: any[]): void => {
+              const flattenArray = (arr: unknown[]): void => {
                 for (const item of arr) {
                   if (Array.isArray(item)) {
                     flattenArray(item);
@@ -107,7 +107,9 @@ export async function performMultiModalRiskAssessment(
         // Return fallback instead of throwing error
         console.log('Using fallback risk assessment due to validation failure');
         const fallbackText = videoData.transcript || videoContext || 'No content available for analysis';
-        return await performRiskAssessment(fallbackText, model, contextAnalysis, contextAnalysis);
+        // Create empty policy analysis object for fallback
+        const emptyPolicyAnalysis: { [category: string]: PolicyCategoryAnalysis } = {};
+        return await performRiskAssessment(fallbackText, model, emptyPolicyAnalysis, contextAnalysis);
       }
     } else {
       throw new Error(`Risk assessment JSON parsing failed: ${parsingResult.error}`);
@@ -116,7 +118,9 @@ export async function performMultiModalRiskAssessment(
     console.error('Multi-modal risk assessment failed:', error);
     // Fallback to text-only risk assessment with video context
     const fallbackText = videoData.transcript || videoContext || 'No content available for analysis';
-    return await performRiskAssessment(fallbackText, model, contextAnalysis, contextAnalysis);
+    // Create empty policy analysis object for fallback
+    const emptyPolicyAnalysis: { [category: string]: PolicyCategoryAnalysis } = {};
+    return await performRiskAssessment(fallbackText, model, emptyPolicyAnalysis, contextAnalysis);
   }
 }
 
@@ -125,13 +129,13 @@ export async function performMultiModalRiskAssessment(
  */
 export async function performAIDrivenRiskAssessment(
   text: string,
-  contextAnalysis: any,
+  contextAnalysis: ContextAnalysis,
   model: SmartAIModel,
   videoContext: string
-): Promise<any> {
+): Promise<RiskAssessment> {
   console.log('Performing AI-driven risk assessment...');
   const allCategoryKeys: string[] = getAllPolicyCategoryKeys();
-  const expectedSchema: any = {
+  const expectedSchema: Record<string, unknown> = {
     overall_risk_score: 'number (0-100)',
     flagged_section: 'string (most concerning part of the content)',
     risk_factors: ['array of main risk factors'],
@@ -139,7 +143,7 @@ export async function performAIDrivenRiskAssessment(
     risky_phrases_by_category: {},
   };
   allCategoryKeys.forEach((key) => {
-    expectedSchema.risky_phrases_by_category[key] = ['array of risky words/phrases found'];
+    (expectedSchema.risky_phrases_by_category as Record<string, unknown>)[key] = ['array of risky words/phrases found'];
   });
   const exampleResponse = {
     overall_risk_score: 25,
@@ -185,14 +189,14 @@ export async function performAIDrivenRiskAssessment(
   
   try {
     const result = await model.generateContent(robustPrompt);
-    const parsingResult = await jsonParsingService.parseJson<any>(result, expectedSchema, model);
+    const parsingResult = await jsonParsingService.parseJson<RiskAssessment>(result, expectedSchema, model);
     if (parsingResult.success && parsingResult.data) {
       // Validate and normalize the result
-      const validatedResult = {
+      const validatedResult: RiskAssessment = {
         overall_risk_score: Math.min(100, Math.max(0, parsingResult.data.overall_risk_score || 0)),
         flagged_section: parsingResult.data.flagged_section || 'Content appears to be appropriate',
         risk_factors: Array.isArray(parsingResult.data.risk_factors) ? parsingResult.data.risk_factors : ['Minimal risk content'],
-        severity_level: parsingResult.data.severity_level || 'LOW',
+        severity_level: (parsingResult.data.severity_level as SeverityLevel) || 'LOW',
         risky_spans: [],
         risky_phrases_by_category: parsingResult.data.risky_phrases_by_category || {},
       };
@@ -202,20 +206,20 @@ export async function performAIDrivenRiskAssessment(
         const normalizedCategories: { [key: string]: string[] } = {};
         
         for (const [category, value] of Object.entries(validatedResult.risky_phrases_by_category)) {
-          if (Array.isArray(value)) {
-            // Flatten nested arrays and filter out non-string values
-            const flattenedArray: string[] = [];
-            const flattenArray = (arr: any[]): void => {
-              for (const item of arr) {
-                if (Array.isArray(item)) {
-                  flattenArray(item);
-                } else if (typeof item === 'string') {
-                  flattenedArray.push(item);
+                      if (Array.isArray(value)) {
+              // Flatten nested arrays and filter out non-string values
+              const flattenedArray: string[] = [];
+              const flattenArray = (arr: unknown[]): void => {
+                for (const item of arr) {
+                  if (Array.isArray(item)) {
+                    flattenArray(item);
+                  } else if (typeof item === 'string') {
+                    flattenedArray.push(item);
+                  }
                 }
-              }
-            };
-            flattenArray(value);
-            normalizedCategories[category] = flattenedArray;
+              };
+              flattenArray(value);
+              normalizedCategories[category] = flattenedArray;
           } else if (typeof value === 'string') {
             // Convert string to array
             normalizedCategories[category] = [value];
@@ -240,13 +244,13 @@ export async function performAIDrivenRiskAssessment(
   } catch (error) {
     console.error('AI-driven risk assessment failed:', error);
     // Fallback to minimal risk assessment
-    const fallbackObj = {
+    const fallbackObj: RiskAssessment = {
       overall_risk_score: 0,
       flagged_section: 'Analysis unavailable',
       risk_factors: [],
       severity_level: 'LOW',
       risky_spans: [],
-      risky_phrases_by_category: allCategoryKeys.reduce((acc: any, key: string) => {
+      risky_phrases_by_category: allCategoryKeys.reduce((acc: Record<string, string[]>, key: string) => {
         acc[key] = [];
         return acc;
       }, {}),
@@ -283,7 +287,7 @@ export async function performTextOnlyRiskAssessment(
   
   try {
     const result = await model.generateContent(robustPrompt);
-    const parsingResult = await jsonParsingService.parseJson<any>(result, expectedSchema, model);
+    const parsingResult = await jsonParsingService.parseJson<RiskAssessment>(result, expectedSchema, model);
     
     if (parsingResult.success && parsingResult.data) {
       console.log(`Text-only risk assessment completed using ${parsingResult.strategy}`);
@@ -298,7 +302,16 @@ export async function performTextOnlyRiskAssessment(
       // Validate against the proper schema
       const validationResult = RiskAssessmentSchema.safeParse(dataToValidate);
       if (validationResult.success) {
-        return validationResult.data;
+        // Ensure all required properties are present
+        const validatedData: RiskAssessment = {
+          overall_risk_score: validationResult.data.overall_risk_score || 0,
+          flagged_section: validationResult.data.flagged_section || 'Content appears appropriate',
+          risk_factors: validationResult.data.risk_factors || [],
+          severity_level: validationResult.data.severity_level || 'LOW',
+          risky_spans: validationResult.data.risky_spans || [],
+          risky_phrases_by_category: validationResult.data.risky_phrases_by_category || {},
+        };
+        return validatedData;
       } else {
         console.error('Text-only risk assessment validation failed:', validationResult.error);
         
@@ -314,7 +327,7 @@ export async function performTextOnlyRiskAssessment(
             if (Array.isArray(value)) {
               // Flatten nested arrays and filter out non-string values
               const flattenedArray: string[] = [];
-              const flattenArray = (arr: any[]): void => {
+              const flattenArray = (arr: unknown[]): void => {
                 for (const item of arr) {
                   if (Array.isArray(item)) {
                     flattenArray(item);
@@ -355,7 +368,9 @@ export async function performTextOnlyRiskAssessment(
         // Return fallback instead of throwing error
         console.log('Using fallback risk assessment due to validation failure');
         const fallbackText = transcript || videoContext || 'No content available for analysis';
-        return await performRiskAssessment(fallbackText, model, contextAnalysis, contextAnalysis);
+        // Create empty policy analysis object for fallback
+        const emptyPolicyAnalysis: { [category: string]: PolicyCategoryAnalysis } = {};
+        return await performRiskAssessment(fallbackText, model, emptyPolicyAnalysis, contextAnalysis);
       }
     } else {
       throw new Error(`Text-only risk assessment JSON parsing failed: ${parsingResult.error}`);
@@ -364,6 +379,8 @@ export async function performTextOnlyRiskAssessment(
     console.error('Text-only risk assessment failed:', error);
     // Fallback to text-only risk assessment
     const fallbackText = transcript || videoContext || 'No content available for analysis';
-    return await performRiskAssessment(fallbackText, model, contextAnalysis, contextAnalysis);
+    // Create empty policy analysis object for fallback
+    const emptyPolicyAnalysis: { [category: string]: PolicyCategoryAnalysis } = {};
+    return await performRiskAssessment(fallbackText, model, emptyPolicyAnalysis, contextAnalysis);
   }
 } 

@@ -1,6 +1,8 @@
 // Only import Firebase Admin SDK on the server side
-let admin: any = null;
-let adminDb: any = null;
+import type { Firestore } from 'firebase-admin/firestore';
+
+let admin: typeof import('firebase-admin') | null = null;
+let adminDb: any = null; // Keep as any for backward compatibility
 
 if (typeof window === 'undefined') {
   // Server-side only
@@ -9,7 +11,7 @@ if (typeof window === 'undefined') {
     admin = firebaseAdmin;
     
     // --- Robust Singleton Initialization for Firebase Admin ---
-    if (!admin.apps.length) {
+    if (admin && !admin.apps.length) {
       try {
         const serviceAccountBase64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
         if (!serviceAccountBase64) {
@@ -21,8 +23,8 @@ if (typeof window === 'undefined') {
           credential: admin.credential.cert(serviceAccount),
         });
         console.log("Firebase Admin SDK initialized successfully.");
-      } catch (error: any) {
-        console.error("Firebase Admin SDK initialization error:", error.message);
+      } catch (error: unknown) {
+        console.error("Firebase Admin SDK initialization error:", error instanceof Error ? error.message : String(error));
         // Avoid throwing error in dev, let it be handled by subsequent calls
         if (process.env.NODE_ENV !== 'development') {
             throw error;
@@ -30,7 +32,9 @@ if (typeof window === 'undefined') {
       }
     }
 
-    adminDb = admin.firestore();
+    if (admin) {
+      adminDb = admin.firestore() as Firestore;
+    }
   } catch (error) {
     console.error("Failed to initialize Firebase Admin SDK:", error);
   }

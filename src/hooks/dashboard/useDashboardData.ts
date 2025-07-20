@@ -48,8 +48,10 @@ export function useDashboardData() {
         setUserProfile(null);
         setCanBatchScan(false);
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch user profile.');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch dashboard data.';
+      setError(errorMessage);
+      setLoading(false);
     } finally {
       setLoading(false);
       fetchingRef.current = false;

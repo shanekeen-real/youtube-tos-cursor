@@ -1,13 +1,43 @@
 import { AIModel, callAIWithRetry } from './ai-models';
+import { ChannelContext } from '../types/user';
 import { parseJSONSafely } from './json-utils';
 import { jsonParsingService } from './json-parsing-service';
 import { performContextAnalysis } from './context-analysis';
 import { z } from 'zod';
 
+// AI Detection Result interface matching the Zod schema and return structure
+interface AIDetectionResult {
+  ai_probability: number;
+  confidence: number;
+  patterns: string[];
+  indicators: {
+    repetitive_language: number;
+    structured_content: number;
+    personal_voice: number;
+    grammar_consistency: number;
+    natural_flow: number;
+  };
+  explanation: string;
+  content_type_adjustment?: string;
+}
+
 /**
  * Perform AI detection analysis using channel context and content analysis
  */
-export async function performAIDetection(text: string, model: AIModel, channelContext: any): Promise<any> {
+export async function performAIDetection(text: string, model: AIModel, channelContext: ChannelContext): Promise<{
+  ai_probability: number;
+  confidence: number;
+  patterns: string[];
+  indicators: {
+    repetitive_language: number;
+    structured_content: number;
+    personal_voice: number;
+    grammar_consistency: number;
+    natural_flow: number;
+  };
+  explanation: string;
+  content_type_adjustment?: string;
+}> {
   try {
     // First, analyze the content type to adjust detection sensitivity
     const contentAnalysis = await performContextAnalysis(text, model);
@@ -140,7 +170,7 @@ export async function performAIDetection(text: string, model: AIModel, channelCo
       content_type_adjustment: z.string().optional()
     });
 
-    const parsingResult = await jsonParsingService.parseJson<any>(result, expectedSchema, model);
+    const parsingResult = await jsonParsingService.parseJson<AIDetectionResult>(result, expectedSchema, model);
     
     if (parsingResult.success && parsingResult.data) {
       const aiData = parsingResult.data;

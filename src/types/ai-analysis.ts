@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
-// YouTube Policy Taxonomy - Based on actual Community Guidelines
+// Type aliases for reusability and consistency
+export type SeverityLevel = 'LOW' | 'MEDIUM' | 'HIGH';
+export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
+export type PriorityLevel = 'HIGH' | 'MEDIUM' | 'LOW';
+
+// YouTube Policy Categories
 export const YOUTUBE_POLICY_CATEGORIES = {
   CONTENT_SAFETY: {
     VIOLENCE: 'Violence & Graphic Content',
@@ -38,7 +43,7 @@ export interface PolicyCategoryAnalysis {
   risk_score: number;
   confidence: number;
   violations: string[];
-  severity: 'LOW' | 'MEDIUM' | 'HIGH';
+  severity: SeverityLevel;
   explanation: string;
 }
 
@@ -52,7 +57,7 @@ export interface ContextAnalysis {
 
 export interface EnhancedAnalysisResult {
   risk_score: number;
-  risk_level: 'LOW' | 'MEDIUM' | 'HIGH';
+  risk_level: RiskLevel;
   confidence_score: number;
   flagged_section: string;
   policy_categories: {
@@ -68,7 +73,7 @@ export interface EnhancedAnalysisResult {
   suggestions: {
     title: string;
     text: string;
-    priority: 'HIGH' | 'MEDIUM' | 'LOW';
+    priority: PriorityLevel;
     impact_score: number;
   }[];
   risky_spans?: RiskSpan[];
@@ -115,7 +120,7 @@ export interface RiskSpan {
   text: string;
   start_index?: number;
   end_index?: number;
-  risk_level: 'LOW' | 'MEDIUM' | 'HIGH';
+  risk_level: RiskLevel;
   policy_category: string;
   explanation: string;
 }
@@ -124,7 +129,7 @@ export interface RiskAssessment {
   overall_risk_score: number;
   flagged_section: string;
   risk_factors: string[];
-  severity_level: 'LOW' | 'MEDIUM' | 'HIGH';
+  severity_level: SeverityLevel;
   risky_phrases_by_category?: {
     [category: string]: string[]; // List of risky words/phrases for this category
   };
@@ -142,7 +147,7 @@ export interface ConfidenceAnalysis {
 export interface Suggestion {
   title: string;
   text: string;
-  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  priority: PriorityLevel;
   impact_score: number;
 }
 
@@ -151,7 +156,7 @@ export const PolicyCategoryAnalysisSchema = z.object({
   risk_score: z.number().min(0).max(100),
   confidence: z.number().min(0).max(100),
   violations: z.array(z.string()),
-  severity: z.enum(['LOW', 'MEDIUM', 'HIGH']),
+  severity: z.enum(['LOW', 'MEDIUM', 'HIGH'] as const),
   explanation: z.string()
 });
 
@@ -171,7 +176,7 @@ export const RiskSpanSchema = z.object({
   text: z.string(),
   start_index: z.number().min(0).optional(),
   end_index: z.number().min(0).optional(),
-  risk_level: z.enum(['LOW', 'MEDIUM', 'HIGH']),
+  risk_level: z.enum(['LOW', 'MEDIUM', 'HIGH'] as const),
   policy_category: z.string(),
   explanation: z.string()
 });
@@ -180,7 +185,7 @@ export const RiskAssessmentSchema = z.object({
   overall_risk_score: z.number().min(0).max(100),
   flagged_section: z.string(),
   risk_factors: z.array(z.string()),
-  severity_level: z.enum(['LOW', 'MEDIUM', 'HIGH']),
+  severity_level: z.enum(['LOW', 'MEDIUM', 'HIGH'] as const),
   risky_spans: z.array(RiskSpanSchema).optional(),
   risky_phrases_by_category: z.record(z.string(), z.array(z.string())).optional()
 });
@@ -196,7 +201,7 @@ export const ConfidenceAnalysisSchema = z.object({
 export const SuggestionSchema = z.object({
   title: z.string(),
   text: z.string(),
-  priority: z.enum(['HIGH', 'MEDIUM', 'LOW']),
+  priority: z.enum(['HIGH', 'MEDIUM', 'LOW'] as const),
   impact_score: z.number().min(0).max(100)
 });
 

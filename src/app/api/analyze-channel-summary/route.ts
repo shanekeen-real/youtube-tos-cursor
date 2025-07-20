@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import Anthropic from '@anthropic-ai/sdk';
 
+// Type definitions for Claude API responses
+interface ClaudeContentBlock {
+  type: string;
+  text?: string;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { channelData } = await req.json();
@@ -27,9 +33,10 @@ export async function POST(req: NextRequest) {
       const result = await model.generateContent(prompt);
       const summary = result.response.text();
       return NextResponse.json({ summary });
-    } catch (geminiError: any) {
+    } catch (geminiError: unknown) {
       // If Gemini fails, try Claude
-      console.error('Gemini failed, falling back to Claude:', geminiError);
+      const errorMessage = geminiError instanceof Error ? geminiError.message : 'Unknown Gemini error';
+      console.error('Gemini failed, falling back to Claude:', errorMessage);
       try {
         const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY as string });
         const message = await anthropic.messages.create({
@@ -40,17 +47,19 @@ export async function POST(req: NextRequest) {
         });
         // Join all text blocks from the response
         const summary = message.content
-          .filter((c: any) => c.type === 'text' && typeof c.text === 'string')
-          .map((c: any) => c.text)
+          .filter((c: ClaudeContentBlock) => c.type === 'text' && typeof c.text === 'string')
+          .map((c: ClaudeContentBlock) => c.text)
           .join('');
         return NextResponse.json({ summary });
-      } catch (claudeError: any) {
-        console.error('Claude fallback also failed:', claudeError);
-        return NextResponse.json({ error: 'Both Gemini and Claude failed: ' + (claudeError.message || 'Unknown error') }, { status: 500 });
+      } catch (claudeError: unknown) {
+        const claudeErrorMessage = claudeError instanceof Error ? claudeError.message : 'Unknown Claude error';
+        console.error('Claude fallback also failed:', claudeErrorMessage);
+        return NextResponse.json({ error: 'Both Gemini and Claude failed: ' + claudeErrorMessage }, { status: 500 });
       }
     }
-  } catch (error: any) {
-    console.error('Error generating channel summary:', error);
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+    console.error('Error generating channel summary:', errorMessage);
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 } 

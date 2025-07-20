@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
+import { Session } from 'next-auth';
 import { 
   ChevronDown, 
   User, 
@@ -20,7 +21,7 @@ import {
 } from 'lucide-react';
 
 interface UserMenuProps {
-  user: any;
+  user: Session['user'];
 }
 
 interface UserProfile {
@@ -53,7 +54,7 @@ export default function UserMenu({ user }: UserMenuProps) {
         } else {
           console.error('Failed to fetch user profile:', response.statusText);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to fetch user profile:', err);
       } finally {
         setLoading(false);

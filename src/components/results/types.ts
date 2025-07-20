@@ -1,8 +1,10 @@
+import { Suggestion, SeverityLevel, RiskLevel } from '../../types/ai-analysis';
+
 export interface RiskSpan {
   text: string;
   start_index: number;
   end_index: number;
-  risk_level: 'LOW' | 'MEDIUM' | 'HIGH';
+  risk_level: RiskLevel;
   policy_category: string;
   explanation: string;
 }
@@ -11,10 +13,10 @@ export interface ScanData {
   id?: string;
   url?: string;
   title?: string;
-  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  riskLevel: RiskLevel;
   riskScore: number;
   flaggedSections: string[];
-  suggestions: any[];
+  suggestions: Suggestion[];
   createdAt?: string;
   userId?: string;
   // Enhanced fields
@@ -30,7 +32,7 @@ export interface ScanData {
       risk_score: number;
       confidence: number;
       violations: string[];
-      severity: 'LOW' | 'MEDIUM' | 'HIGH';
+      severity: SeverityLevel;
       explanation: string;
     };
   };

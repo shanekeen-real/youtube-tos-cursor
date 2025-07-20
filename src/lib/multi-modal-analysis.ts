@@ -3,6 +3,7 @@ import {
   EnhancedAnalysisResult
 } from '../types/ai-analysis';
 import { VideoAnalysisData } from '@/types/video-processing';
+import { ChannelContext } from '@/types/user';
 import * as Sentry from '@sentry/nextjs';
 import { calculateOverallRiskScore, getRiskLevel, generateHighlights, cleanRiskyPhrases } from './analysis-utils';
 
@@ -19,7 +20,7 @@ import { generateActionableSuggestionsWithContext } from './multi-modal-suggesti
  */
 export async function performMultiModalVideoAnalysis(
   videoData: VideoAnalysisData,
-  channelContext?: any
+  channelContext?: ChannelContext
 ): Promise<EnhancedAnalysisResult> {
   const startTime = Date.now();
   
@@ -132,7 +133,7 @@ export async function performMultiModalVideoAnalysis(
       risky_phrases: cleanedRiskyPhrases,
       risky_phrases_by_category: riskAssessment.risky_phrases_by_category || {},
       ai_detection: aiDetectionResult ? {
-        probability: aiDetectionResult.ai_probability,
+        probability: aiDetectionResult.probability,
         confidence: aiDetectionResult.confidence,
         patterns: aiDetectionResult.patterns,
         indicators: aiDetectionResult.indicators,
@@ -151,7 +152,7 @@ export async function performMultiModalVideoAnalysis(
     console.log('Multi-modal analysis completed successfully with smart queuing');
     return analysisResult;
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Multi-modal analysis failed:', error);
     Sentry.captureException(error, {
       tags: { component: 'multi-modal-analysis', action: 'perform-analysis' },
@@ -159,7 +160,7 @@ export async function performMultiModalVideoAnalysis(
     });
     
     // Fallback to text-only analysis
-    console.log('Falling back to text-only analysis due to error:', error.message);
+    console.log('Falling back to text-only analysis due to error:', (error as Error).message);
     const fallbackResult = await performTextOnlyAnalysis(videoData, channelContext);
     console.log('Fallback analysis completed with risk score:', fallbackResult.risk_score);
     return fallbackResult;
@@ -169,7 +170,7 @@ export async function performMultiModalVideoAnalysis(
 /**
  * Fallback to text-only analysis
  */
-async function performTextOnlyAnalysis(videoData: VideoAnalysisData, channelContext?: any): Promise<EnhancedAnalysisResult> {
+async function performTextOnlyAnalysis(videoData: VideoAnalysisData, channelContext?: ChannelContext): Promise<EnhancedAnalysisResult> {
   console.log('Performing text-only analysis as fallback');
   
   // Try to get video context from Gemini for better analysis
@@ -184,8 +185,8 @@ async function performTextOnlyAnalysis(videoData: VideoAnalysisData, channelCont
         videoData.metadata
       );
     }
-  } catch (error: any) {
-    console.log('Could not get video context for fallback:', error.message);
+  } catch (error: unknown) {
+    console.log('Could not get video context for fallback:', (error as Error).message);
   }
   
   // Build comprehensive content for analysis

@@ -1,10 +1,10 @@
 import { AIModel } from './ai-models';
+import { ContextAnalysis, ConfidenceAnalysis, PolicyCategoryAnalysis, ConfidenceAnalysisSchema } from '../types/ai-analysis';
 import { jsonParsingService } from './json-parsing-service';
-import { ContextAnalysis, ConfidenceAnalysisSchema } from '../types/ai-analysis';
 import * as Sentry from '@sentry/nextjs';
 
 // Stage 4: Confidence Analysis
-export async function performConfidenceAnalysis(text: string, model: AIModel, policyAnalysis: any, context: ContextAnalysis): Promise<any> {
+export async function performConfidenceAnalysis(text: string, model: AIModel, policyAnalysis: { [category: string]: PolicyCategoryAnalysis }, context: ContextAnalysis): Promise<ConfidenceAnalysis> {
   const basePrompt = `
     IMPORTANT: Respond ONLY with valid JSON. Do not include any commentary, explanation, or text outside the JSON object.
     CRITICAL JSON FORMATTING RULES:
@@ -41,7 +41,7 @@ export async function performConfidenceAnalysis(text: string, model: AIModel, po
       const result = await model.generateContent(basePrompt);
       
       // Use the robust JSON parsing service
-      const parsingResult = await jsonParsingService.parseJson<any>(result, ConfidenceAnalysisSchema, model);
+      const parsingResult = await jsonParsingService.parseJson<ConfidenceAnalysis>(result, ConfidenceAnalysisSchema, model);
       
       if (parsingResult.success && parsingResult.data) {
         console.log(`Confidence analysis completed using ${parsingResult.strategy}`);
@@ -71,4 +71,13 @@ export async function performConfidenceAnalysis(text: string, model: AIModel, po
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
+  
+  // This should never be reached, but TypeScript requires it
+  return {
+    overall_confidence: 25,
+    text_clarity: 25,
+    policy_specificity: 25,
+    context_availability: 25,
+    confidence_factors: ['Analysis confidence could not be determined']
+  };
 } 

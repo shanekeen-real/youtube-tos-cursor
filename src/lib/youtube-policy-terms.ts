@@ -1,13 +1,15 @@
+import { SeverityLevel } from '../types/ai-analysis';
+
 // YouTube Policy Terms Database
 // Based on official YouTube Community Guidelines and Advertiser-Friendly Content Guidelines
 // Organized by category with severity levels (HIGH, MEDIUM, LOW)
 
 export interface PolicyTerm {
   term: string;
-  severity: 'HIGH' | 'MEDIUM' | 'LOW';
   category: string;
-  explanation: string;
-  variations?: string[]; // Common variations/misspellings
+  severity: SeverityLevel;
+  description: string;
+  examples?: string[];
 }
 
 export const YOUTUBE_POLICY_TERMS: PolicyTerm[] = [
@@ -891,7 +893,7 @@ export function getTermsByCategory(category: string): PolicyTerm[] {
 }
 
 // Helper function to get all terms by severity
-export function getTermsBySeverity(severity: 'HIGH' | 'MEDIUM' | 'LOW'): PolicyTerm[] {
+export function getTermsBySeverity(severity: SeverityLevel): PolicyTerm[] {
   return YOUTUBE_POLICY_TERMS.filter(term => term.severity === severity);
 }
 

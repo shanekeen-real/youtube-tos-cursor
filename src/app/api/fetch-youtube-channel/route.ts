@@ -3,6 +3,19 @@ import { auth } from '@/lib/auth';
 import { adminDb } from '@/lib/firebase-admin';
 import { getChannelContext } from '@/lib/channel-context';
 import * as Sentry from "@sentry/nextjs";
+import { Session } from 'next-auth';
+
+// Extended session type for YouTube API integration
+interface ExtendedSession extends Session {
+  accessToken?: string;
+  refreshToken?: string;
+  expiresAt?: number;
+}
+
+// Extended user type for Google account ID
+interface ExtendedUser {
+  googleAccountId?: string;
+}
 
 export async function POST(req: NextRequest) {
   return Sentry.startSpan(
@@ -18,14 +31,19 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        if (!(session as any).accessToken) {
+        if (!(session as ExtendedSession).accessToken) {
           return NextResponse.json({ error: 'No access token available' }, { status: 400 });
         }
 
         // Handle token refresh if needed
-        let accessToken = (session as any).accessToken;
-        let refreshToken = (session as any).refreshToken;
-        let expiresAt = (session as any).expiresAt;
+        let accessToken = (session as ExtendedSession).accessToken;
+        let refreshToken = (session as ExtendedSession).refreshToken;
+        let expiresAt = (session as ExtendedSession).expiresAt;
+        
+        // Ensure accessToken is available
+        if (!accessToken) {
+          return NextResponse.json({ error: 'No access token available' }, { status: 400 });
+        }
         
         // Check if token is expired or about to expire (within 60 seconds)
         if (expiresAt && Date.now() / 1000 > expiresAt - 60 && refreshToken) {
@@ -41,6 +59,11 @@ export async function POST(req: NextRequest) {
               error: 'Failed to refresh access token. Please sign out and sign in again.' 
             }, { status: 401 });
           }
+        }
+        
+        // Final check to ensure accessToken is available after potential refresh
+        if (!accessToken) {
+          return NextResponse.json({ error: 'No access token available after refresh' }, { status: 400 });
         }
 
         // Fetch YouTube channel data
@@ -95,7 +118,7 @@ export async function POST(req: NextRequest) {
         const userRef = adminDb.collection('users').doc(session.user.id);
         const userDoc = await userRef.get();
         // Fallback: migrate legacy doc if needed
-        const googleAccountId = (session.user as any).googleAccountId || null;
+        const googleAccountId = (session.user as ExtendedUser).googleAccountId || null;
         if (!userDoc.exists && googleAccountId && googleAccountId !== session.user.id) {
           const legacyRef = adminDb.collection('users').doc(googleAccountId);
           const legacyDoc = await legacyRef.get();
@@ -141,12 +164,13 @@ export async function POST(req: NextRequest) {
           } : null
         });
 
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         Sentry.captureException(error);
-        console.error('Error fetching YouTube channel:', error);
+        console.error('Error fetching YouTube channel:', errorMessage);
         return NextResponse.json({ 
           error: 'Internal server error',
-          details: error.message 
+          details: errorMessage 
         }, { status: 500 });
       }
     }

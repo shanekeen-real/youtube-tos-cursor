@@ -1,5 +1,7 @@
 // Conditional import for server-side only
-let adminDb: any = null;
+import type { Firestore } from 'firebase-admin/firestore';
+
+let adminDb: Firestore | null = null;
 if (typeof window === 'undefined') {
   try {
     const { adminDb: db } = require('./firebase-admin');

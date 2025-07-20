@@ -1,6 +1,17 @@
 import { YOUTUBE_POLICY_CATEGORIES } from '../types/ai-analysis';
 
 /**
+ * Type guard for error objects with message property
+ */
+interface ErrorWithMessage {
+  message: string;
+}
+
+function isErrorWithMessage(error: unknown): error is ErrorWithMessage {
+  return typeof error === 'object' && error !== null && 'message' in error && typeof (error as ErrorWithMessage).message === 'string';
+}
+
+/**
  * Get all policy category keys from the nested YOUTUBE_POLICY_CATEGORIES object
  */
 export function getAllPolicyCategoryKeys(): string[] {
@@ -12,13 +23,13 @@ export function getAllPolicyCategoryKeys(): string[] {
 /**
  * Enhanced JSON parsing with multiple fallback strategies
  */
-export function parseJSONWithFallbacks(response: string, expectedType: 'object' | 'array' = 'object'): any {
+export function parseJSONWithFallbacks(response: string, expectedType: 'object' | 'array' = 'object'): unknown {
   console.log(`Attempting to parse JSON response (expected: ${expectedType})`);
   console.log('Response length:', response.length);
   console.log('Response preview:', response.substring(0, 200));
   
-  let parsedResult: any = null;
-  let jsonError = null;
+  let parsedResult: unknown = null;
+  let jsonError: unknown = null;
   
   // Strategy 1: Direct JSON parsing
   try {
@@ -76,7 +87,7 @@ export function parseJSONWithFallbacks(response: string, expectedType: 'object' 
  */
 export function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
-  if (typeof error === 'object' && error && 'message' in error && typeof (error as any).message === 'string') return (error as any).message;
+  if (isErrorWithMessage(error)) return error.message;
   return String(error);
 }
 

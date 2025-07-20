@@ -33,12 +33,13 @@ export async function GET(req: NextRequest) {
           cpm: userData?.cpm || null,
           revenueCalculatorSetup: userData?.revenueCalculatorSetup || false
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error in user-cpm:', error);
         Sentry.captureException(error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         return NextResponse.json({ 
           error: 'Failed to get user CPM settings', 
-          details: error.message 
+          details: errorMessage 
         }, { status: 500 });
       }
     }

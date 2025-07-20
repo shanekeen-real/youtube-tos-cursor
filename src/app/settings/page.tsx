@@ -292,8 +292,9 @@ export default function SettingsPage() {
       a.click();
       a.remove();
       setExportStatus("Export successful. Check your downloads.");
-    } catch (err: any) {
-      setExportStatus("Export failed: " + err.message);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Export failed';
+      setExportStatus("Export failed: " + errorMessage);
     }
   };
 
@@ -310,8 +311,9 @@ export default function SettingsPage() {
       setTimeout(() => {
         signOut({ callbackUrl: "/" });
       }, 1500);
-    } catch (err: any) {
-      setDeleteStatus("Delete failed: " + err.message);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Delete failed';
+      setDeleteStatus("Delete failed: " + errorMessage);
     } finally {
       setDeleting(false);
     }

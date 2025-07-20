@@ -7,12 +7,13 @@ import { Card } from '@/lib/imports';
 import { Badge } from '@/lib/imports';
 import * as Sentry from "@sentry/nextjs";
 import { Clock, AlertTriangle, CheckCircle, XCircle, ExternalLink, Calendar, BarChart3 } from 'lucide-react';
+import { RiskLevel } from '../../types/ai-analysis';
 
 interface Scan {
   id: string;
   url: string;
   title: string;
-  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  riskLevel: RiskLevel;
   riskScore: number;
   createdAt: string;
   status: 'completed' | 'processing' | 'failed';
@@ -56,14 +57,9 @@ export default function ScanHistoryPage() {
             
             span.setAttribute("scansCount", data.totalCount);
             setScans(data.scans);
-          } catch (err: any) {
-            console.error('[ScanHistory] Error fetching scans:', err);
-            Sentry.captureException(err, {
-              tags: { component: 'scan-history', action: 'fetch-scans' },
-              extra: { userId: session.user.id }
-            });
-            setError(err.message || 'Failed to fetch scan history.');
-          } finally {
+          } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : 'Failed to fetch scan history';
+            setError(errorMessage);
             setLoading(false);
           }
         }
@@ -243,9 +239,9 @@ export default function ScanHistoryPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start gap-4">
                       <div className="flex-shrink-0">
-                        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                          {getStatusIcon(scan.status)}
-                        </div>
+                                                  <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                           {getStatusIcon(scan.status)}
+                          </div>
                       </div>
                       
                       <div className="flex-1 min-w-0">

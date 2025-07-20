@@ -6,14 +6,14 @@ import Link from 'next/link';
 import { CheckCircle, Video, Lock, AlertTriangle } from 'lucide-react';
 import { Button } from '@/lib/imports';
 import * as Tooltip from '@radix-ui/react-tooltip';
-import { UserProfile } from './types';
+import { UserProfile, YouTubeChannel, ChannelContext } from './types';
 
 interface DashboardHeaderProps {
   userProfile: UserProfile | null;
   onUpgradeClick: () => void;
-  ytChannel: any;
+  ytChannel: YouTubeChannel | null;
   ytFetching: boolean;
-  channelContext: any;
+  channelContext: ChannelContext | null;
   canBatchScan: boolean;
   handleYouTubeConnect: () => void;
 }

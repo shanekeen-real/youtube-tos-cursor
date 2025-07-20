@@ -17,14 +17,14 @@ export async function GET(req: NextRequest) {
           return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        if (!(session as any).accessToken) {
+        if (!session.accessToken) {
           return NextResponse.json({ error: 'No access token available' }, { status: 400 });
         }
 
         // Test with a known channel ID (YouTube's official channel)
         const testChannelId = 'UCBR8-60-B28hp2BmDPdntcQ'; // YouTube's official channel
         
-        const channelContext = await getChannelContext(testChannelId, (session as any).accessToken);
+        const channelContext = await getChannelContext(testChannelId, session.accessToken);
         
         if (!channelContext) {
           return NextResponse.json({ 
@@ -53,12 +53,13 @@ export async function GET(req: NextRequest) {
           }
         });
 
-      } catch (error: any) {
+      } catch (error: unknown) {
         Sentry.captureException(error);
         console.error('Error testing channel context:', error);
+        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
         return NextResponse.json({ 
           error: 'Internal server error',
-          details: error.message 
+          details: errorMessage 
         }, { status: 500 });
       }
     }

@@ -50,10 +50,10 @@ export function useResultsData() {
           if (scanData.analyzed_content) mergedData.analyzed_content = scanData.analyzed_content;
           if (scanData.analysis_source) mergedData.analysis_source = scanData.analysis_source;
           setData(mergedData as ScanData);
-        } catch (err: any) {
+        } catch (err: unknown) {
           // Debug: Log error
           console.error('[ResultsPage] Error fetching scan:', err);
-          setError(err.message || 'Failed to fetch scan details.');
+          setError(err instanceof Error ? err.message : 'Failed to fetch scan details.');
         } finally {
           setLoading(false);
         }
@@ -89,9 +89,9 @@ export function useResultsData() {
             console.error('[ResultsPage] Analysis failed:', errorData);
             setError(errorData.error || 'Failed to analyze content.');
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.error('[ResultsPage] Error during analysis:', err);
-          setError(err.message || 'Failed to analyze content.');
+          setError(err instanceof Error ? err.message : 'Failed to analyze content.');
         } finally {
           setLoading(false);
         }

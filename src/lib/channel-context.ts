@@ -1,6 +1,27 @@
 import { adminDb } from './firebase-admin';
 import { usageTracker } from './usage-tracker';
 
+// YouTube API response types
+interface YouTubeVideoSnippet {
+  title: string;
+  description: string;
+  publishedAt: string;
+  channelId: string;
+  channelTitle: string;
+  thumbnails?: {
+    default?: { url: string; width: number; height: number };
+    medium?: { url: string; width: number; height: number };
+    high?: { url: string; width: number; height: number };
+  };
+}
+
+interface YouTubeVideoItem {
+  id: {
+    videoId: string;
+  };
+  snippet: YouTubeVideoSnippet;
+}
+
 // Legal channel data that can be collected via YouTube API
 export interface LegalChannelData {
   // Basic channel info
@@ -192,7 +213,7 @@ async function collectEnhancedData(channelId: string, accessToken: string): Prom
     }
 
     const videosData = await videosResponse.json();
-    const videos = videosData.items || [];
+    const videos: YouTubeVideoItem[] = videosData.items || [];
 
     // Analyze video patterns
     const titlePatterns = analyzeTitlePatterns(videos);
@@ -301,7 +322,7 @@ function isExpired(timestamp: string, ttl: number): boolean {
 /**
  * Utility functions for pattern analysis
  */
-function analyzeTitlePatterns(videos: any[]): string[] {
+function analyzeTitlePatterns(videos: YouTubeVideoItem[]): string[] {
   const titles = videos.map(v => v.snippet.title);
   const patterns: string[] = [];
   
@@ -324,7 +345,7 @@ function analyzeTitlePatterns(videos: any[]): string[] {
   return patterns;
 }
 
-function analyzeDescriptionTemplates(videos: any[]): string[] {
+function analyzeDescriptionTemplates(videos: YouTubeVideoItem[]): string[] {
   const descriptions = videos.map(v => v.snippet.description);
   const templates: string[] = [];
   
@@ -346,7 +367,7 @@ function analyzeDescriptionTemplates(videos: any[]): string[] {
   return templates;
 }
 
-function analyzeUploadSchedule(videos: any[]): { averageDaysBetween: number; preferredDays: string[]; preferredTimes: string[] } {
+function analyzeUploadSchedule(videos: YouTubeVideoItem[]): { averageDaysBetween: number; preferredDays: string[]; preferredTimes: string[] } {
   if (videos.length < 2) {
     return { averageDaysBetween: 0, preferredDays: [], preferredTimes: [] };
   }
@@ -386,13 +407,13 @@ function analyzeUploadSchedule(videos: any[]): { averageDaysBetween: number; pre
   return { averageDaysBetween, preferredDays, preferredTimes };
 }
 
-function calculateAverageVideoLength(videos: any[]): number {
+function calculateAverageVideoLength(videos: YouTubeVideoItem[]): number {
   // This would require additional API calls to get video duration
   // For now, return a placeholder
   return 0;
 }
 
-function calculateUploadFrequency(videos: any[]): number {
+function calculateUploadFrequency(videos: YouTubeVideoItem[]): number {
   if (videos.length < 2) return 0;
   
   const firstDate = new Date(videos[videos.length - 1].snippet.publishedAt);

@@ -107,7 +107,7 @@ RESPOND WITH ONLY THE JSON OBJECT/ARRAY.
  */
 export function createStructuredOutputPrompt(
   task: string,
-  schema: any,
+  schema: unknown,
   context: string
 ): string {
   return `
@@ -211,7 +211,7 @@ RESPOND WITH ONLY THE REPAIRED JSON.
  * Creates a prompt for batch processing with structured output
  */
 export function createBatchProcessingPrompt(
-  items: any[],
+  items: unknown[],
   itemSchema: string,
   batchInstructions: string
 ): string {
