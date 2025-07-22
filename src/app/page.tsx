@@ -12,6 +12,8 @@ import { UIInput as Input } from '@/lib/imports';
 import { Shield, AlertTriangle, CheckCircle } from 'lucide-react';
 import { useToastContext } from '@/contexts/ToastContext';
 import { EnhancedAnalysisResult } from '@/types/analysis';
+import PricingSection from './pricing/PricingSection';
+import StaticPricingSection from './pricing/StaticPricingSection';
 
 const featureSets: FeatureSet[] = [
   {
@@ -291,11 +293,8 @@ export default function Home() {
         </section>
 
         {/* Feature Grid */}
-        <section className="w-full max-w-6xl">
-          <h2 className="text-title font-semibold text-gray-900 text-center mb-12">
-            Choose Your Protection Plan
-          </h2>
-          <FeatureGrid sets={featureSets} />
+        <section id="pricing-section" className="w-full max-w-6xl">
+          <StaticPricingSection />
         </section>
       </main>
 

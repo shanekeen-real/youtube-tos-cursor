@@ -20,6 +20,14 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const { data: session, status } = useSession();
   const pathname = usePathname();
 
+  // Smooth scroll to pricing section on landing page
+  const handleScrollToPricing = () => {
+    const section = document.getElementById('pricing-section');
+    if (section) {
+      section.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <FirebaseAuthProvider>
       <AuthContext.Provider value={{ user: session?.user || null, setAuthOpen }}>
@@ -40,15 +48,33 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 {status === 'loading' ? (
                   <div className="animate-pulse bg-gray-200 h-9 w-20 rounded-xl"></div>
                 ) : session?.user ? (
-                  <UserMenu user={session.user} />
+                  <>
+                    <Link
+                      href="/pricing"
+                      className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors font-medium border border-yellow-500 bg-yellow-100 hover:bg-yellow-200"
+                    >
+                      Upgrade Tier
+                    </Link>
+                    <UserMenu user={session.user} />
+                  </>
                 ) : (
                   <>
-                    <Link 
-                      href="/pricing" 
-                      className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors font-medium"
-                    >
-                      Pricing
-                    </Link>
+                    {pathname === '/' ? (
+                      <button
+                        type="button"
+                        onClick={handleScrollToPricing}
+                        className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                      >
+                        Pricing
+                      </button>
+                    ) : (
+                      <Link 
+                        href="/pricing" 
+                        className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                      >
+                        Pricing
+                      </Link>
+                    )}
                     <div className="flex gap-2">
                     <Button 
                       variant="outlined" 

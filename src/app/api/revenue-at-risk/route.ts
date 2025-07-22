@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
         let youTubeData = await getCachedYouTubeData(channelId as string);
         if (!youTubeData) {
           youTubeData = await fetchAndCacheYouTubeData({ channelId: channelId as string, accessToken });
-        }
+            }
         const { videos: allVideos, viewCounts } = youTubeData;
         const videoIds = allVideos.map((v: YouTubeVideo) => v.id.videoId).filter(Boolean);
 
@@ -132,9 +132,9 @@ export async function GET(req: NextRequest) {
           scanMap,
           userCpm,
           userRpm,
-          monetizedPercent,
-          includeCut,
-        });
+            monetizedPercent,
+            includeCut,
+          });
 
         return NextResponse.json({
           ...result,
