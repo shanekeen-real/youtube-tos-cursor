@@ -156,3 +156,23 @@ body.dark {
     color: #171717;
   }
 }
+
+/* --- Yellow Dollar Hero Animations & Gradient --- */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+.text-gradient {
+  background: linear-gradient(135deg, #F6C232, #171717);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text;
+  color: transparent !important;
+}

@@ -15,6 +15,8 @@ import { EnhancedAnalysisResult } from '@/types/analysis';
 import PricingSection from './pricing/PricingSection';
 import StaticPricingSection from './pricing/StaticPricingSection';
 import Logo from '../components/Logo';
+import StickySearchBar from '@/components/StickySearchBar';
+import HeroSection from '@/components/HeroSection';
 
 const featureSets: FeatureSet[] = [
   {
@@ -175,123 +177,9 @@ export default function Home() {
     <div className="min-h-screen bg-white">
       <main className="flex flex-col items-center px-4 py-12">
         {/* Hero Section */}
-        <section className="flex flex-col items-center text-center mb-16 max-w-4xl">
-          <div className="mb-8">
-            <h1 className="text-display font-bold text-gray-900 mb-6">
-              Protect Your YouTube Revenue from <span className="text-risk">Demonetization</span>
-            </h1>
-            <p className="text-subtitle text-gray-600 max-w-2xl mx-auto">
-              Analyze YouTube policies and video content instantly. Get AI-powered risk assessment and fix recommendations.
-            </p>
-          </div>
-
-          {/* Analysis Card */}
-          <Card className="w-full max-w-2xl">
-            <div className="w-full flex mb-6">
-              <button 
-                onClick={() => { setAnalysisType('text'); setInputValue(''); }}
-                className={`flex-1 py-3 px-6 rounded-l-xl text-body font-semibold focus:outline-none transition-colors ${
-                  analysisType === 'text' 
-                    ? 'bg-yellow-500 text-gray-900' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Analyze by Text
-              </button>
-              <button 
-                onClick={() => { setAnalysisType('url'); setInputValue(''); }}
-                className={`flex-1 py-3 px-6 rounded-r-xl text-body font-semibold focus:outline-none transition-colors ${
-                  analysisType === 'url' 
-                    ? 'bg-yellow-500 text-gray-900' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Analyze by URL
-              </button>
-            </div>
-
-            <label htmlFor="tos-input" className="text-body font-semibold mb-3 w-full text-left text-gray-900 block">
-              Content to analyze
-            </label>
-            {analysisType === 'text' ? (
-              <textarea
-                id="tos-input"
-                placeholder="Paste YouTube Terms or Policy text here..."
-                className="w-full h-32 border border-gray-200 rounded-xl p-4 mb-6 resize-none focus:outline-none focus:ring-2 focus:ring-yellow-500 bg-white text-gray-900 text-body"
-                value={inputValue}
-                onChange={e => setInputValue(e.target.value)}
-                disabled={loadingFree || loadingFull}
-              />
-            ) : (
-              <Input
-                id="url-input"
-                type="url"
-                placeholder="Enter YouTube video URL..."
-                className="mb-6"
-                value={inputValue}
-                onChange={e => setInputValue(e.target.value)}
-                disabled={loadingFree || loadingFull}
-              />
-            )}
-
-            {(loadingFree || loadingFull) && (
-              <ProgressBar progress={progress} rainbow={loadingFull} />
-            )}
-            
-            <div className="flex w-full gap-4">
-              <Button 
-                variant="secondary" 
-                className="flex-1" 
-                onClick={handleFreeScan} 
-                disabled={loadingFree || loadingFull || !inputValue.trim() || analysisType === 'url'}
-                title={analysisType === 'url' ? "Free scan not available for URLs" : ""}
-              >
-                {loadingFree ? 'Scanning...' : 'Free Scan'}
-              </Button>
-              <Button 
-                variant="primary" 
-                className="flex-1" 
-                onClick={handleFullReport} 
-                disabled={loadingFull || loadingFree || !inputValue.trim()}
-              >
-                {loadingFull ? 'Analyzing...' : 'Full Report'}
-              </Button>
-            </div>
-          </Card>
-
-          {/* Free Scan Results */}
-          {freeScanResult && (
-            <div className="w-full max-w-2xl mt-8 flex flex-col gap-6">
-              <Card>
-                <div className="flex items-center justify-center mb-4">
-                  {getRiskIcon(freeScanResult.risk_level)}
-                </div>
-                <div className="text-display font-bold text-gray-900 text-center mb-2">
-                  {freeScanResult.risk_score}%
-                </div>
-                <div className="text-body text-gray-600 text-center mb-4">
-                  {freeScanResult.flagged_section}
-                </div>
-                <Badge 
-                  variant={freeScanResult.risk_level === 'HIGH' ? 'risk' : 
-                          freeScanResult.risk_level === 'MEDIUM' ? 'neutral' : 'safe'}
-                  className="mx-auto"
-                >
-                  {freeScanResult.risk_level} RISK
-                </Badge>
-              </Card>
-              
-              <Card title="Policy Analysis">
-                <textarea
-                  className="w-full h-20 border border-gray-200 rounded-xl p-4 resize-none bg-gray-50 text-gray-900 text-body"
-                  value={inputValue}
-                  readOnly
-                />
-              </Card>
-            </div>
-          )}
-        </section>
-
+        <HeroSection />
+        {/* Add vertical space before pricing section */}
+        <div className="h-48" />
         {/* Feature Grid */}
         <section id="pricing-section" className="w-full max-w-6xl">
           <StaticPricingSection />
@@ -311,6 +199,7 @@ export default function Home() {
         </div>
         <div>&copy; {new Date().getFullYear()} Yellow Dollar. Effective July 3rd, 2025.</div>
       </footer>
+      <StickySearchBar />
     </div>
   );
 }
