@@ -57,7 +57,7 @@ const HeroSection = () => {
 
           {/* Hero Visual */}
           <div className="relative animate-scale-in h-full flex flex-col justify-center">
-            <div className="relative bg-gradient-to-br from-[#F6C2321A] to-[#1717171A] rounded-3xl p-8 border border-border shadow-md w-full">
+            <div className="relative bg-gradient-to-br from-[#F6C2321A] to-[#1717171A] rounded-3xl p-8 border border-border w-full">
               {/* Content Analysis Card */}
               <div className="bg-white rounded-xl p-6 border border-border w-full">
                 <div className="flex items-center justify-between mb-4">
