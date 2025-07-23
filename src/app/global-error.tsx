@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import Link from 'next/link';
 import { ArrowLeft, Home, RefreshCw, Shield, AlertTriangle } from 'lucide-react';
 import { Button } from '@/lib/imports';
+import Logo from '../components/Logo';
 
 export default function GlobalError({ error }: { error: Error & { digest?: string } }) {
   useEffect(() => {
@@ -24,9 +25,7 @@ export default function GlobalError({ error }: { error: Error & { digest?: strin
                   <span className="font-semibold">Back to Home</span>
                 </Link>
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
-                    <Shield className="w-4 h-4 text-white" />
-                  </div>
+                  <Logo size={32} />
                   <span className="font-bold text-xl text-gray-900">Yellow Dollar</span>
                 </div>
               </div>

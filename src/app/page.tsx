@@ -14,6 +14,7 @@ import { useToastContext } from '@/contexts/ToastContext';
 import { EnhancedAnalysisResult } from '@/types/analysis';
 import PricingSection from './pricing/PricingSection';
 import StaticPricingSection from './pricing/StaticPricingSection';
+import Logo from '../components/Logo';
 
 const featureSets: FeatureSet[] = [
   {
@@ -176,7 +177,6 @@ export default function Home() {
         {/* Hero Section */}
         <section className="flex flex-col items-center text-center mb-16 max-w-4xl">
           <div className="mb-8">
-            <Shield className="h-16 w-16 text-yellow-500 mx-auto mb-6" />
             <h1 className="text-display font-bold text-gray-900 mb-6">
               Protect Your YouTube Revenue from <span className="text-risk">Demonetization</span>
             </h1>

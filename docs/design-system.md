@@ -12,7 +12,7 @@
 | Name         | Hex       | Usage                        |
 |--------------|-----------|------------------------------|
 | Yellow       | #F6C232   | Primary brand, highlights    |
-| Black        | #171717   | Text, nav, footer            |
+| Black        |rgb(15, 11, 11)   | Text, nav, footer            |
 | White        | #FFFFFF   | Background, cards            |
 | Light Gray   | #F5F5F5   | Background, card fill        |
 | Medium Gray  | #E0E0E0   | Borders, dividers            |

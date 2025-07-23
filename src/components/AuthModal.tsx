@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { Button } from '@/lib/imports';
 import { Shield, CheckCircle, LogOut, X, User } from 'lucide-react';
+import Logo from './Logo';
 
 interface AuthModalProps {
   open: boolean;
@@ -43,9 +44,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
-              <Shield className="w-4 h-4 text-white" />
-            </div>
+            <Logo size={32} />
             <span className="font-bold text-lg text-gray-900">Yellow Dollar</span>
           </div>
           <button
@@ -102,7 +101,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
             // Sign In State
             <div className="text-center">
               <div className="w-16 h-16 bg-yellow-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Shield className="w-8 h-8 text-yellow-600" />
+                <Logo size={32} />
               </div>
               
               <h2 className="text-xl font-semibold text-gray-900 mb-2">Sign in to Yellow Dollar</h2>
