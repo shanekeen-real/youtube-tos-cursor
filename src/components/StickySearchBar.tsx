@@ -6,7 +6,7 @@ import axios from 'axios';
 import { Search, Link, FileText } from 'lucide-react';
 
 const StickySearchBar = () => {
-  const [activeTab, setActiveTab] = useState('text');
+  const [activeTab, setActiveTab] = useState('url'); // Default to 'url'
   const [searchValue, setSearchValue] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,21 +79,7 @@ const StickySearchBar = () => {
           {/* Tab Buttons */}
           <div className="flex justify-center mb-4">
             <div className="inline-flex rounded-lg p-1 bg-gray-100 border border-gray-200">
-              <button
-                onClick={() => setActiveTab('text')}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 ${
-                  activeTab === 'text'
-                    ? 'bg-yellow-500 text-gray-900 shadow'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-                aria-pressed={activeTab === 'text'}
-                tabIndex={0}
-                type="button"
-                disabled={loading}
-              >
-                <FileText className="h-4 w-4" />
-                <span>Analyze by Text</span>
-              </button>
+              {/* Analyze by URL on the left, Analyze by Text on the right */}
               <button
                 onClick={() => setActiveTab('url')}
                 className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 ${
@@ -108,6 +94,21 @@ const StickySearchBar = () => {
               >
                 <Link className="h-4 w-4" />
                 <span>Analyze by URL</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('text')}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 ${
+                  activeTab === 'text'
+                    ? 'bg-yellow-500 text-gray-900 shadow'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+                aria-pressed={activeTab === 'text'}
+                tabIndex={0}
+                type="button"
+                disabled={loading}
+              >
+                <FileText className="h-4 w-4" />
+                <span>Analyze by Text</span>
               </button>
             </div>
           </div>
@@ -134,15 +135,34 @@ const StickySearchBar = () => {
       </div>
       {/* Floating Expand Button (overlays bar when collapsed) */}
       {collapsed && (
-        <button
-          className="fixed bottom-6 right-6 z-50 bg-yellow-500 text-gray-900 rounded-full shadow-lg p-4 flex items-center justify-center transition-all focus:outline-none focus:ring-2 focus:ring-yellow-400"
-          aria-label="Expand search bar"
-          onClick={handleExpand}
-          tabIndex={0}
-          style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.10)' }}
-        >
-          <Search className="h-6 w-6" />
-        </button>
+        <div>
+          {/* Mobile: bottom-right icon button */}
+          <button
+            className="fixed bottom-6 right-6 z-50 bg-yellow-500 text-gray-900 rounded-full shadow-lg p-4 flex items-center justify-center transition-all focus:outline-none focus:ring-2 focus:ring-yellow-400 md:hidden"
+            aria-label="Expand search bar"
+            onClick={handleExpand}
+            tabIndex={0}
+            style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.10)' }}
+          >
+            <Search className="h-6 w-6" />
+          </button>
+          {/* Desktop: centered button with gradient stroke, white fill, yellow text */}
+          <div className="hidden md:flex fixed bottom-6 left-0 right-0 z-50 justify-center pointer-events-none">
+            <div className="bg-gradient-to-r from-yellow-400 to-black p-[2px] rounded-full pointer-events-auto">
+              <Button
+                size="lg"
+                className="btn-hover px-8 py-4 text-lg font-semibold bg-white rounded-full text-black border-0 shadow-lg flex items-center justify-center hover:bg-gray-50 focus:ring-2 focus:ring-yellow-400"
+                onClick={handleExpand}
+                aria-label={activeTab === 'text' ? 'Expand and scan text' : 'Expand and scan video'}
+                type="button"
+                style={{ minWidth: '220px' }}
+              >
+                <Search className="h-5 w-5 mr-2 text-black" />
+                {activeTab === 'text' ? 'Scan Text' : 'Scan Video'}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
