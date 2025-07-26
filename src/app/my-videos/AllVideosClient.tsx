@@ -10,6 +10,7 @@ import { useInView } from 'react-intersection-observer';
 import * as Sentry from "@sentry/nextjs";
 import { VideoReportsModal } from '@/lib/imports';
 import ScanProgressModal from '../../components/ScanProgressModal';
+import { useToastContext } from '@/contexts/ToastContext';
 
 
 // Types
@@ -62,6 +63,7 @@ interface PaginationInfo {
 export default function AllVideosClient() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { showSuccess } = useToastContext();
   
   // State management
   const [videos, setVideos] = useState<Video[]>([]);
@@ -332,31 +334,43 @@ export default function AllVideosClient() {
     setShowScanModal(true);
     try {
       const url = `https://www.youtube.com/watch?v=${videoId}`;
-      const response = await fetch('/api/analyze-url', {
+      
+      // Add to queue instead of direct processing
+      const response = await fetch('/api/queue/add-scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ 
+          url,
+          videoTitle: title,
+          videoThumbnail: thumbnail,
+          priority: 'normal',
+          isOwnVideo: true, // Mark as own video
+          scanOptions: {
+            includeTranscript: true,
+            includeAI: true,
+            includeMultiModal: true
+          }
+        }),
       });
+      
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to analyze video');
+        throw new Error(errorData.error || 'Failed to add video to scan queue');
       }
+      
       const data = await response.json();
       setTimeout(() => {
         setShowScanModal(false);
-        if (data.scanId) {
-          router.push(`/results?scanId=${data.scanId}`);
-        } else {
-          router.push(`/results?videoId=${videoId}`);
-        }
+        // Show success message instead of redirecting
+        showSuccess('Scan Added to Queue', 'Your video has been added to the scan queue and will be processed in the background. You can check the status in your queue anytime.');
       }, 1000);
     } catch (err: unknown) {
       setShowScanModal(false);
-      setAnalyzeError(err instanceof Error ? err.message : 'Failed to analyze video');
+      setAnalyzeError(err instanceof Error ? err.message : 'Failed to add video to scan queue');
     } finally {
       setAnalyzingVideoId(null);
     }
-  }, [router, videos]);
+  }, [router, videos, showSuccess]);
 
   // Format view count
   const formatViewCount = (count: string) => {

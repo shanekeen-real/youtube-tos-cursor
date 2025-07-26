@@ -45,10 +45,25 @@ export function useResultsData() {
             return;
           }
           
-          // Merge top-level analyzed_content and analysis_source into the data object
-          let mergedData = scanData.analysisResult || scanData;
-          if (scanData.analyzed_content) mergedData.analyzed_content = scanData.analyzed_content;
-          if (scanData.analysis_source) mergedData.analysis_source = scanData.analysis_source;
+          // Merge all fields from analysisResult and top-level scan data into a single object
+          let mergedData = { ...(scanData.analysisResult || {}), ...scanData };
+          
+          // Debug logging to verify data structure
+          console.log('[useResultsData] Original scanData structure:', {
+            hasAnalysisResult: !!scanData.analysisResult,
+            analysisResultKeys: scanData.analysisResult ? Object.keys(scanData.analysisResult) : [],
+            topLevelKeys: Object.keys(scanData),
+            riskyPhrases: scanData.analysisResult?.risky_phrases || scanData.risky_phrases,
+            riskyPhrasesByCategory: scanData.analysisResult?.risky_phrases_by_category || scanData.risky_phrases_by_category
+          });
+          
+          console.log('[useResultsData] Merged data structure:', {
+            mergedKeys: Object.keys(mergedData),
+            riskyPhrases: mergedData.risky_phrases,
+            riskyPhrasesByCategory: mergedData.risky_phrases_by_category,
+            analyzedContent: mergedData.analyzed_content
+          });
+          
           setData(mergedData as ScanData);
         } catch (err: unknown) {
           // Debug: Log error

@@ -131,6 +131,7 @@ export default function Home() {
       auth?.setAuthOpen(true);
       return;
     }
+    
     let thumbnail = '';
     let title = '';
     if (analysisType === 'url') {
@@ -138,32 +139,88 @@ export default function Home() {
       thumbnail = meta.thumbnail;
       title = meta.title;
     }
+    
     setScanModalThumbnail(thumbnail);
     setScanModalTitle(title);
     setShowScanModal(true);
     setLoadingFull(true);
+    
     try {
       const isUrl = analysisType === 'url';
-      const endpoint = isUrl ? '/api/analyze-url' : '/api/analyze-policy';
-      const payload = isUrl ? { url: inputValue } : { text: inputValue };
-      const res = await axios.post(endpoint, payload);
-      // Wait for modal animation to finish if needed
-      setTimeout(() => {
-        setShowScanModal(false);
-        router.push(`/results?scanId=${res.data.scanId}`);
-      }, 1000);
+      
+      if (isUrl) {
+        // Add to queue for URL scans
+        const response = await fetch('/api/queue/add-scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            url: inputValue,
+            videoTitle: title,
+            videoThumbnail: thumbnail,
+            priority: 'normal',
+            isOwnVideo: false,
+            scanOptions: {
+              includeTranscript: true,
+              includeAI: true,
+              includeMultiModal: true
+            }
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to add scan to queue');
+        }
+        
+        const data = await response.json();
+        
+        // Show success message and close modal - scan happens in background
+        setTimeout(() => {
+          setShowScanModal(false);
+          // Show success message instead of redirecting
+          showSuccess('Scan Added to Queue', 'Your video has been added to the scan queue and will be processed in the background. You can check the status in your queue anytime.');
+        }, 1000);
+        
+      } else {
+        // Direct processing for text/policy scans (keep existing flow)
+        const endpoint = '/api/analyze-policy';
+        const payload = { text: inputValue };
+        const res = await axios.post(endpoint, payload);
+        setTimeout(() => {
+          setShowScanModal(false);
+          router.push(`/results?scanId=${res.data.scanId}`);
+        }, 1000);
+      }
     } catch (e: unknown) {
       setShowScanModal(false);
       if (e && typeof e === 'object' && 'response' in e && e.response && typeof e.response === 'object' && 'status' in e.response) {
-        const response = e.response as { status: number; data?: { error?: string } };
+        const response = e.response as { status: number; data?: { error?: string; existingQueueId?: string; existingStatus?: string; existingProgress?: number } };
         if (response.status === 400) {
           showError('Analysis Error', response.data?.error || 'Bad request');
+        } else if (response.status === 409) {
+          const errorDetails = response.data?.existingQueueId 
+            ? `${response.data.error} (Status: ${response.data.existingStatus}, Progress: ${response.data.existingProgress}%). You can view your queue to check the status.`
+            : response.data?.error || 'This video is already in your scan queue.';
+          
+          // Add a "View Queue" action button if we have queue details
+          const action = response.data?.existingQueueId ? (
+            <button
+              onClick={() => router.push('/queue')}
+              className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
+            >
+              View Queue
+            </button>
+          ) : undefined;
+          
+          showError('Scan Already Exists', errorDetails, action);
         } else if (response.status === 429) {
           const errorMessage = response.data?.error || 'Rate limit exceeded. Please try again later.';
           showError('Rate Limit Exceeded', errorMessage);
         } else {
           showError('Analysis Error', 'Error analyzing content. Please try again.');
         }
+      } else if (e instanceof Error) {
+        showError('Analysis Error', e.message);
       } else {
         showError('Analysis Error', 'Error analyzing content. Please try again.');
       }

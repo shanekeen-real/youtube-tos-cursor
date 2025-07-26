@@ -11,6 +11,7 @@ import { FirebaseAuthProvider } from '@/lib/imports';
 import { Session } from 'next-auth';
 import BetaBanner from './BetaBanner';
 import Logo from './Logo';
+import { useNotifications } from '@/hooks/useNotifications';
 
 export const AuthContext = createContext<{
   user: Session['user'] | null;
@@ -32,6 +33,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   return (
     <FirebaseAuthProvider>
+      <NotificationWrapper>
       <AuthContext.Provider value={{ user: session?.user || null, setAuthOpen }}>
         {/* Beta Banner */}
         <BetaBanner />
@@ -121,6 +123,15 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         
         <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
       </AuthContext.Provider>
+      </NotificationWrapper>
     </FirebaseAuthProvider>
   );
+}
+
+// Separate component to handle notifications
+function NotificationWrapper({ children }: { children: React.ReactNode }) {
+  // Initialize notifications hook
+  useNotifications();
+  
+  return <>{children}</>;
 } 

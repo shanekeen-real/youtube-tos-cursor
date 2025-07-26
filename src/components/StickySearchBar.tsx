@@ -5,20 +5,23 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { Search, Link, FileText } from 'lucide-react';
 import ScanProgressModal from './ScanProgressModal';
+import { useToastContext } from '@/contexts/ToastContext';
 
 const StickySearchBar = () => {
-  const [activeTab, setActiveTab] = useState('url'); // Default to 'url'
-  const [searchValue, setSearchValue] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState(false);
-  const lastScrollY = useRef(0);
-  const ticking = useRef(false);
   const auth = useContext(AuthContext);
   const router = useRouter();
+  const { showSuccess } = useToastContext();
+  const [searchValue, setSearchValue] = useState('');
+  const [activeTab, setActiveTab] = useState<'url' | 'text'>('url');
+  const [collapsed, setCollapsed] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showQueueButton, setShowQueueButton] = useState(false);
   const [showScanModal, setShowScanModal] = useState(false);
-  const [scanModalThumbnail, setScanModalThumbnail] = useState<string | null>(null);
-  const [scanModalTitle, setScanModalTitle] = useState<string | null>(null);
+  const [scanModalThumbnail, setScanModalThumbnail] = useState('');
+  const [scanModalTitle, setScanModalTitle] = useState('');
+  const lastScrollY = useRef(0);
+  const ticking = useRef(false);
 
   // Scroll-aware collapse/expand logic
   useEffect(() => {
@@ -71,11 +74,13 @@ const StickySearchBar = () => {
 
   const handleScan = async () => {
     setError(null);
+    setShowQueueButton(false);
     if (!searchValue.trim()) return;
     if (!auth?.user) {
       auth?.setAuthOpen(true);
       return;
     }
+    
     let thumbnail = '';
     let title = '';
     if (activeTab === 'url') {
@@ -83,26 +88,92 @@ const StickySearchBar = () => {
       thumbnail = meta.thumbnail;
       title = meta.title;
     }
+    
     setScanModalThumbnail(thumbnail);
     setScanModalTitle(title);
     setShowScanModal(true);
     setLoading(true);
+    
     try {
       const isUrl = activeTab === 'url';
-      const endpoint = isUrl ? '/api/analyze-url' : '/api/analyze-policy';
-      const payload = isUrl ? { url: searchValue } : { text: searchValue };
-      const res = await axios.post(endpoint, payload);
-      setTimeout(() => {
-        setShowScanModal(false);
-        router.push(`/results?scanId=${res.data.scanId}`);
-      }, 1000);
+      
+      if (isUrl) {
+        // Add to queue for URL scans
+        const response = await fetch('/api/queue/add-scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            url: searchValue,
+            videoTitle: title,
+            videoThumbnail: thumbnail,
+            priority: 'normal',
+            isOwnVideo: false,
+            scanOptions: {
+              includeTranscript: true,
+              includeAI: true,
+              includeMultiModal: true
+            }
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to add scan to queue');
+        }
+        
+        const data = await response.json();
+        
+        // Show success message and close modal - scan happens in background
+        setTimeout(() => {
+          setShowScanModal(false);
+          // Show success message instead of redirecting
+          setError(null);
+          showSuccess('Scan Added to Queue', 'Your video has been added to the scan queue and will be processed in the background. You can check the status in your queue anytime.');
+        }, 1000);
+        
+      } else {
+        // Direct processing for text/policy scans (keep existing flow)
+        const endpoint = '/api/analyze-policy';
+        const payload = { text: searchValue };
+        const res = await axios.post(endpoint, payload);
+        setTimeout(() => {
+          setShowScanModal(false);
+          router.push(`/results?scanId=${res.data.scanId}`);
+        }, 1000);
+      }
     } catch (e: any) {
       setShowScanModal(false);
+      
+      // Handle different error response formats
+      let errorMessage = 'Error analyzing content. Please try again.';
+      
       if (e?.response?.data?.error) {
-        setError(e.response.data.error);
-      } else {
-        setError('Error analyzing content. Please try again.');
+        // Axios error format
+        errorMessage = e.response.data.error;
+      } else if (e?.message) {
+        // Fetch error format or generic Error object
+        errorMessage = e.message;
+      } else if (e && typeof e === 'object' && 'response' in e && e.response && typeof e.response === 'object' && 'status' in e.response) {
+        // Fetch error with response object
+        const response = e.response as { status: number; data?: { error?: string; existingQueueId?: string; existingStatus?: string; existingProgress?: number } };
+        if (response.status === 409) {
+          if (response.data?.existingQueueId) {
+            errorMessage = `${response.data.error} (Status: ${response.data.existingStatus}, Progress: ${response.data.existingProgress}%).`;
+            setShowQueueButton(true);
+          } else {
+            errorMessage = response.data?.error || 'This video is already in your scan queue.';
+            setShowQueueButton(false);
+          }
+        } else if (response.status === 429) {
+          errorMessage = response.data?.error || 'Rate limit exceeded. Please try again later.';
+          setShowQueueButton(false);
+        } else {
+          errorMessage = response.data?.error || 'Error analyzing content. Please try again.';
+          setShowQueueButton(false);
+        }
       }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -163,7 +234,13 @@ const StickySearchBar = () => {
               <Input
                 placeholder={activeTab === 'text' ? 'Paste YouTube terms or policy text here for scan...' : 'Enter YouTube Video URL for scan...'}
                 value={searchValue}
-                onChange={e => setSearchValue(e.target.value)}
+                onChange={e => {
+                  setSearchValue(e.target.value);
+                  if (error) {
+                    setError(null);
+                    setShowQueueButton(false);
+                  }
+                }}
                 className="h-12 text-base bg-white"
                 aria-label={activeTab === 'text' ? 'Analyze by Text' : 'Analyze by URL'}
                 disabled={loading}
@@ -174,7 +251,21 @@ const StickySearchBar = () => {
               {activeTab === 'text' ? (loading ? 'Scanning...' : 'Scan Text') : (loading ? 'Scanning...' : 'Scan URL')}
             </Button>
           </div>
-          {error && <div className="text-red-600 text-sm mt-2 text-center">{error}</div>}
+          {error && (
+            <div className="text-red-600 text-sm mt-2 text-center">
+              {error}
+              {showQueueButton && (
+                <Button
+                  size="sm"
+                  className="ml-2 text-red-600 hover:text-red-800"
+                  onClick={() => router.push('/queue')}
+                  aria-label="View queue"
+                >
+                  View Queue
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </div>
       {/* Floating Expand Button (overlays bar when collapsed) */}

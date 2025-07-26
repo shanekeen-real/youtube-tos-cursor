@@ -17,7 +17,8 @@ import {
   Crown,
   Star,
   Zap,
-  Video
+  Video,
+  Clock
 } from 'lucide-react';
 
 interface UserMenuProps {
@@ -213,6 +214,15 @@ export default function UserMenu({ user }: UserMenuProps) {
             >
               <History className="w-4 h-4 text-gray-500" />
               <span className="font-medium">Scan History</span>
+            </Link>
+            
+            <Link 
+              href="/queue" 
+              className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors"
+              onClick={() => setOpen(false)}
+            >
+              <Clock className="w-4 h-4 text-gray-500" />
+              <span className="font-medium">Scan Queue</span>
             </Link>
             
             <Link 
