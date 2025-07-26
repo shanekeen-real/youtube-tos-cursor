@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
         // Apply limit
         const limitedDocs = sortedDocs.slice(0, limit);
         
-        const notifications = limitedDocs.map(doc => ({
+        const notifications = limitedDocs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
           id: doc.id,
           ...doc.data()
         }));
