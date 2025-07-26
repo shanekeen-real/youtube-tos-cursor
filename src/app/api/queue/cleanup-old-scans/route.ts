@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { adminDb } from '@/lib/firebase-admin';
-import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp, QueryDocumentSnapshot, DocumentData } from 'firebase-admin/firestore';
 import * as Sentry from "@sentry/nextjs";
 
 export async function POST(req: NextRequest) {
