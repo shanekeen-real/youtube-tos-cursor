@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
         let deletedCount = 0;
         const batch = adminDb.batch();
 
-        oldCompletedScans.docs.forEach((doc) => {
+        oldCompletedScans.docs.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
           batch.delete(doc.ref);
           deletedCount++;
         });
