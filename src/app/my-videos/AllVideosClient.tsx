@@ -9,6 +9,7 @@ import { Button } from '@/lib/imports';
 import { useInView } from 'react-intersection-observer';
 import * as Sentry from "@sentry/nextjs";
 import { VideoReportsModal } from '@/lib/imports';
+import ScanProgressModal from '../../components/ScanProgressModal';
 
 
 // Types
@@ -95,6 +96,9 @@ export default function AllVideosClient() {
   const [videoRiskLevels, setVideoRiskLevels] = useState<{ [videoId: string]: { riskLevel: string; riskScore: number } | null }>({});
   const [reportsModalOpen, setReportsModalOpen] = useState(false);
   const [selectedVideoForReports, setSelectedVideoForReports] = useState<{ id: string; title: string } | null>(null);
+  const [showScanModal, setShowScanModal] = useState(false);
+  const [scanModalThumbnail, setScanModalThumbnail] = useState<string | null>(null);
+  const [scanModalTitle, setScanModalTitle] = useState<string | null>(null);
 
   // Memoized filtered videos
   const filteredVideos = useMemo(() => {
@@ -319,6 +323,13 @@ export default function AllVideosClient() {
   const handleAnalyzeVideo = useCallback(async (videoId: string) => {
     setAnalyzeError(null);
     setAnalyzingVideoId(videoId);
+    // Find video object for thumbnail and title
+    const video = videos.find(v => v.id.videoId === videoId);
+    const thumbnail = video?.snippet.thumbnails.medium?.url || video?.snippet.thumbnails.default?.url || '';
+    const title = video?.snippet.title || '';
+    setScanModalThumbnail(thumbnail);
+    setScanModalTitle(title);
+    setShowScanModal(true);
     try {
       const url = `https://www.youtube.com/watch?v=${videoId}`;
       const response = await fetch('/api/analyze-url', {
@@ -331,17 +342,21 @@ export default function AllVideosClient() {
         throw new Error(errorData.error || 'Failed to analyze video');
       }
       const data = await response.json();
-      if (data.scanId) {
-        router.push(`/results?scanId=${data.scanId}`);
-      } else {
-        router.push(`/results?videoId=${videoId}`);
-      }
+      setTimeout(() => {
+        setShowScanModal(false);
+        if (data.scanId) {
+          router.push(`/results?scanId=${data.scanId}`);
+        } else {
+          router.push(`/results?videoId=${videoId}`);
+        }
+      }, 1000);
     } catch (err: unknown) {
+      setShowScanModal(false);
       setAnalyzeError(err instanceof Error ? err.message : 'Failed to analyze video');
     } finally {
       setAnalyzingVideoId(null);
     }
-  }, [router]);
+  }, [router, videos]);
 
   // Format view count
   const formatViewCount = (count: string) => {
@@ -593,6 +608,15 @@ export default function AllVideosClient() {
           }}
           videoId={selectedVideoForReports.id}
           videoTitle={selectedVideoForReports.title}
+        />
+      )}
+      {showScanModal && scanModalThumbnail && (
+        <ScanProgressModal
+          open={showScanModal}
+          onClose={() => setShowScanModal(false)}
+          videoThumbnail={scanModalThumbnail}
+          videoTitle={scanModalTitle || undefined}
+          isOwnVideo={true}
         />
       )}
     </div>

@@ -4,6 +4,7 @@ import { AuthContext } from '@/lib/imports';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { Search, Link, FileText } from 'lucide-react';
+import ScanProgressModal from './ScanProgressModal';
 
 const StickySearchBar = () => {
   const [activeTab, setActiveTab] = useState('url'); // Default to 'url'
@@ -15,6 +16,9 @@ const StickySearchBar = () => {
   const ticking = useRef(false);
   const auth = useContext(AuthContext);
   const router = useRouter();
+  const [showScanModal, setShowScanModal] = useState(false);
+  const [scanModalThumbnail, setScanModalThumbnail] = useState<string | null>(null);
+  const [scanModalTitle, setScanModalTitle] = useState<string | null>(null);
 
   // Scroll-aware collapse/expand logic
   useEffect(() => {
@@ -39,6 +43,32 @@ const StickySearchBar = () => {
 
   const handleExpand = () => setCollapsed(false);
 
+  // Helper to fetch YouTube video thumbnail and title using oEmbed API
+  const fetchYouTubeThumbnailAndTitle = async (url: string): Promise<{ thumbnail: string; title: string }> => {
+    try {
+      // Use YouTube's oEmbed API (much faster, no authentication required)
+      const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+      const response = await fetch(oembedUrl);
+      
+      if (response.ok) {
+        const data = await response.json();
+        return { 
+          thumbnail: data.thumbnail_url || '', 
+          title: data.title || '' 
+        };
+      }
+    } catch (error) {
+      console.error('Failed to fetch video metadata via oEmbed:', error);
+    }
+    
+    // Fallback to just thumbnail if oEmbed fails
+    const match = url.match(/[?&]v=([\w-]{11})/) || url.match(/youtu\.be\/([\w-]{11})/);
+    const videoId = match ? match[1] : null;
+    if (!videoId) return { thumbnail: '', title: '' };
+    const thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+    return { thumbnail, title: '' };
+  };
+
   const handleScan = async () => {
     setError(null);
     if (!searchValue.trim()) return;
@@ -46,14 +76,28 @@ const StickySearchBar = () => {
       auth?.setAuthOpen(true);
       return;
     }
+    let thumbnail = '';
+    let title = '';
+    if (activeTab === 'url') {
+      const meta = await fetchYouTubeThumbnailAndTitle(searchValue);
+      thumbnail = meta.thumbnail;
+      title = meta.title;
+    }
+    setScanModalThumbnail(thumbnail);
+    setScanModalTitle(title);
+    setShowScanModal(true);
     setLoading(true);
     try {
       const isUrl = activeTab === 'url';
       const endpoint = isUrl ? '/api/analyze-url' : '/api/analyze-policy';
       const payload = isUrl ? { url: searchValue } : { text: searchValue };
       const res = await axios.post(endpoint, payload);
-      router.push(`/results?scanId=${res.data.scanId}`);
+      setTimeout(() => {
+        setShowScanModal(false);
+        router.push(`/results?scanId=${res.data.scanId}`);
+      }, 1000);
     } catch (e: any) {
+      setShowScanModal(false);
       if (e?.response?.data?.error) {
         setError(e.response.data.error);
       } else {
@@ -163,6 +207,15 @@ const StickySearchBar = () => {
             </div>
           </div>
         </div>
+      )}
+      {showScanModal && scanModalThumbnail && (
+        <ScanProgressModal
+          open={showScanModal}
+          onClose={() => setShowScanModal(false)}
+          videoThumbnail={scanModalThumbnail}
+          videoTitle={scanModalTitle || undefined}
+          isOwnVideo={false}
+        />
       )}
     </>
   );

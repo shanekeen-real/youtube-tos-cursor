@@ -17,6 +17,7 @@ import StaticPricingSection from './pricing/StaticPricingSection';
 import Logo from '../components/Logo';
 import StickySearchBar from '@/components/StickySearchBar';
 import HeroSection from '@/components/HeroSection';
+import ScanProgressModal from '../components/ScanProgressModal';
 
 const featureSets: FeatureSet[] = [
   {
@@ -65,6 +66,35 @@ export default function Home() {
   const router = useRouter();
   const [progress, setProgress] = useState(0);
   const progressRef = useRef<NodeJS.Timeout | null>(null);
+  const [showScanModal, setShowScanModal] = useState(false);
+  const [scanModalThumbnail, setScanModalThumbnail] = useState<string | null>(null);
+  const [scanModalTitle, setScanModalTitle] = useState<string | null>(null);
+
+  // Helper to fetch YouTube video thumbnail and title using oEmbed API
+  const fetchYouTubeThumbnailAndTitle = async (url: string): Promise<{ thumbnail: string; title: string }> => {
+    try {
+      // Use YouTube's oEmbed API (much faster, no authentication required)
+      const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+      const response = await fetch(oembedUrl);
+      
+      if (response.ok) {
+        const data = await response.json();
+        return { 
+          thumbnail: data.thumbnail_url || '', 
+          title: data.title || '' 
+        };
+      }
+    } catch (error) {
+      console.error('Failed to fetch video metadata via oEmbed:', error);
+    }
+    
+    // Fallback to just thumbnail if oEmbed fails
+    const match = url.match(/[?&]v=([\w-]{11})/) || url.match(/youtu\.be\/([\w-]{11})/);
+    const videoId = match ? match[1] : null;
+    if (!videoId) return { thumbnail: '', title: '' };
+    const thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+    return { thumbnail, title: '' };
+  };
 
   useEffect(() => {
     let interval = 400;
@@ -101,25 +131,34 @@ export default function Home() {
       auth?.setAuthOpen(true);
       return;
     }
+    let thumbnail = '';
+    let title = '';
+    if (analysisType === 'url') {
+      const meta = await fetchYouTubeThumbnailAndTitle(inputValue);
+      thumbnail = meta.thumbnail;
+      title = meta.title;
+    }
+    setScanModalThumbnail(thumbnail);
+    setScanModalTitle(title);
+    setShowScanModal(true);
     setLoadingFull(true);
     try {
       const isUrl = analysisType === 'url';
       const endpoint = isUrl ? '/api/analyze-url' : '/api/analyze-policy';
       const payload = isUrl ? { url: inputValue } : { text: inputValue };
-      
       const res = await axios.post(endpoint, payload);
-      
-      // The scan is now automatically saved by the server-side API
-      // No need to manually save to Firestore here
-      
-      router.push(`/results?scanId=${res.data.scanId}`);
+      // Wait for modal animation to finish if needed
+      setTimeout(() => {
+        setShowScanModal(false);
+        router.push(`/results?scanId=${res.data.scanId}`);
+      }, 1000);
     } catch (e: unknown) {
+      setShowScanModal(false);
       if (e && typeof e === 'object' && 'response' in e && e.response && typeof e.response === 'object' && 'status' in e.response) {
         const response = e.response as { status: number; data?: { error?: string } };
         if (response.status === 400) {
           showError('Analysis Error', response.data?.error || 'Bad request');
         } else if (response.status === 429) {
-          // Display the actual error message from the backend instead of generic message
           const errorMessage = response.data?.error || 'Rate limit exceeded. Please try again later.';
           showError('Rate Limit Exceeded', errorMessage);
         } else {
