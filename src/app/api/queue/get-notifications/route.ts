@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
           success: true,
           notifications,
           totalCount: notifications.length,
-          unreadCount: notifications.filter(n => !n.read).length
+          unreadCount: notifications.filter((n: { read: boolean }) => !n.read).length
         });
 
       } catch (error: unknown) {
