@@ -2,7 +2,7 @@ import React from 'react';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
-  variant?: 'black' | 'white';
+  variant?: 'black' | 'white' | 'allwhite';
   className?: string;
   alt?: string;
 }
@@ -17,6 +17,11 @@ const logoMap = {
     sm: '/leftaligned_logo_white.svg',
     md: '/leftaligned_logo_white.svg',
     lg: '/leftaligned_logo_white.svg',
+  },
+  allwhite: {
+    sm: '/leftaligned_logo_allwhite.svg',
+    md: '/leftaligned_logo_allwhite.svg',
+    lg: '/leftaligned_logo_allwhite.svg',
   },
 };
 

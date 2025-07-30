@@ -74,6 +74,7 @@ export default function StaticPricingSection() {
     <section className="w-full">
       {/* Header */}
       <div className="text-center mb-12">
+        <div className="text-sm font-medium text-yellow-600 mb-2">Pricing</div>
         <h1 className="text-display font-bold text-gray-800 mb-4">
           Choose Your Plan
         </h1>

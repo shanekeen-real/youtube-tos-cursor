@@ -18,9 +18,16 @@ export default function ComparisonSection() {
     <section className="w-full py-16 mt-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
-            Why choose Yellow Dollar?
-          </h2>
+          <div className="relative inline-block">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
+              Why choose yellowdollar?
+            </h2>
+            <img 
+              src="/XL_64x64 yellow spark_left.svg" 
+              alt="Spark icon" 
+              className="absolute -top-2 -right-8 w-8 h-8"
+            />
+          </div>
           <p className="text-lg text-gray-600 max-w-3xl mx-auto">
             Compare our comprehensive solution with other platforms in the market. 
             See why creators trust Yellow Dollar to protect their revenue.

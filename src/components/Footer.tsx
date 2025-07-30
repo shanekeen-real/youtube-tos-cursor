@@ -9,7 +9,7 @@ const Footer = () => {
           {/* Brand */}
           <div className="md:col-span-1">
             <div className="mb-4">
-              <Logo size="md" variant="white" />
+              <Logo size="md" variant="allwhite" />
             </div>
             <p className="text-gray-300 text-sm leading-relaxed mb-4">
               Protect your YouTube revenue with AI-powered content analysis and policy compliance monitoring.

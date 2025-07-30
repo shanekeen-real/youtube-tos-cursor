@@ -5,26 +5,12 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { AuthContext } from './ClientLayout';
 
-const benefits = [
-  {
-    icon: DollarSign,
-    title: 'Maximize Revenue',
-    description: 'Prevent demonetization and maintain consistent income from content.',
-    type: 'success'
-  },
-  {
-    icon: Shield,
-    title: 'Risk Mitigation',
-    description: 'Identify and fix potential issues before they impact your channel.',
-    type: 'success'
-  },
-  {
-    icon: Clock,
-    title: 'Save Time',
-    description: 'Automated analysis saves hours of manual policy checking.',
-    type: 'success'
-  }
-];
+const benefits: Array<{
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+  type: string;
+}> = [];
 
 export default function BenefitsSection() {
   const { data: session, status } = useSession();
@@ -47,27 +33,16 @@ export default function BenefitsSection() {
         <div className="grid lg:grid-cols-2 gap-16 items-center">
           {/* Content */}
           <div>
+            <div className="text-sm font-medium text-yellow-600 mb-2">Revenue at-risk</div>
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
-              Keep your revenue safe and growing
+              Protect your revenue
             </h2>
             <p className="text-lg text-gray-600 mb-8">
               Don't let policy violations destroy months of hard work. Our AI-powered platform 
               helps creators maintain monetization and build sustainable income streams.
             </p>
             
-            <div className="space-y-8 mb-8">
-              {benefits.map((benefit, index) => (
-                <div key={index} className="flex items-start space-x-4">
-                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <benefit.icon className="h-5 w-5 text-green-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900 mb-1">{benefit.title}</h3>
-                    <p className="text-gray-600">{benefit.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+
 
             <Button variant="primary" size="lg" onClick={handleStartProtecting}>
               Start Protecting Your Revenue
