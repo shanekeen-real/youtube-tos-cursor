@@ -17,8 +17,7 @@ export default function NotFound() {
               <span className="font-semibold">Back to Home</span>
             </Link>
             <div className="flex items-center gap-2">
-              <Logo size={32} />
-              <span className="font-bold text-xl text-gray-900">Yellow Dollar</span>
+              <Logo size="sm" />
             </div>
           </div>
         </div>

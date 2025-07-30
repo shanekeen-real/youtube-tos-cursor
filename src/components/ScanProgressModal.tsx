@@ -126,8 +126,7 @@ export default function ScanProgressModal({
         {/* Header - Fixed */}
         <div className="flex items-center justify-between w-full p-3 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center gap-2">
-            <Logo size={32} />
-            <span className="font-bold text-base text-gray-900">Yellow Dollar</span>
+            <Logo size="sm" />
           </div>
           <button
             className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors"
