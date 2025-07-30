@@ -1,6 +1,9 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { TrendingUp, DollarSign, Shield, Clock, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Target } from 'lucide-react';
 import { Button } from '@/lib/imports';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { AuthContext } from './ClientLayout';
 
 const benefits = [
   {
@@ -24,6 +27,20 @@ const benefits = [
 ];
 
 export default function BenefitsSection() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const authContext = useContext(AuthContext);
+
+  const handleStartProtecting = () => {
+    if (status === 'authenticated' && session?.user) {
+      // User is logged in, redirect to dashboard
+      router.push('/dashboard');
+    } else {
+      // User is not logged in, open auth modal
+      authContext?.setAuthOpen(true);
+    }
+  };
+
   return (
     <section className="w-full py-16 mt-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -52,7 +69,7 @@ export default function BenefitsSection() {
               ))}
             </div>
 
-            <Button variant="primary" size="lg">
+            <Button variant="primary" size="lg" onClick={handleStartProtecting}>
               Start Protecting Your Revenue
             </Button>
           </div>
