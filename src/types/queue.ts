@@ -19,6 +19,7 @@ export interface ScanQueueItem {
   scanId?: string; // Reference to analysis_cache document
   priority: 'low' | 'normal' | 'high';
   isOwnVideo: boolean;
+  archivedFromQueue?: boolean; // New field to track if completed scan was removed from "In Queue" tab
   scanOptions?: {
     includeTranscript: boolean;
     includeAI: boolean;

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, createContext } from 'react';
+import React, { useState, createContext, useEffect } from 'react';
 import { AuthModal } from '@/lib/imports';
 import { UserMenu } from '@/lib/imports';
 import { Button } from '@/lib/imports';
@@ -131,7 +131,16 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 // Separate component to handle notifications
 function NotificationWrapper({ children }: { children: React.ReactNode }) {
   // Initialize notifications hook
-  useNotifications();
+  const { isPolling, lastError } = useNotifications();
+  
+  // Debug logging in development
+  if (process.env.NODE_ENV === 'development') {
+    useEffect(() => {
+      if (lastError) {
+        console.warn('Notification polling error:', lastError);
+      }
+    }, [lastError]);
+  }
   
   return <>{children}</>;
 } 

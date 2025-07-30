@@ -33,7 +33,22 @@ export async function GET(req: NextRequest) {
         }
 
         // Get notifications - sort by createdAt descending
-        const notificationsSnapshot = await query.get();
+        let notificationsSnapshot;
+        try {
+          notificationsSnapshot = await query.get();
+        } catch (firebaseError: any) {
+          // Handle Firebase quota exceeded errors gracefully
+          if (firebaseError.code === 8 || firebaseError.message?.includes('RESOURCE_EXHAUSTED')) {
+            console.warn('Firebase quota exceeded for notifications, returning empty results');
+            return NextResponse.json({
+              success: true,
+              notifications: [],
+              unreadCount: 0,
+              total: 0
+            });
+          }
+          throw firebaseError; // Re-throw other errors
+        }
         
         // Sort in memory by createdAt descending
         const sortedDocs = notificationsSnapshot.docs.sort((a: QueryDocumentSnapshot<DocumentData>, b: QueryDocumentSnapshot<DocumentData>) => {

@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
         const status = searchParams.get('status');
         const limit = parseInt(searchParams.get('limit') || '50');
         const offset = parseInt(searchParams.get('offset') || '0');
+        const skipStats = searchParams.get('skipStats') === 'true';
 
         // Build query - simplified to avoid index requirements
         let query = adminDb.collection('scan_queue')
@@ -36,7 +37,29 @@ export async function GET(req: NextRequest) {
         }
 
         // Get queue items - we'll sort in memory to avoid index requirements
-        const queueSnapshot = await query.get();
+        let queueSnapshot;
+        try {
+          queueSnapshot = await query.get();
+        } catch (firebaseError: any) {
+          // Handle Firebase quota exceeded errors gracefully
+          if (firebaseError.code === 8 || firebaseError.message?.includes('RESOURCE_EXHAUSTED')) {
+            console.warn('Firebase quota exceeded for user scans, returning empty results');
+            return NextResponse.json({
+              success: true,
+              queueItems: [],
+              stats: {
+                totalPending: 0,
+                totalProcessing: 0,
+                totalCompleted: 0,
+                totalFailed: 0,
+                totalCancelled: 0
+              },
+              total: 0,
+              hasMore: false
+            });
+          }
+          throw firebaseError; // Re-throw other errors
+        }
         
         // Sort in memory by createdAt descending
         const sortedDocs = queueSnapshot.docs.sort((a: QueryDocumentSnapshot<DocumentData>, b: QueryDocumentSnapshot<DocumentData>) => {
@@ -52,7 +75,12 @@ export async function GET(req: NextRequest) {
         if (status === 'active') {
           filteredDocs = sortedDocs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
             const data = doc.data();
-            return data.status !== 'completed';
+            // Only exclude completed scans that are archived from queue
+            if (data.status === 'completed' && data.archivedFromQueue === true) {
+              return false;
+            }
+            // Keep all scans (including completed ones) unless they're archived
+            return true;
           });
         }
         
@@ -64,43 +92,51 @@ export async function GET(req: NextRequest) {
           ...doc.data()
         } as ScanQueueItem));
 
-        // Get queue stats
-        const statsQuery = adminDb.collection('scan_queue').where('userId', '==', userId);
-        const statsSnapshot = await statsQuery.get();
-        
-        const stats = {
+        // Calculate stats from the main query results to avoid additional Firebase calls
+        const stats = skipStats ? {
           totalPending: 0,
           totalProcessing: 0,
           totalCompleted: 0,
           totalFailed: 0,
           totalCancelled: 0
-        };
+        } : (() => {
+          const stats = {
+            totalPending: 0,
+            totalProcessing: 0,
+            totalCompleted: 0,
+            totalFailed: 0,
+            totalCancelled: 0
+          };
 
-        statsSnapshot.docs.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
-          const data = doc.data();
-          // For 'active' status, exclude completed scans from stats
-          if (status === 'active' && data.status === 'completed') {
-            return;
-          }
+          // Use the original sortedDocs (before filtering) to calculate accurate stats
+          sortedDocs.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
+            const data = doc.data();
+            // For 'active' status, only exclude archived completed scans from stats
+            if (status === 'active' && data.status === 'completed' && data.archivedFromQueue === true) {
+              return;
+            }
+            
+            switch (data.status) {
+              case 'pending':
+                stats.totalPending++;
+                break;
+              case 'processing':
+                stats.totalProcessing++;
+                break;
+              case 'completed':
+                stats.totalCompleted++;
+                break;
+              case 'failed':
+                stats.totalFailed++;
+                break;
+              case 'cancelled':
+                stats.totalCancelled++;
+                break;
+            }
+          });
           
-          switch (data.status) {
-            case 'pending':
-              stats.totalPending++;
-              break;
-            case 'processing':
-              stats.totalProcessing++;
-              break;
-            case 'completed':
-              stats.totalCompleted++;
-              break;
-            case 'failed':
-              stats.totalFailed++;
-              break;
-            case 'cancelled':
-              stats.totalCancelled++;
-              break;
-          }
-        });
+          return stats;
+        })();
 
         return NextResponse.json({
           success: true,
