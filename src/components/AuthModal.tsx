@@ -100,7 +100,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
             // Sign In State
             <div className="text-center">
               <div className="w-16 h-16 bg-yellow-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Logo size={32} />
+                <Logo size="sm" />
               </div>
               
               <h2 className="text-xl font-semibold text-gray-900 mb-2">Sign in to Yellow Dollar</h2>
