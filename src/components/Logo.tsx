@@ -2,14 +2,22 @@ import React from 'react';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
+  variant?: 'black' | 'white';
   className?: string;
   alt?: string;
 }
 
 const logoMap = {
-  sm: '/yellowdollar_blacklogo.svg',
-  md: '/yellowdollar_blacklogo.svg',
-  lg: '/yellowdollar_blacklogo.svg',
+  black: {
+    sm: '/yellowdollar_blacklogo.svg',
+    md: '/yellowdollar_blacklogo.svg',
+    lg: '/yellowdollar_blacklogo.svg',
+  },
+  white: {
+    sm: '/leftaligned_logo_white.svg',
+    md: '/leftaligned_logo_white.svg',
+    lg: '/leftaligned_logo_white.svg',
+  },
 };
 
 // Size mappings for the horizontal logo - increased to industry standards
@@ -19,8 +27,8 @@ const sizeMap = {
   lg: { width: 240, height: 62 }, // Increased from 180x48
 };
 
-export default function Logo({ size = 'md', className = '', alt = 'Yellow Dollar logo' }: LogoProps) {
-  const src = logoMap[size] || logoMap.md;
+export default function Logo({ size = 'md', variant = 'black', className = '', alt = 'Yellow Dollar logo' }: LogoProps) {
+  const src = logoMap[variant][size] || logoMap[variant].md;
   const dimensions = sizeMap[size] || sizeMap.md;
   
   return (

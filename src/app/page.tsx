@@ -17,6 +17,11 @@ import StaticPricingSection from './pricing/StaticPricingSection';
 import Logo from '../components/Logo';
 import StickySearchBar from '@/components/StickySearchBar';
 import HeroSection from '@/components/HeroSection';
+import FeaturesSection from '@/components/FeaturesSection';
+import BenefitsSection from '@/components/BenefitsSection';
+import ComparisonSection from '@/components/ComparisonSection';
+import FAQSection from '@/components/FAQSection';
+import Footer from '@/components/Footer';
 import ScanProgressModal from '../components/ScanProgressModal';
 
 const featureSets: FeatureSet[] = [
@@ -274,27 +279,29 @@ export default function Home() {
       <main className="flex flex-col items-center px-4 py-12">
         {/* Hero Section */}
         <HeroSection />
+        
+        {/* Features Section */}
+        <FeaturesSection />
+        
+        {/* Benefits Section */}
+        <BenefitsSection />
+        
+        {/* Comparison Section */}
+        <ComparisonSection />
+        
         {/* Add vertical space before pricing section */}
         <div className="h-48" />
         {/* Feature Grid */}
         <section id="pricing-section" className="w-full max-w-6xl">
           <StaticPricingSection />
         </section>
+        
+        {/* FAQ Section */}
+        <FAQSection />
       </main>
 
       {/* Footer */}
-      <footer className="w-full flex flex-col items-center mt-16 mb-8 text-caption text-gray-500">
-        <div className="flex gap-4 mb-2">
-          <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer" className="hover:text-yellow-500 transition-colors">
-            Privacy Policy
-          </a>
-          <span>|</span>
-          <a href="/terms-of-service.html" target="_blank" rel="noopener noreferrer" className="hover:text-yellow-500 transition-colors">
-            Terms of Service
-          </a>
-        </div>
-        <div>&copy; {new Date().getFullYear()} Yellow Dollar. Effective July 3rd, 2025.</div>
-      </footer>
+      <Footer />
       <StickySearchBar />
     </div>
   );

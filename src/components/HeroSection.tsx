@@ -59,38 +59,66 @@ const HeroSection = () => {
           <div className="relative animate-scale-in h-full flex flex-col justify-center">
             <div className="relative bg-gradient-to-br from-[#F6C2321A] to-[#1717171A] rounded-3xl p-8 border border-border w-full">
               {/* Content Analysis Card */}
-              <div className="bg-white rounded-xl p-6 border border-border w-full">
+              <div className="bg-white rounded-xl p-6 border border-gray-200 w-full">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="font-semibold">Content Analysis</span>
+                  <span className="font-semibold text-gray-900">Content Analysis</span>
                   <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-[#00C853] rounded-full"></div>
-                    <span className="text-xs text-[#00C853] font-semibold">Safe</span>
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="text-xs text-green-600 font-semibold">LOW Risk</span>
                   </div>
                 </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Policy Compliance</span>
-                    <span className="text-[#00C853] font-medium">98%</span>
+                <div className="space-y-4">
+                  {/* Risk Score Display */}
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center">
+                        <span className="text-lg font-bold text-gray-800">23</span>
+                      </div>
+                      <div className="absolute inset-0 rounded-full border-4 border-green-200"></div>
+                      <div 
+                        className="absolute inset-0 rounded-full border-4 border-green-500"
+                        style={{
+                          clipPath: `polygon(0 0, 100% 0, 100% 100%, 0 100%)`,
+                          transform: `rotate(${(23 / 100) * 360}deg)`
+                        }}
+                      ></div>
+                    </div>
+                    <div className="flex-1">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-600">Low Risk</span>
+                          <span className="text-xs text-gray-600">High Risk</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 h-2 rounded-full"
+                            style={{ width: '23%' }}
+                          ></div>
+                        </div>
+                        <div className="text-xs text-gray-500 text-center">
+                          Score: 23/100
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-[#00C853] h-2 rounded-full" style={{ width: '98%' }}></div>
+                  
+                  {/* Analysis Summary */}
+                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                    <p className="text-sm text-green-700 font-medium">
+                      ✓ Content appears safe for monetization
+                    </p>
                   </div>
-                </div>
-                <div className="mt-4 p-3 bg-[#00C8531A] rounded-lg border border-[#00C85333]">
-                  <p className="text-sm text-[#00C853] font-medium">
-                    ✓ Content meets YouTube monetization guidelines
-                  </p>
                 </div>
               </div>
-              {/* Risk Indicators (now siblings, not inside Content Analysis card) */}
+              {/* Risk Indicators */}
               <div className="grid grid-cols-2 gap-4 mt-6">
-                <div className="bg-white rounded-lg p-4 border border-border">
-                  <div className="text-xs text-muted-foreground mb-1">Copyright Risk</div>
-                  <div className="text-lg font-bold text-success">Low</div>
+                <div className="bg-white rounded-lg p-4 border border-gray-200">
+                  <div className="text-xs text-gray-500 mb-1">Policy Risks</div>
+                  <div className="text-lg font-bold text-green-600">None</div>
                 </div>
-                <div className="bg-white rounded-lg p-4 border border-border">
-                  <div className="text-xs text-muted-foreground mb-1">Content Score</div>
-                  <div className="text-lg font-bold text-primary">A+</div>
+                <div className="bg-white rounded-lg p-4 border border-gray-200">
+                  <div className="text-xs text-gray-500 mb-1">Suggestions</div>
+                  <div className="text-lg font-bold text-yellow-600">2</div>
                 </div>
               </div>
             </div>
