@@ -44,7 +44,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center gap-3">
-            <Logo size="md" />
+            <Logo size="md" variant="blackleft" />
           </div>
           <button
             className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors"
@@ -100,7 +100,11 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
             // Sign In State
             <div className="text-center">
               <div className="w-16 h-16 bg-yellow-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Logo size="sm" />
+                <img 
+                  src="/64x64 yellow spark_xl.svg" 
+                  alt="Yellow Dollar Spark" 
+                  className="w-8 h-8"
+                />
               </div>
               
               <h2 className="text-xl font-semibold text-gray-900 mb-2">Sign in to Yellow Dollar</h2>
@@ -131,16 +135,6 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
               </Button>
               
               <div className="space-y-4">
-                <div className="flex items-center justify-center gap-4 text-sm text-gray-500">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-500" />
-                    <span>Free to start</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-blue-500" />
-                    <span>Secure & private</span>
-                  </div>
-                </div>
                 
                 <p className="text-xs text-gray-500">
                   By signing in, you agree to our{' '}
