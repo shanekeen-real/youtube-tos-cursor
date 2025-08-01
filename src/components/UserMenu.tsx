@@ -117,7 +117,7 @@ export default function UserMenu({ user }: UserMenuProps) {
     <div className="relative" ref={menuRef}>
       {/* User Button */}
       <button
-        className="flex items-center gap-3 px-4 py-2 rounded-xl hover:bg-gray-50 border border-gray-200 transition-all duration-200 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-500/20"
+        className="flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-2 rounded-xl hover:bg-gray-50 border border-gray-200 transition-all duration-200 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-yellow-500/20"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="true"
         aria-expanded={open}
@@ -127,11 +127,11 @@ export default function UserMenu({ user }: UserMenuProps) {
           <img 
             src={user.image} 
             alt="avatar" 
-            className="w-8 h-8 rounded-xl object-cover border border-gray-200" 
+            className="w-6 h-6 sm:w-8 sm:h-8 rounded-xl object-cover border border-gray-200" 
           />
         ) : (
-          <div className="w-8 h-8 bg-yellow-500 rounded-xl flex items-center justify-center border border-gray-200">
-            <User className="w-4 h-4 text-gray-900" />
+          <div className="w-6 h-6 sm:w-8 sm:h-8 bg-yellow-500 rounded-xl flex items-center justify-center border border-gray-200">
+            <User className="w-3 h-3 sm:w-4 sm:h-4 text-gray-900" />
           </div>
         )}
         
@@ -150,7 +150,7 @@ export default function UserMenu({ user }: UserMenuProps) {
         
         {/* Dropdown Arrow */}
         <ChevronDown 
-          className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${
+          className={`w-3 h-3 sm:w-4 sm:h-4 text-gray-500 transition-transform duration-200 ${
             open ? 'rotate-180' : ''
           }`} 
         />
@@ -158,7 +158,7 @@ export default function UserMenu({ user }: UserMenuProps) {
 
       {/* Dropdown Menu */}
       {open && (
-        <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
+        <div className="absolute right-0 mt-2 w-56 sm:w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
           {/* Header */}
           <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
             <div className="flex items-center gap-3">
@@ -208,21 +208,21 @@ export default function UserMenu({ user }: UserMenuProps) {
             </Link>
             
             <Link 
-              href="/scan-history" 
-              className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors"
-              onClick={() => setOpen(false)}
-            >
-              <History className="w-4 h-4 text-gray-500" />
-              <span className="font-medium">Scan History</span>
-            </Link>
-            
-            <Link 
               href="/queue" 
               className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors"
               onClick={() => setOpen(false)}
             >
               <Clock className="w-4 h-4 text-gray-500" />
               <span className="font-medium">Scan Queue</span>
+            </Link>
+            
+            <Link 
+              href="/scan-history" 
+              className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 transition-colors"
+              onClick={() => setOpen(false)}
+            >
+              <History className="w-4 h-4 text-gray-500" />
+              <span className="font-medium">Scan History</span>
             </Link>
             
             <Link 

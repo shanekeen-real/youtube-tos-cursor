@@ -78,6 +78,7 @@ export default function QueuePage() {
   const [isRemovingCompleted, setIsRemovingCompleted] = useState(false);
   const [lastFetchTime, setLastFetchTime] = useState(0);
   const [isFetching, setIsFetching] = useState(false);
+  const [isMigrating, setIsMigrating] = useState(false);
 
   // Fetch queue data with background polling support
   const fetchQueueData = async (isBackground = false) => {
@@ -96,8 +97,9 @@ export default function QueuePage() {
       }
       setError(null);
       
-      // For 'in-queue' filter, use 'all' status to show all scans including completed ones
-      const apiFilter = filter === 'in-queue' ? 'all' : filter;
+      // Use the filter directly - backend now handles all filtering logic
+      const apiFilter = filter;
+      console.log('Fetching queue data with filter:', filter, 'apiFilter:', apiFilter);
       // Skip stats calculation for background calls to reduce processing
       const skipStats = isBackground ? '&skipStats=true' : '';
       const response = await fetch(`/api/queue/user-scans?status=${apiFilter}${skipStats}`);
@@ -108,19 +110,16 @@ export default function QueuePage() {
       
       const data = await response.json();
       
+      // Debug logging
+      console.log('API Response for filter:', filter, 'Data:', data);
+      console.log('Queue items count:', data.queueItems?.length || 0);
+      
       // Use the queue items directly since backend now handles filtering
       let filteredQueueItems = data.queueItems;
       
-      // For 'in-queue' filter, filter out archived completed scans client-side
-      if (filter === 'in-queue') {
-        filteredQueueItems = data.queueItems.filter((item: ScanQueueItem) => {
-          // Exclude completed scans that are archived from queue
-          if (item.status === 'completed' && item.archivedFromQueue === true) {
-            return false;
-          }
-          return true;
-        });
-      }
+      // Backend now handles filtering for 'in-queue' status
+      // No additional client-side filtering needed
+      filteredQueueItems = data.queueItems;
       
       // Smooth update without jarring refresh
       setQueueItems(prevItems => {
@@ -169,8 +168,8 @@ export default function QueuePage() {
         console.log('Queue processing result:', data.message);
         
         if (data.message === 'Scan completed successfully') {
-          setProcessingNotification('Scan completed successfully!');
-          setTimeout(() => setProcessingNotification(null), 3000);
+          setProcessingNotification('Scan completed successfully! Check the Completed tab to view results.');
+          setTimeout(() => setProcessingNotification(null), 4000);
         }
         
         // Refresh queue data to show updated status (background update)
@@ -210,9 +209,10 @@ export default function QueuePage() {
 
   // Handle filter changes
   useEffect(() => {
-    if (status === 'authenticated' && queueItems.length > 0) {
+    if (status === 'authenticated') {
+      console.log('Filter changed to:', filter, 'Fetching data...');
       // When filter changes, fetch data for the new filter
-      fetchQueueData(true);
+      fetchQueueData(false); // Not background - this is a user-initiated change
     }
   }, [filter]); // Only depend on filter, not status
 
@@ -248,14 +248,15 @@ export default function QueuePage() {
     }
   }, [stats.totalPending, status, autoProcessingTriggered]);
 
-  // Smart background polling - only when there are active scans
+  // Smart background polling - only when there are active scans and on "In Queue" tab
   useEffect(() => {
     if (status !== 'authenticated') return;
 
-    // Only poll if there are pending or processing scans
+    // Only poll if there are pending or processing scans AND we're on the "In Queue" tab
     const hasActiveScans = stats.totalPending > 0 || stats.totalProcessing > 0;
+    const isOnInQueueTab = filter === 'in-queue';
     
-    if (!hasActiveScans) {
+    if (!hasActiveScans || !isOnInQueueTab) {
       setIsPolling(false);
       return;
     }
@@ -271,7 +272,7 @@ export default function QueuePage() {
       clearInterval(interval);
       setIsPolling(false);
     };
-  }, [status, filter, stats.totalPending, stats.totalProcessing]); // Only re-run when active scan count changes
+  }, [status, stats.totalPending, stats.totalProcessing]); // Removed filter from dependencies
 
   // Handle authentication
   if (status === 'loading') {
@@ -370,12 +371,9 @@ export default function QueuePage() {
   };
 
   const handleFilterChange = (newFilter: typeof filter) => {
+    console.log('Filter change requested:', newFilter, 'Current filter:', filter);
     setFilter(newFilter);
-    // Only reset removed completed scans when switching away from 'in-queue'
-    // Don't reset when switching back to 'in-queue' to preserve user's manual removal
-    if (newFilter !== 'in-queue') {
-      // Filter change handled by backend now
-    }
+    // Don't fetch data here - let the useEffect handle it
   };
 
   return (
@@ -418,7 +416,7 @@ export default function QueuePage() {
                 <p className="text-sm text-gray-600">In Queue</p>
                 <p className="text-2xl font-bold text-gray-900">
                   {filter === 'in-queue' 
-                    ? queueItems.length 
+                    ? queueItems.filter(item => ['pending', 'processing'].includes(item.status)).length 
                     : stats.totalPending + stats.totalProcessing
                   }
                 </p>
@@ -487,6 +485,44 @@ export default function QueuePage() {
             
             {/* Action Buttons */}
             <div className="flex space-x-2">
+              {/* Migration Button - Only show if there are non-active scans in In Queue tab */}
+              {filter === 'in-queue' && queueItems.some(item => ['completed', 'cancelled', 'failed'].includes(item.status)) && (
+                <Button
+                  onClick={async () => {
+                    try {
+                      setIsMigrating(true);
+                      const response = await fetch('/api/queue/migrate-completed-scans', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                      });
+                      
+                      if (response.ok) {
+                        const data = await response.json();
+                        console.log('Migration result:', data.message);
+                        // Refresh the queue data to show the updated state
+                        await fetchQueueData(true);
+                      } else {
+                        console.error('Failed to migrate completed scans');
+                      }
+                    } catch (error) {
+                      console.error('Error migrating completed scans:', error);
+                    } finally {
+                      setIsMigrating(false);
+                    }
+                  }}
+                  disabled={isMigrating}
+                  variant="outlined"
+                  className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                >
+                  {isMigrating ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
+                  ) : (
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                  )}
+                  {isMigrating ? 'Migrating...' : 'Move Non-Active to Archive'}
+                </Button>
+              )}
+              
               {/* Process Queue Button */}
               {stats.totalPending > 0 && (
                 <Button
@@ -508,63 +544,22 @@ export default function QueuePage() {
                 </Button>
               )}
               
-              {/* Cleanup Button */}
-              {stats.totalCompleted > 0 && (
+              {/* Cleanup Button - Only show for non-in-queue tabs since completed scans auto-archive */}
+              {stats.totalCompleted > 0 && filter !== 'in-queue' && (
                 <Button
                   disabled={isRemovingCompleted}
                   onClick={async () => {
                     try {
-                      if (filter === 'in-queue') {
-                        // Get completed scan IDs to archive
-                        const completedScanIds = queueItems
-                          .filter(item => item.status === 'completed')
-                          .map(item => item.id);
-                        
-                        if (completedScanIds.length > 0) {
-                          // Show loading state
-                          setIsRemovingCompleted(true);
-                          
-                          // Update the queue items immediately for instant feedback
-                          setQueueItems(prevItems => 
-                            prevItems.filter(item => !completedScanIds.includes(item.id))
-                          );
-                          
-                          try {
-                            // Archive completed scans persistently in background
-                            const response = await fetch('/api/queue/archive-completed', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ scanIds: completedScanIds })
-                            });
-                            
-                            if (response.ok) {
-                              const data = await response.json();
-                              console.log('Archive result:', data.message);
-                            } else {
-                              console.error('Failed to archive completed scans');
-                              // Optionally revert the UI change if archiving failed
-                              // For now, we'll keep the UI change as the user expects it
-                            }
-                          } catch (error) {
-                            console.error('Error archiving completed scans:', error);
-                            // Optionally revert the UI change if archiving failed
-                          } finally {
-                            // Hide loading state
-                            setIsRemovingCompleted(false);
-                          }
-                        }
-                      } else {
-                        // For other tabs, use the backend cleanup
-                        const response = await fetch('/api/queue/cleanup-old-scans', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' }
-                        });
-                        
-                        if (response.ok) {
-                          const data = await response.json();
-                          console.log('Cleanup result:', data.message);
-                          fetchQueueData(true);
-                        }
+                      // For other tabs, use the backend cleanup
+                      const response = await fetch('/api/queue/cleanup-old-scans', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                      });
+                      
+                      if (response.ok) {
+                        const data = await response.json();
+                        console.log('Cleanup result:', data.message);
+                        fetchQueueData(true);
                       }
                     } catch (error) {
                       console.error('Error cleaning up scans:', error);
@@ -580,11 +575,9 @@ export default function QueuePage() {
                   )}
                   {isRemovingCompleted 
                     ? 'Removing...' 
-                    : filter === 'in-queue' 
-                      ? 'Remove Completed' 
-                      : filter === 'completed' 
-                        ? 'Cleanup Old' 
-                        : 'Remove Completed'
+                    : filter === 'completed' 
+                      ? 'Cleanup Old' 
+                      : 'Remove Completed'
                   }
                 </Button>
               )}
@@ -615,7 +608,7 @@ export default function QueuePage() {
               </h3>
               <p className="text-gray-600 mb-4">
                 {filter === 'in-queue' 
-                  ? 'Start analyzing videos to see them here'
+                  ? 'Start analyzing videos to see them here. Completed, cancelled, and failed scans automatically move to their respective tabs.'
                   : filter === 'completed'
                   ? 'No completed scans found'
                   : `No ${filter} scans found`

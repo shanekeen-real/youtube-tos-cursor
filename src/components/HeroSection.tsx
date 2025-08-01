@@ -1,8 +1,8 @@
 import React, { useContext } from 'react';
-import { UIButton as Button } from '@/lib/imports';
+import { Button } from '@/lib/imports';
 import { AuthContext } from '@/lib/imports';
 import { useRouter } from 'next/navigation';
-import { Play, Shield, TrendingUp } from 'lucide-react';
+import { Play, Shield, TrendingUp, Zap } from 'lucide-react';
 
 const HeroSection = () => {
   const auth = useContext(AuthContext);
@@ -17,25 +17,33 @@ const HeroSection = () => {
   };
 
   return (
-    <section className="section-padding bg-background pt-12">
-      <div className="container-custom">
-        <div className="grid lg:grid-cols-2 gap-16 items-center">
+    <section className="section-padding bg-background pt-8 sm:pt-12 w-full">
+      <div className="w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 md:gap-12 lg:gap-16 items-center min-w-0">
           {/* Text Content */}
-          <div className="text-center lg:text-left animate-fade-in-up">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
-              Protect Your <span className="text-gradient text-transparent block">YouTube Revenue</span>
-              <span className="block">from Demonetization</span>
-            </h1>
-            <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto lg:mx-0">
-              Analyze YouTube policies and video content instantly. Get AI-powered risk assessment and fix recommendations to keep your channel monetized.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-6">
-              <Button size="lg" className="btn-hover" onClick={handleTryForFree}>
+                      <div className="text-center lg:text-left animate-fade-in-up min-w-0 overflow-hidden">
+              <h1 className="text-base xs:text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl 2xl:text-5xl font-bold leading-tight mb-4 sm:mb-6 break-words">
+                Protect Your <span className="text-gradient text-transparent block">YouTube Revenue</span>
+                <span className="block">from Demonetization</span>
+              </h1>
+              <p className="text-xs xs:text-sm sm:text-base md:text-lg lg:text-xl text-muted-foreground mb-4 sm:mb-6 max-w-full lg:max-w-2xl mx-auto lg:mx-0 break-words">
+                Analyze YouTube policies and video content instantly. Get AI-powered risk assessment and fix recommendations to keep your channel monetized.
+              </p>
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center lg:justify-start mb-6 max-w-full min-w-0 overflow-hidden">
+              <Button 
+                variant="primary" 
+                size="lg" 
+                onClick={handleTryForFree}
+              >
+                <Zap className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                 Try for Free
               </Button>
-              <div className="relative group">
-                <Button variant="outline" size="lg" className="btn-hover">
-                  <Play className="h-4 w-4 mr-2" />
+              <div className="relative group w-full sm:w-auto">
+                <Button 
+                  variant="outlined" 
+                  size="lg"
+                >
+                  <Play className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                   Watch Demo
                 </Button>
                 <div className="absolute left-1/2 -translate-x-1/2 mt-2 px-3 py-2 rounded-lg bg-gray-900 text-white text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20 whitespace-nowrap">
@@ -43,55 +51,55 @@ const HeroSection = () => {
                 </div>
               </div>
             </div>
-            <div className="flex items-center justify-center lg:justify-start space-x-6 mt-8 text-sm text-muted-foreground">
+            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start space-y-2 sm:space-y-0 sm:space-x-6 mt-6 sm:mt-8 text-xs text-muted-foreground min-w-0 overflow-hidden">
               <div className="flex items-center space-x-2">
-                <Shield className="h-4 w-4 text-success" />
+                <Shield className="h-3 w-3 sm:h-4 sm:w-4 text-success" />
                 <span>Free to start</span>
               </div>
               <div className="flex items-center space-x-2">
-                <TrendingUp className="h-4 w-4 text-success" />
+                <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-success" />
                 <span>AI-powered analysis</span>
               </div>
             </div>
           </div>
 
           {/* Hero Visual */}
-          <div className="relative animate-scale-in h-full flex flex-col justify-center">
-            <div className="relative bg-gradient-to-br from-[#F6C2321A] to-[#1717171A] rounded-3xl p-8 border border-border w-full">
+          <div className="relative animate-scale-in h-full flex flex-col justify-center min-w-0">
+            <div className="relative bg-gradient-to-br from-[#F6C2321A] to-[#1717171A] rounded-lg sm:rounded-xl lg:rounded-2xl xl:rounded-3xl p-1 xs:p-2 sm:p-3 lg:p-4 xl:p-6 border border-border w-full max-w-full min-w-0">
               {/* Content Analysis Card */}
-              <div className="bg-white rounded-xl p-6 border border-gray-200 w-full">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="font-semibold text-gray-900">Content Analysis</span>
-                  <div className="flex items-center space-x-2">
+              <div className="bg-white rounded-lg sm:rounded-xl p-1 xs:p-2 sm:p-3 lg:p-4 border border-gray-200 w-full min-w-0 max-w-full">
+                <div className="flex items-center justify-between mb-2 xs:mb-3 sm:mb-4">
+                  <span className="font-semibold text-gray-900 text-xs xs:text-sm sm:text-base truncate">Content Analysis</span>
+                  <div className="flex items-center space-x-1 xs:space-x-2 flex-shrink-0">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                     <span className="text-xs text-green-600 font-semibold">LOW Risk</span>
                   </div>
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-2 xs:space-y-3 sm:space-y-4">
                   {/* Risk Score Display */}
-                  <div className="flex items-center gap-4">
-                    <div className="relative">
-                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center">
-                        <span className="text-lg font-bold text-gray-800">23</span>
+                  <div className="flex items-center gap-2 xs:gap-3 sm:gap-4 min-w-0">
+                    <div className="relative flex-shrink-0">
+                      <div className="w-5 h-5 xs:w-6 xs:h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 xl:w-16 xl:h-16 rounded-full bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center">
+                        <span className="text-xs xs:text-sm sm:text-base md:text-lg font-bold text-gray-800">23</span>
                       </div>
-                      <div className="absolute inset-0 rounded-full border-4 border-green-200"></div>
+                      <div className="absolute inset-0 rounded-full border-2 xs:border-3 sm:border-4 border-green-200"></div>
                       <div 
-                        className="absolute inset-0 rounded-full border-4 border-green-500"
+                        className="absolute inset-0 rounded-full border-2 xs:border-3 sm:border-4 border-green-500"
                         style={{
                           clipPath: `polygon(0 0, 100% 0, 100% 100%, 0 100%)`,
                           transform: `rotate(${(23 / 100) * 360}deg)`
                         }}
                       ></div>
                     </div>
-                    <div className="flex-1">
-                      <div className="space-y-2">
+                    <div className="flex-1 min-w-0 overflow-hidden max-w-full">
+                      <div className="space-y-1 sm:space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-600">Low Risk</span>
-                          <span className="text-xs text-gray-600">High Risk</span>
+                          <span className="text-xs text-gray-600 truncate">Low</span>
+                          <span className="text-xs text-gray-600 truncate">High</span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className="w-full bg-gray-200 rounded-full h-1 xs:h-1.5 sm:h-2">
                           <div 
-                            className="bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 h-2 rounded-full"
+                            className="bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 h-1 xs:h-1.5 sm:h-2 rounded-full"
                             style={{ width: '23%' }}
                           ></div>
                         </div>
@@ -103,31 +111,31 @@ const HeroSection = () => {
                   </div>
                   
                   {/* Analysis Summary */}
-                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                    <p className="text-sm text-green-700 font-medium">
-                      ✓ Content appears safe for monetization
+                  <div className="p-2 xs:p-2 sm:p-3 bg-green-50 rounded-lg border border-green-200">
+                    <p className="text-xs text-green-700 font-medium leading-relaxed">
+                      ✓ Content safe for monetization
                     </p>
                   </div>
                 </div>
               </div>
               {/* Risk Indicators */}
-              <div className="grid grid-cols-2 gap-4 mt-6">
-                <div className="bg-white rounded-lg p-4 border border-gray-200">
-                  <div className="text-xs text-gray-500 mb-1">Policy Risks</div>
-                  <div className="text-lg font-bold text-green-600">None</div>
+              <div className="grid grid-cols-2 gap-2 xs:gap-3 sm:gap-4 mt-2 xs:mt-3 sm:mt-4 lg:mt-6 min-w-0 max-w-full">
+                <div className="bg-white rounded-lg p-2 xs:p-3 sm:p-4 border border-gray-200 min-w-0 max-w-full">
+                  <div className="text-xs text-gray-500 mb-1 truncate">Policy Risks</div>
+                  <div className="text-xs xs:text-sm sm:text-base md:text-lg font-bold text-green-600 truncate">None</div>
                 </div>
-                <div className="bg-white rounded-lg p-4 border border-gray-200">
-                  <div className="text-xs text-gray-500 mb-1">Suggestions</div>
-                  <div className="text-lg font-bold text-yellow-600">2</div>
+                <div className="bg-white rounded-lg p-2 xs:p-3 sm:p-4 border border-gray-200 min-w-0 max-w-full">
+                  <div className="text-xs text-gray-500 mb-1 truncate">Suggestions</div>
+                  <div className="text-xs xs:text-sm sm:text-base md:text-lg font-bold text-yellow-600 truncate">2</div>
                 </div>
               </div>
             </div>
             {/* Floating Elements */}
-            <div className="absolute -top-4 -right-4 w-16 h-16 bg-[#F6C232] rounded-full flex items-center justify-center animate-float shadow-lg">
-              <Shield className="h-8 w-8" style={{ stroke: '#171717', fill: 'none' }} />
+            <div className="absolute -top-1 -right-1 xs:-top-2 xs:-right-2 sm:-top-4 sm:-right-4 w-3 h-3 xs:w-4 xs:h-4 sm:w-6 sm:h-6 md:w-8 md:h-8 lg:w-12 lg:h-12 xl:w-16 xl:h-16 bg-[#F6C232] rounded-full flex items-center justify-center animate-float shadow-lg">
+              <Shield className="h-1.5 w-1.5 xs:h-2 xs:w-2 sm:h-3 sm:w-3 md:h-4 md:w-4 lg:h-6 lg:w-6 xl:h-8 xl:w-8" style={{ stroke: '#171717', fill: 'none' }} />
             </div>
-            <div className="absolute -bottom-4 -left-4 w-12 h-12 bg-[#00C853] rounded-full flex items-center justify-center animate-float shadow-lg" style={{ animationDelay: '1s' }}>
-              <TrendingUp className="h-6 w-6" style={{ stroke: '#FAFAFA', fill: 'none' }} />
+            <div className="absolute -bottom-1 -left-1 xs:-bottom-2 xs:-left-2 sm:-bottom-4 sm:-left-4 w-2 h-2 xs:w-3 xs:h-3 sm:w-4 sm:h-4 md:w-6 md:h-6 lg:w-10 lg:h-10 xl:w-12 xl:h-12 bg-[#00C853] rounded-full flex items-center justify-center animate-float shadow-lg" style={{ animationDelay: '1s' }}>
+              <TrendingUp className="h-1 w-1 xs:h-1.5 xs:w-1.5 sm:h-2 sm:w-2 md:h-3 md:w-3 lg:h-5 lg:w-5 xl:h-6 xl:w-6" style={{ stroke: '#FAFAFA', fill: 'none' }} />
             </div>
           </div>
         </div>

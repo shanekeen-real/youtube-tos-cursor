@@ -27,14 +27,9 @@ export async function GET(req: NextRequest) {
         const offset = parseInt(searchParams.get('offset') || '0');
         const skipStats = searchParams.get('skipStats') === 'true';
 
-        // Build query - simplified to avoid index requirements
+        // Build query - get all scans for user, filter in memory to avoid index issues
         let query = adminDb.collection('scan_queue')
           .where('userId', '==', userId);
-
-        // Filter by status if provided
-        if (status && status !== 'all' && status !== 'active') {
-          query = query.where('status', '==', status);
-        }
 
         // Get queue items - we'll sort in memory to avoid index requirements
         let queueSnapshot;
@@ -70,17 +65,66 @@ export async function GET(req: NextRequest) {
           return bTime - aTime; // Descending order
         });
         
-        // Filter out completed scans for 'active' status
+        // Debug logging
+        console.log('API Debug - Status:', status, 'Total docs:', sortedDocs.length);
+        console.log('API Debug - Sample doc statuses:', sortedDocs.slice(0, 3).map((doc: QueryDocumentSnapshot<DocumentData>) => doc.data().status));
+        
+        // Filter based on status - all filtering done in memory
         let filteredDocs = sortedDocs;
-        if (status === 'active') {
+        if (status === 'in-queue') {
+          // For "In Queue" tab: only show active scans (exclude archived completed, cancelled, failed)
+          console.log('API Debug - Filtering for in-queue tab');
           filteredDocs = sortedDocs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
             const data = doc.data();
-            // Only exclude completed scans that are archived from queue
+            // Exclude completed scans that are archived from "In Queue" tab
             if (data.status === 'completed' && data.archivedFromQueue === true) {
+              console.log('API Debug - Excluding archived completed scan:', doc.id);
               return false;
             }
-            // Keep all scans (including completed ones) unless they're archived
+            // Exclude cancelled and failed scans from "In Queue" tab (only show active scans)
+            if (data.status === 'cancelled' || data.status === 'failed') {
+              console.log('API Debug - Excluding cancelled/failed scan:', doc.id, 'status:', data.status);
+              return false;
+            }
+            // Keep all active scans (pending, processing, and non-archived completed)
+            console.log('API Debug - Including scan:', doc.id, 'status:', data.status, 'archivedFromQueue:', data.archivedFromQueue);
             return true;
+          });
+          console.log('API Debug - In-queue filtered docs count:', filteredDocs.length);
+        } else if (status === 'all') {
+          // For "all" status: show all scans (no filtering)
+          filteredDocs = sortedDocs;
+        } else if (status === 'completed') {
+          // For "Completed" tab: show ALL completed scans regardless of archived status
+          console.log('API Debug - Filtering for completed scans');
+          filteredDocs = sortedDocs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
+            const data = doc.data();
+            return data.status === 'completed';
+          });
+          console.log('API Debug - Completed scans found:', filteredDocs.length);
+        } else if (status === 'cancelled') {
+          // For "Cancelled" tab: show ALL cancelled scans regardless of archived status
+          filteredDocs = sortedDocs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
+            const data = doc.data();
+            return data.status === 'cancelled';
+          });
+        } else if (status === 'failed') {
+          // For "Failed" tab: show ALL failed scans regardless of archived status
+          filteredDocs = sortedDocs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
+            const data = doc.data();
+            return data.status === 'failed';
+          });
+        } else if (status === 'pending') {
+          // For "Pending" tab: show only pending scans
+          filteredDocs = sortedDocs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
+            const data = doc.data();
+            return data.status === 'pending';
+          });
+        } else if (status === 'processing') {
+          // For "Processing" tab: show only processing scans
+          filteredDocs = sortedDocs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
+            const data = doc.data();
+            return data.status === 'processing';
           });
         }
         
@@ -111,8 +155,8 @@ export async function GET(req: NextRequest) {
           // Use the original sortedDocs (before filtering) to calculate accurate stats
           sortedDocs.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
             const data = doc.data();
-            // For 'active' status, only exclude archived completed scans from stats
-            if (status === 'active' && data.status === 'completed' && data.archivedFromQueue === true) {
+            // For 'in-queue' status, exclude archived completed scans from stats
+            if (status === 'in-queue' && data.status === 'completed' && data.archivedFromQueue === true) {
               return;
             }
             

@@ -45,7 +45,7 @@ export default function FAQSection() {
 
   return (
     <section className="w-full py-16 mt-24">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full">
         <div className="text-center mb-16">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-yellow-100 rounded-2xl mb-6">
             <MessageSquare className="h-8 w-8 text-yellow-600" />

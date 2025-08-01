@@ -40,29 +40,33 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         
         {/* Sticky Navbar */}
         <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white/95 backdrop-blur-sm">
-          <div className="w-full px-[100px]">
+          <div className="w-full px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-[100px]">
             <div className="flex items-center justify-between h-16">
               {/* Logo */}
               <Link href="/" className="flex items-center gap-3 group">
                 <Logo 
                   size="lg" 
-                  className="hidden sm:block transition-transform group-hover:scale-105" 
+                  className="hidden lg:block transition-transform group-hover:scale-105" 
                 />
                 <Logo 
                   size="md" 
+                  className="hidden sm:block lg:hidden transition-transform group-hover:scale-105" 
+                />
+                <Logo 
+                  size="sm" 
                   className="block sm:hidden transition-transform group-hover:scale-105" 
                 />
               </Link>
 
               {/* Navigation */}
-              <nav className="flex items-center gap-6">
+              <nav className="flex items-center gap-2 sm:gap-4 md:gap-6">
                 {status === 'loading' ? (
                   <div className="animate-pulse bg-gray-200 h-9 w-20 rounded-xl"></div>
                 ) : session?.user ? (
                   <>
                     <Link
                       href="/pricing"
-                      className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors font-medium border border-yellow-500 bg-yellow-100 hover:bg-yellow-200"
+                      className="hidden sm:inline-flex text-gray-600 hover:text-gray-900 px-2 sm:px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors font-medium border border-yellow-500 bg-yellow-100 hover:bg-yellow-200 text-sm sm:text-base"
                     >
                       Upgrade Tier
                     </Link>
@@ -74,23 +78,24 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                       <button
                         type="button"
                         onClick={handleScrollToPricing}
-                        className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                        className="hidden sm:inline-flex text-gray-600 hover:text-gray-900 px-2 sm:px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors font-medium text-sm sm:text-base"
                       >
                         Pricing
                       </button>
                     ) : (
                     <Link 
                       href="/pricing" 
-                      className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                      className="hidden sm:inline-flex text-gray-600 hover:text-gray-900 px-2 sm:px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors font-medium text-sm sm:text-base"
                     >
                       Pricing
                     </Link>
                     )}
-                    <div className="flex gap-2">
+                    <div className="flex gap-1 sm:gap-2">
                     <Button 
                       variant="outlined" 
                       size="sm"
                       onClick={() => setAuthOpen(true)}
+                      className="text-xs sm:text-sm px-2 sm:px-3"
                     >
                       Sign in
                     </Button>
@@ -98,7 +103,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                       variant="primary" 
                       size="sm"
                       onClick={() => setAuthOpen(true)}
-                      className="ml-[10px]"
+                      className="text-xs sm:text-sm px-2 sm:px-3"
                     >
                       Get started
                     </Button>

@@ -484,13 +484,14 @@ async function processNextQueueItem() {
         // Continue - this is not critical
       }
 
-      // Update queue item as completed
+      // Update queue item as completed and auto-archive from "In Queue" tab
       await queueDoc.ref.update({
         status: 'completed',
         progress: 100,
         currentStep: 'Analysis completed',
         completedAt: Timestamp.now(),
-        scanId: cacheRef.id
+        scanId: cacheRef.id,
+        archivedFromQueue: true  // Auto-archive completed scans from "In Queue" tab
       });
 
       console.log(`Successfully completed analysis for queue item: ${queueItem.id}`);

@@ -276,28 +276,34 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-white">
-      <main className="flex flex-col items-center px-4 py-12">
-        {/* Hero Section */}
-        <HeroSection />
+      <main className="flex flex-col items-center w-full overflow-hidden">
+        {/* Mobile-only container for screens below 600px */}
+        <div className="w-full max-w-[300px] mx-auto px-2 md:hidden relative">
+          <HeroSection />
+          <FeaturesSection />
+          <BenefitsSection />
+          <ComparisonSection />
+          <div className="h-48" />
+          <section id="pricing-section" className="w-full">
+            <StaticPricingSection />
+          </section>
+          <FAQSection />
+        </div>
         
-        {/* Features Section */}
-        <FeaturesSection />
-        
-        {/* Benefits Section */}
-        <BenefitsSection />
-        
-        {/* Comparison Section */}
-        <ComparisonSection />
-        
-        {/* Add vertical space before pricing section */}
-        <div className="h-48" />
-        {/* Feature Grid */}
-        <section id="pricing-section" className="w-full max-w-6xl">
-          <StaticPricingSection />
-        </section>
-        
-        {/* FAQ Section */}
-        <FAQSection />
+        {/* Desktop container for screens 600px and above */}
+        <div className="hidden md:block w-full relative">
+          <div className="w-full px-1 xs:px-2 sm:px-3 md:px-4 lg:px-6 xl:px-8 2xl:px-[100px] max-w-7xl mx-auto overflow-hidden">
+          <HeroSection />
+          <FeaturesSection />
+          <BenefitsSection />
+          <ComparisonSection />
+          <div className="h-48" />
+          <section id="pricing-section" className="w-full">
+            <StaticPricingSection />
+          </section>
+          <FAQSection />
+          </div>
+        </div>
       </main>
 
       {/* Footer */}

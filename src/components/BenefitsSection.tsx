@@ -29,7 +29,7 @@ export default function BenefitsSection() {
 
   return (
     <section className="w-full py-16 mt-24">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full">
         <div className="grid lg:grid-cols-2 gap-16 items-center">
           {/* Content */}
           <div>

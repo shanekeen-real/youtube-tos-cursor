@@ -75,7 +75,13 @@ export default function PricingCard({
     >
       {recommended && badgeText && (
         <span className="absolute -top-4 left-1/2 -translate-x-1/2">
-          <Badge variant={badgeColor}>{badgeText}</Badge>
+          <Badge 
+            variant={badgeColor} 
+            className="!px-4 !py-1"
+            style={{ paddingLeft: '16px', paddingRight: '16px', paddingTop: '4px', paddingBottom: '4px' }}
+          >
+            {badgeText}
+          </Badge>
         </span>
       )}
       

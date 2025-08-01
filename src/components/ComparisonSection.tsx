@@ -16,7 +16,7 @@ const features = [
 export default function ComparisonSection() {
   return (
     <section className="w-full py-16 mt-24">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full">
         <div className="text-center mb-16">
           <div className="relative inline-block">
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
@@ -25,7 +25,7 @@ export default function ComparisonSection() {
             <img 
               src="/XL_64x64 yellow spark_left.svg" 
               alt="Spark icon" 
-              className="absolute -top-2 -right-8 w-8 h-8"
+              className="absolute top-1 -right-4 sm:-right-4 md:-right-6 lg:-right-8 w-5 h-5 transform -translate-x-13 sm:translate-x-0"
             />
           </div>
           <p className="text-lg text-gray-600 max-w-3xl mx-auto">
@@ -35,24 +35,24 @@ export default function ComparisonSection() {
         </div>
 
         <div className="overflow-x-auto">
-          <div className="min-w-[800px]">
-                         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="min-w-[600px] md:min-w-[800px]">
+                         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden text-xs md:text-sm">
                              {/* Header */}
                <div className="grid grid-cols-5 bg-gray-50 border-b border-gray-200">
-                 <div className="p-4"></div>
-                <div className="p-4 text-center">
+                 <div className="p-2 md:p-4"></div>
+                <div className="p-2 md:p-4 text-center">
                   <div className="font-bold text-yellow-600">Yellow Dollar</div>
                   <div className="text-xs text-gray-500 mt-1">Our Solution</div>
                 </div>
-                <div className="p-4 text-center">
+                <div className="p-2 md:p-4 text-center">
                   <div className="font-semibold text-gray-900">TubeBuddy</div>
                   <div className="text-xs text-gray-500 mt-1">Competitor</div>
                 </div>
-                <div className="p-4 text-center">
+                <div className="p-2 md:p-4 text-center">
                   <div className="font-semibold text-gray-900">VidIQ</div>
                   <div className="text-xs text-gray-500 mt-1">Competitor</div>
                 </div>
-                <div className="p-4 text-center">
+                <div className="p-2 md:p-4 text-center">
                   <div className="font-semibold text-gray-900">Creator Studio</div>
                   <div className="text-xs text-gray-500 mt-1">YouTube Native</div>
                 </div>
@@ -64,48 +64,48 @@ export default function ComparisonSection() {
                   key={index} 
                   className={`grid grid-cols-5 border-b border-gray-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
                 >
-                  <div className="p-4 font-medium text-gray-900">{feature.name}</div>
-                  <div className="p-4 text-center">
-                    <div className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${
+                  <div className="p-2 md:p-4 font-medium text-gray-900">{feature.name}</div>
+                  <div className="p-2 md:p-4 text-center">
+                    <div className={`inline-flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full ${
                       feature.yellowDollar ? 'bg-yellow-600 text-white' : 'bg-gray-200'
                     }`}>
                       {feature.yellowDollar ? (
-                        <Check className="h-4 w-4" />
+                        <Check className="h-3 w-3 md:h-4 md:w-4" />
                       ) : (
-                        <X className="h-4 w-4 text-gray-400" />
+                        <X className="h-3 w-3 md:h-4 md:w-4 text-gray-400" />
                       )}
                     </div>
                   </div>
-                  <div className="p-4 text-center">
-                    <div className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${
+                  <div className="p-2 md:p-4 text-center">
+                    <div className={`inline-flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full ${
                       feature.competitor1 ? 'bg-gray-600 text-white' : 'bg-gray-200'
                     }`}>
                       {feature.competitor1 ? (
-                        <Check className="h-4 w-4" />
+                        <Check className="h-3 w-3 md:h-4 md:w-4" />
                       ) : (
-                        <X className="h-4 w-4 text-gray-400" />
+                        <X className="h-3 w-3 md:h-4 md:w-4 text-gray-400" />
                       )}
                     </div>
                   </div>
-                  <div className="p-4 text-center">
-                    <div className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${
+                  <div className="p-2 md:p-4 text-center">
+                    <div className={`inline-flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full ${
                       feature.competitor2 ? 'bg-gray-600 text-white' : 'bg-gray-200'
                     }`}>
                       {feature.competitor2 ? (
-                        <Check className="h-4 w-4" />
+                        <Check className="h-3 w-3 md:h-4 md:w-4" />
                       ) : (
-                        <X className="h-4 w-4 text-gray-400" />
+                        <X className="h-3 w-3 md:h-4 md:w-4 text-gray-400" />
                       )}
                     </div>
                   </div>
-                  <div className="p-4 text-center">
-                    <div className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${
+                  <div className="p-2 md:p-4 text-center">
+                    <div className={`inline-flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full ${
                       feature.competitor3 ? 'bg-gray-600 text-white' : 'bg-gray-200'
                     }`}>
                       {feature.competitor3 ? (
-                        <Check className="h-4 w-4" />
+                        <Check className="h-3 w-3 md:h-4 md:w-4" />
                       ) : (
-                        <X className="h-4 w-4 text-gray-400" />
+                        <X className="h-3 w-3 md:h-4 md:w-4 text-gray-400" />
                       )}
                     </div>
                   </div>
