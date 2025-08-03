@@ -276,7 +276,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-white">
-      <main className="flex flex-col items-center w-full overflow-hidden">
+      <main className="flex flex-col items-center w-full">
         {/* Mobile-only container for screens below 600px */}
         <div className="w-full max-w-[300px] mx-auto px-2 md:hidden relative">
           <HeroSection />
@@ -292,7 +292,7 @@ export default function Home() {
         
         {/* Desktop container for screens 600px and above */}
         <div className="hidden md:block w-full relative">
-          <div className="w-full px-1 xs:px-2 sm:px-3 md:px-4 lg:px-6 xl:px-8 2xl:px-[100px] max-w-7xl mx-auto overflow-hidden">
+          <div className="w-full px-1 xs:px-2 sm:px-3 md:px-4 lg:px-6 xl:px-8 2xl:px-[100px] max-w-7xl mx-auto">
           <HeroSection />
           <FeaturesSection />
           <BenefitsSection />

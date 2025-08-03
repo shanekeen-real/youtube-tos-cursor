@@ -232,7 +232,7 @@ export default function PricingSection() {
             <div key={tier} className={`relative ${isPopular ? 'lg:scale-105' : ''}`}>
               {isPopular && (
                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                  <div className="bg-yellow-500 text-gray-900 px-4 py-1 rounded-full text-sm font-semibold flex items-center gap-1">
+                  <div className="bg-yellow-500 text-gray-900 px-4 py-1 rounded-full text-sm font-semibold flex items-center gap-1 whitespace-nowrap">
                     <Star className="w-3 h-3" />
                     Most Popular
                   </div>

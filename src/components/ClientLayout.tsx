@@ -39,7 +39,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         <BetaBanner />
         
         {/* Sticky Navbar */}
-        <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white/95 backdrop-blur-sm">
+        <header className="sticky top-0 z-[9999] w-full border-b border-gray-200 bg-white">
           <div className="w-full px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-[100px]">
             <div className="flex items-center justify-between h-16">
               {/* Logo */}
