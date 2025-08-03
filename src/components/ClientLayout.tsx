@@ -40,20 +40,23 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         
         {/* Sticky Navbar */}
         <header className="sticky top-0 z-[9999] w-full border-b border-gray-200 bg-white">
-          <div className="w-full px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 2xl:px-[100px]">
+          <div className="w-full px-4 sm:px-6 md:px-12 lg:px-18 xl:px-24 2xl:px-[150px]">
             <div className="flex items-center justify-between h-16">
               {/* Logo */}
               <Link href="/" className="flex items-center gap-3 group">
                 <Logo 
                   size="lg" 
+                  variant="blackleft"
                   className="hidden lg:block transition-transform group-hover:scale-105" 
                 />
                 <Logo 
                   size="md" 
+                  variant="blackleft"
                   className="hidden sm:block lg:hidden transition-transform group-hover:scale-105" 
                 />
                 <Logo 
                   size="sm" 
+                  variant="blackleft"
                   className="block sm:hidden transition-transform group-hover:scale-105" 
                 />
               </Link>

@@ -17,14 +17,13 @@ const HeroSection = () => {
   };
 
   return (
-    <section className="section-padding bg-background pt-8 sm:pt-12 w-full">
-      <div className="w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 md:gap-12 lg:gap-16 items-center min-w-0">
+    <section className="w-full bg-background pt-16 sm:pt-20 md:pt-24 lg:pt-32 pb-16 sm:pb-24 md:pb-32">
+      <div className="w-full px-4 sm:px-6 md:px-12 lg:px-18 xl:px-24 2xl:px-[150px]">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 md:gap-16 lg:gap-20 xl:gap-24 items-center min-w-0">
           {/* Text Content */}
                       <div className="text-center lg:text-left animate-fade-in-up min-w-0 overflow-hidden">
-              <h1 className="text-base xs:text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl 2xl:text-5xl font-bold leading-tight mb-4 sm:mb-6 break-words">
-                Protect Your <span className="text-gradient text-transparent block">YouTube Revenue</span>
-                <span className="block">from Demonetization</span>
+              <h1 className="text-3xl xs:text-3xl sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl 2xl:text-5xl font-bold leading-tight mb-4 sm:mb-6 break-words">
+                Protect Your <span className="text-gradient text-transparent">YouTube Revenue</span>
               </h1>
               <p className="text-xs xs:text-sm sm:text-base md:text-lg lg:text-xl text-muted-foreground mb-4 sm:mb-6 max-w-full lg:max-w-2xl mx-auto lg:mx-0 break-words">
                 Analyze YouTube policies and video content instantly. Get AI-powered risk assessment and fix recommendations to keep your channel monetized.
@@ -51,16 +50,7 @@ const HeroSection = () => {
                 </div>
               </div>
             </div>
-            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start space-y-2 sm:space-y-0 sm:space-x-6 mt-6 sm:mt-8 text-xs text-muted-foreground min-w-0 overflow-hidden">
-              <div className="flex items-center space-x-2">
-                <Shield className="h-3 w-3 sm:h-4 sm:w-4 text-success" />
-                <span>Free to start</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-success" />
-                <span>AI-powered analysis</span>
-              </div>
-            </div>
+
           </div>
 
           {/* Hero Visual */}

@@ -290,10 +290,15 @@ export default function Home() {
           <FAQSection />
         </div>
         
+        {/* Desktop HeroSection - Completely outside any container */}
+        <div className="hidden md:block w-full">
+          <HeroSection />
+        </div>
+        
         {/* Desktop container for screens 600px and above */}
         <div className="hidden md:block w-full relative">
+          {/* Other sections - Inside constrained container */}
           <div className="w-full px-1 xs:px-2 sm:px-3 md:px-4 lg:px-6 xl:px-8 2xl:px-[100px] max-w-7xl mx-auto">
-          <HeroSection />
           <FeaturesSection />
           <BenefitsSection />
           <ComparisonSection />
