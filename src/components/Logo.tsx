@@ -32,7 +32,7 @@ const logoMap = {
 
 // Size mappings for the horizontal logo - increased to industry standards
 const sizeMap = {
-  sm: { width: 160, height: 42 }, // Increased from 120x32
+  sm: { width: 180, height: 47 }, // Increased from 160x42 for better mobile visibility
   md: { width: 200, height: 52 }, // Increased from 150x40
   lg: { width: 240, height: 62 }, // Increased from 180x48
 };

@@ -284,7 +284,7 @@ export default function Home() {
           <BenefitsSection />
           <ComparisonSection />
           <div className="h-48" />
-          <section id="pricing-section" className="w-full">
+          <section id="pricing-section-mobile" className="w-full">
             <StaticPricingSection />
           </section>
           <FAQSection />
@@ -303,7 +303,7 @@ export default function Home() {
           <BenefitsSection />
           <ComparisonSection />
           <div className="h-48" />
-          <section id="pricing-section" className="w-full">
+          <section id="pricing-section-desktop" className="w-full">
             <StaticPricingSection />
           </section>
           <FAQSection />

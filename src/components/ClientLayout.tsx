@@ -25,9 +25,20 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   // Smooth scroll to pricing section on landing page
   const handleScrollToPricing = () => {
-    const section = document.getElementById('pricing-section');
+    // Check if we're on desktop (md breakpoint and above)
+    const isDesktop = window.innerWidth >= 768; // md breakpoint
+    const sectionId = isDesktop ? 'pricing-section-desktop' : 'pricing-section-mobile';
+    const section = document.getElementById(sectionId);
+    
     if (section) {
-      section.scrollIntoView({ behavior: 'smooth' });
+      // Add offset for sticky navbar and proper spacing
+      const navbarHeight = 64; // h-16 = 64px
+      const sectionPadding = 64; // py-16 = 64px (top padding of pricing section)
+      const elementPosition = section.offsetTop - navbarHeight - sectionPadding;
+      window.scrollTo({
+        top: elementPosition,
+        behavior: 'smooth'
+      });
     }
   };
 
@@ -39,7 +50,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         <BetaBanner />
         
         {/* Sticky Navbar */}
-        <header className="sticky top-0 z-[9999] w-full border-b border-gray-200 bg-white">
+        <header className="sticky top-0 z-40 w-full border-b border-gray-200 bg-white">
           <div className="w-full px-4 sm:px-6 md:px-12 lg:px-18 xl:px-24 2xl:px-[150px]">
             <div className="flex items-center justify-between h-16">
               {/* Logo */}
