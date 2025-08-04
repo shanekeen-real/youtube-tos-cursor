@@ -25,7 +25,7 @@ export default function ComparisonSection() {
             <img 
               src="/XL_64x64 yellow spark_left.svg" 
               alt="Spark icon" 
-              className="absolute top-1 -right-4 sm:-right-4 md:-right-6 lg:-right-8 w-5 h-5 transform -translate-x-13 sm:translate-x-0"
+              className="absolute top-1 -right-4 sm:-right-4 md:-top-2 lg:-top-2 md:-right-4 lg:-right-5 w-5 h-5 transform -translate-x-13 sm:translate-x-0"
             />
           </div>
           <p className="text-lg text-gray-600 max-w-3xl mx-auto">

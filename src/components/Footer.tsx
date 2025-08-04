@@ -1,4 +1,4 @@
-import { DollarSign, Twitter, Linkedin, Github, Mail } from 'lucide-react';
+import { DollarSign, Twitter, Linkedin, Github, Mail, Instagram } from 'lucide-react';
 import Logo from './Logo';
 
 const Footer = () => {
@@ -15,6 +15,9 @@ const Footer = () => {
               Protect your YouTube revenue with AI-powered content analysis and policy compliance monitoring.
             </p>
             <div className="flex space-x-4">
+              <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                <Instagram className="h-5 w-5" />
+              </a>
               <a href="#" className="text-gray-400 hover:text-white transition-colors">
                 <Twitter className="h-5 w-5" />
               </a>

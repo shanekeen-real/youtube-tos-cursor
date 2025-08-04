@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { Button } from '@/lib/imports';
 import { AuthContext } from '@/lib/imports';
 import { useRouter } from 'next/navigation';
@@ -7,6 +7,18 @@ import { Play, Shield, TrendingUp, Zap } from 'lucide-react';
 const HeroSection = () => {
   const auth = useContext(AuthContext);
   const router = useRouter();
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  // Auto-hide tooltip after 1.5 seconds
+  useEffect(() => {
+    if (showTooltip) {
+      const timer = setTimeout(() => {
+        setShowTooltip(false);
+      }, 1500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [showTooltip]);
 
   const handleTryForFree = () => {
     if (!auth?.user) {
@@ -21,14 +33,14 @@ const HeroSection = () => {
       <div className="w-full px-4 sm:px-6 md:px-12 lg:px-18 xl:px-24 2xl:px-[150px]">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 md:gap-16 lg:gap-20 xl:gap-24 items-center min-w-0">
           {/* Text Content */}
-                      <div className="text-center lg:text-left animate-fade-in-up min-w-0 overflow-hidden">
+                      <div className="text-center lg:text-left animate-fade-in-up min-w-0 overflow-visible">
               <h1 className="text-3xl xs:text-3xl sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl 2xl:text-5xl font-bold leading-tight mb-4 sm:mb-6 break-words">
                 Protect Your <span className="text-gradient text-transparent">YouTube Revenue</span>
               </h1>
               <p className="text-xs xs:text-sm sm:text-base md:text-lg lg:text-xl text-muted-foreground mb-4 sm:mb-6 max-w-full lg:max-w-2xl mx-auto lg:mx-0 break-words">
                 Analyze YouTube policies and video content instantly. Get AI-powered risk assessment and fix recommendations to keep your channel monetized.
               </p>
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center lg:justify-start mb-6 max-w-full min-w-0 overflow-hidden">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center lg:justify-start mb-6 max-w-full min-w-0">
               <Button 
                 variant="primary" 
                 size="lg" 
@@ -37,15 +49,18 @@ const HeroSection = () => {
                 <Zap className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                 Try for Free
               </Button>
-              <div className="relative group w-full sm:w-auto">
+              <div className="relative group w-full sm:w-auto overflow-visible">
                 <Button 
                   variant="outlined" 
                   size="lg"
+                  onClick={() => setShowTooltip(!showTooltip)}
                 >
                   <Play className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                   Watch Demo
                 </Button>
-                <div className="absolute left-1/2 -translate-x-1/2 mt-2 px-3 py-2 rounded-lg bg-gray-900 text-white text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20 whitespace-nowrap">
+                <div className={`absolute left-1/2 -translate-x-1/2 mt-2 px-3 py-2 rounded-lg bg-gray-900 text-white text-xs pointer-events-none transition-opacity z-50 whitespace-nowrap shadow-lg ${
+                  showTooltip ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                }`}>
                   Coming soon
                 </div>
               </div>
