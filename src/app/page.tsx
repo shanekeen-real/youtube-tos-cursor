@@ -298,7 +298,7 @@ export default function Home() {
         {/* Desktop container for screens 600px and above */}
         <div className="hidden md:block w-full relative">
           {/* Other sections - Inside constrained container */}
-          <div className="w-full px-1 xs:px-2 sm:px-3 md:px-4 lg:px-6 xl:px-8 2xl:px-[100px] max-w-7xl mx-auto">
+          <div className="w-full px-4 sm:px-6 md:px-12 lg:px-18 xl:px-24 2xl:px-[150px]">
           <FeaturesSection />
           <BenefitsSection />
           <ComparisonSection />
