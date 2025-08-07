@@ -1,5 +1,6 @@
 "use client";
 import React, { Suspense } from 'react';
+import { useRouter } from 'next/navigation';
 import { AlertTriangle, FileText, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { 
@@ -19,6 +20,7 @@ import {
 } from '@/lib/imports';
 
 function ResultsPageContent() {
+  const router = useRouter();
   const { data, loading, error, status } = useResultsData();
   const { canExport, canAccessAIDetection, getSuggestionLimit } = useResultsPermissions();
   const { activeTab, setActiveTab, tabs } = useResultsNavigation();
