@@ -13,7 +13,9 @@ import {
   ResultsSummary,
   ResultsHeader,
   TabNavigation,
-  OverviewTab
+  OverviewTab,
+  LoadingSpinner,
+  ErrorState
 } from '@/lib/imports';
 
 function ResultsPageContent() {
@@ -25,10 +27,7 @@ function ResultsPageContent() {
   if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading analysis results...</p>
-        </div>
+        <LoadingSpinner size="lg" text="Loading analysis results..." />
       </div>
     );
   }
@@ -38,20 +37,12 @@ function ResultsPageContent() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-4">
           <div className="bg-white rounded-xl border border-gray-200 p-8">
-            <AlertTriangle className="w-12 h-12 text-risk mx-auto mb-4" />
-            <h2 className="text-title font-semibold text-gray-800 mb-2">Analysis Error</h2>
-            <p className="text-gray-600 mb-6">{error}</p>
-            <div className="flex gap-3 justify-center">
-              <Link href="/">
-                <Button variant="outlined" className="inline-flex items-center gap-2">
-                  <ArrowLeft className="w-4 h-4" />
-                  Back to Home
-                </Button>
-              </Link>
-              <Button onClick={() => window.location.reload()}>
-                Try Again
-              </Button>
-            </div>
+            <ErrorState 
+              error={error}
+              onRetry={() => window.location.reload()}
+              showCancel={true}
+              onCancel={() => router.push('/')}
+            />
           </div>
         </div>
       </div>
@@ -152,10 +143,7 @@ export default function ResultsPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
+        <LoadingSpinner size="lg" text="Loading..." />
       </div>
     }>
       <ResultsPageContent />

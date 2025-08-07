@@ -32,10 +32,13 @@ export async function GET(req: NextRequest) {
           query = query.where('read', '==', false);
         }
 
-        // Get notifications - sort by createdAt descending
+        // Get notifications with server-side sorting
         let notificationsSnapshot;
         try {
-          notificationsSnapshot = await query.get();
+          notificationsSnapshot = await query
+            .orderBy('createdAt', 'desc') // Server-side sorting
+            .limit(limit) // Server-side limiting
+            .get();
         } catch (firebaseError: any) {
           // Handle Firebase quota exceeded errors gracefully
           if (firebaseError.code === 8 || firebaseError.message?.includes('RESOURCE_EXHAUSTED')) {
@@ -50,17 +53,8 @@ export async function GET(req: NextRequest) {
           throw firebaseError; // Re-throw other errors
         }
         
-        // Sort in memory by createdAt descending
-        const sortedDocs = notificationsSnapshot.docs.sort((a: QueryDocumentSnapshot<DocumentData>, b: QueryDocumentSnapshot<DocumentData>) => {
-          const aData = a.data();
-          const bData = b.data();
-          const aTime = aData.createdAt?.toMillis?.() || 0;
-          const bTime = bData.createdAt?.toMillis?.() || 0;
-          return bTime - aTime; // Descending order (newest first)
-        });
-        
-        // Apply limit
-        const limitedDocs = sortedDocs.slice(0, limit);
+        // Use server-sorted notifications directly
+        const limitedDocs = notificationsSnapshot.docs;
         
         const notifications = limitedDocs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
           id: doc.id,

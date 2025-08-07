@@ -1,6 +1,6 @@
 import React from 'react';
 import { DollarSign, TrendingUp, Shield, Calculator, AlertTriangle, RefreshCw, Settings } from 'lucide-react';
-import { Card } from '@/lib/imports';
+import { Card, LoadingSpinner, ErrorState } from '@/lib/imports';
 import { Button } from '@/lib/imports';
 import { RevenueData, YouTubeChannel } from './types';
 
@@ -54,10 +54,7 @@ export default function RevenueAnalysis({
       <div>
         {revenueLoading ? (
           <div className="flex items-center justify-center py-8">
-            <div className="text-center">
-              <div className="w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-gray-600">Loading revenue data...</p>
-            </div>
+            <LoadingSpinner size="md" text="Loading revenue data..." />
           </div>
         ) : !ytChannel ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -71,16 +68,11 @@ export default function RevenueAnalysis({
           </div>
         ) : (ytChannel && revenueError) ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
-            <div className="w-16 h-16 bg-risk/10 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle className="h-8 w-8 text-risk" />
-            </div>
-            <p className="text-risk font-medium mb-2">Failed to load revenue data</p>
-            <p className="text-gray-600 mb-6">{revenueError}</p>
-            <Button onClick={() => {
-              onRefresh();
-            }}>
-              Retry
-            </Button>
+            <ErrorState 
+              error={revenueError}
+              onRetry={onRefresh}
+              className="max-w-md"
+            />
           </div>
         ) : revenueData?.setupRequired ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">

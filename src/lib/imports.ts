@@ -67,6 +67,10 @@ export { Textarea as UITextarea } from '@/components/ui/textarea';
 export { Toast as UIToast } from '@/components/ui/toast';
 export { Toaster as UIToaster } from '@/components/ui/toaster';
 
+// Loading and Error Components
+export { default as LoadingSpinner } from '@/components/ui/loading-spinner';
+export { default as ErrorState } from '@/components/ui/error-state';
+
 // Hooks
 export { useDashboardData } from '@/hooks/dashboard/useDashboardData';
 export { useYouTubeIntegration } from '@/hooks/dashboard/useYouTubeIntegration';

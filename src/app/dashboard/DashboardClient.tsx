@@ -15,7 +15,9 @@ import {
   useDashboardModals,
   DashboardHeader,
   VideoList,
-  RevenueAnalysis
+  RevenueAnalysis,
+  LoadingSpinner,
+  ErrorState
 } from '@/lib/imports';
 
 export default function DashboardClient() {
@@ -105,10 +107,7 @@ export default function DashboardClient() {
   if (status === 'loading' || loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Loading dashboard...</p>
-        </div>
+        <LoadingSpinner size="lg" text="Loading dashboard..." />
       </div>
     );
   }
@@ -117,14 +116,11 @@ export default function DashboardClient() {
   if (error) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-risk/10 rounded-full flex items-center justify-center mx-auto mb-4">
-            <div className="w-6 h-6 text-risk">⚠️</div>
-          </div>
-          <p className="text-risk font-medium mb-2">Error</p>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <Button onClick={() => window.location.reload()}>Retry</Button>
-        </div>
+        <ErrorState 
+          error={error} 
+          onRetry={() => window.location.reload()}
+          className="max-w-md"
+        />
       </div>
     );
   }

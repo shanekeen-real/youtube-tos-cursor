@@ -27,11 +27,20 @@ export async function GET(req: NextRequest) {
         const offset = parseInt(searchParams.get('offset') || '0');
         const skipStats = searchParams.get('skipStats') === 'true';
 
-        // Build query - get all scans for user, filter in memory to avoid index issues
+        // Build query with server-side sorting and pagination
         let query = adminDb.collection('scan_queue')
-          .where('userId', '==', userId);
+          .where('userId', '==', userId)
+          .orderBy('createdAt', 'desc'); // Server-side sorting
 
-        // Get queue items - we'll sort in memory to avoid index requirements
+        // Apply status filter if specified
+        if (status && status !== 'all') {
+          query = query.where('status', '==', status);
+        }
+
+        // Apply pagination
+        query = query.limit(limit).offset(offset);
+
+        // Get queue items with server-side sorting
         let queueSnapshot;
         try {
           queueSnapshot = await query.get();
@@ -56,25 +65,16 @@ export async function GET(req: NextRequest) {
           throw firebaseError; // Re-throw other errors
         }
         
-        // Sort in memory by createdAt descending
-        const sortedDocs = queueSnapshot.docs.sort((a: QueryDocumentSnapshot<DocumentData>, b: QueryDocumentSnapshot<DocumentData>) => {
-          const aData = a.data();
-          const bData = b.data();
-          const aTime = aData.createdAt?.toMillis?.() || 0;
-          const bTime = bData.createdAt?.toMillis?.() || 0;
-          return bTime - aTime; // Descending order
-        });
-        
         // Debug logging
-        console.log('API Debug - Status:', status, 'Total docs:', sortedDocs.length);
-        console.log('API Debug - Sample doc statuses:', sortedDocs.slice(0, 3).map((doc: QueryDocumentSnapshot<DocumentData>) => doc.data().status));
+        console.log('API Debug - Status:', status, 'Total docs:', queueSnapshot.docs.length);
+        console.log('API Debug - Sample doc statuses:', queueSnapshot.docs.slice(0, 3).map((doc: QueryDocumentSnapshot<DocumentData>) => doc.data().status));
         
-        // Filter based on status - all filtering done in memory
-        let filteredDocs = sortedDocs;
+        // Use server-sorted docs directly
+        let filteredDocs = queueSnapshot.docs;
         if (status === 'in-queue') {
           // For "In Queue" tab: only show active scans (exclude archived completed, cancelled, failed)
           console.log('API Debug - Filtering for in-queue tab');
-          filteredDocs = sortedDocs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
+          filteredDocs = queueSnapshot.docs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
             const data = doc.data();
             // Exclude completed scans that are archived from "In Queue" tab
             if (data.status === 'completed' && data.archivedFromQueue === true) {
@@ -93,36 +93,36 @@ export async function GET(req: NextRequest) {
           console.log('API Debug - In-queue filtered docs count:', filteredDocs.length);
         } else if (status === 'all') {
           // For "all" status: show all scans (no filtering)
-          filteredDocs = sortedDocs;
+          filteredDocs = queueSnapshot.docs;
         } else if (status === 'completed') {
           // For "Completed" tab: show ALL completed scans regardless of archived status
           console.log('API Debug - Filtering for completed scans');
-          filteredDocs = sortedDocs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
+          filteredDocs = queueSnapshot.docs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
             const data = doc.data();
             return data.status === 'completed';
           });
           console.log('API Debug - Completed scans found:', filteredDocs.length);
         } else if (status === 'cancelled') {
           // For "Cancelled" tab: show ALL cancelled scans regardless of archived status
-          filteredDocs = sortedDocs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
+          filteredDocs = queueSnapshot.docs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
             const data = doc.data();
             return data.status === 'cancelled';
           });
         } else if (status === 'failed') {
           // For "Failed" tab: show ALL failed scans regardless of archived status
-          filteredDocs = sortedDocs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
+          filteredDocs = queueSnapshot.docs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
             const data = doc.data();
             return data.status === 'failed';
           });
         } else if (status === 'pending') {
           // For "Pending" tab: show only pending scans
-          filteredDocs = sortedDocs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
+          filteredDocs = queueSnapshot.docs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
             const data = doc.data();
             return data.status === 'pending';
           });
         } else if (status === 'processing') {
           // For "Processing" tab: show only processing scans
-          filteredDocs = sortedDocs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
+          filteredDocs = queueSnapshot.docs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
             const data = doc.data();
             return data.status === 'processing';
           });
@@ -152,8 +152,8 @@ export async function GET(req: NextRequest) {
             totalCancelled: 0
           };
 
-          // Use the original sortedDocs (before filtering) to calculate accurate stats
-          sortedDocs.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
+          // Use the original queueSnapshot.docs (before filtering) to calculate accurate stats
+          queueSnapshot.docs.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
             const data = doc.data();
             // For 'in-queue' status, exclude archived completed scans from stats
             if (status === 'in-queue' && data.status === 'completed' && data.archivedFromQueue === true) {

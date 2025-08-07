@@ -246,10 +246,11 @@ export async function GET(req: NextRequest) {
 
 async function processNextQueueItem() {
   try {
-    // Get the next pending scan from the queue - simplified to avoid index requirements
+    // Get the next pending scan from the queue using server-side sorting
     const queueSnapshot = await adminDb.collection('scan_queue')
       .where('status', '==', 'pending')
-      .limit(10) // Get a few to sort in memory
+      .orderBy('createdAt', 'asc') // Server-side sorting
+      .limit(1) // Only get the oldest pending item
       .get();
     
     if (queueSnapshot.empty) {
@@ -259,16 +260,7 @@ async function processNextQueueItem() {
       });
     }
     
-    // Sort by createdAt ascending and take the first one
-    const sortedDocs = queueSnapshot.docs.sort((a: QueryDocumentSnapshot<DocumentData>, b: QueryDocumentSnapshot<DocumentData>) => {
-      const aData = a.data();
-      const bData = b.data();
-      const aTime = aData.createdAt?.toMillis?.() || 0;
-      const bTime = bData.createdAt?.toMillis?.() || 0;
-      return aTime - bTime; // Ascending order (oldest first)
-    });
-    
-    const queueDoc = sortedDocs[0];
+    const queueDoc = queueSnapshot.docs[0];
     const queueItem = { id: queueDoc.id, ...queueDoc.data() } as ScanQueueItem;
 
     console.log(`Processing queue item: ${queueItem.id} for video: ${queueItem.videoId}`);
