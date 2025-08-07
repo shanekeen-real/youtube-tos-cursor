@@ -123,13 +123,9 @@ const StickySearchBar = () => {
         
         const data = await response.json();
         
-        // Show success message and close modal - scan happens in background
-        setTimeout(() => {
-          setShowScanModal(false);
-          // Show success message instead of redirecting
-          setError(null);
-          showSuccess('Scan Added to Queue', 'Your video has been added to the scan queue and will be processed in the background. You can check the status in your queue anytime.');
-        }, 1000);
+        // Show success message but keep modal open for progress animation
+        setError(null);
+        showSuccess('Scan Added to Queue', 'Your video has been added to the scan queue and will be processed in the background. You can check the status in your queue anytime.');
         
       } else {
         // Direct processing for text/policy scans (keep existing flow)

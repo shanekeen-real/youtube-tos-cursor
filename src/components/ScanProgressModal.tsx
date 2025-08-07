@@ -149,6 +149,11 @@ export default function ScanProgressModal({
                 {videoTitle}
               </p>
             )}
+            <div className="mt-2 px-3 py-1 bg-yellow-50 border border-yellow-200 rounded-full">
+              <p className="text-xs text-yellow-700 font-medium">
+                ✓ Added to queue • Processing in background
+              </p>
+            </div>
           </div>
           
           {/* Video Thumbnail */}
