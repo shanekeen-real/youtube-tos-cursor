@@ -33,9 +33,12 @@ export async function GET(req: NextRequest) {
           .orderBy('createdAt', 'desc'); // Server-side sorting
 
         // Apply status filter if specified
-        if (status && status !== 'all') {
+        if (status && status !== 'all' && status !== 'in-queue') {
+          // For specific statuses like 'pending', 'processing', 'completed', etc.
           query = query.where('status', '==', status);
         }
+        // Note: 'in-queue' is a logical grouping that includes multiple statuses,
+        // so we don't apply a Firestore filter for it - we'll filter client-side
 
         // Apply pagination
         query = query.limit(limit).offset(offset);
@@ -73,24 +76,19 @@ export async function GET(req: NextRequest) {
         let filteredDocs = queueSnapshot.docs;
         if (status === 'in-queue') {
           // For "In Queue" tab: only show active scans (exclude archived completed, cancelled, failed)
-          console.log('API Debug - Filtering for in-queue tab');
           filteredDocs = queueSnapshot.docs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
             const data = doc.data();
             // Exclude completed scans that are archived from "In Queue" tab
             if (data.status === 'completed' && data.archivedFromQueue === true) {
-              console.log('API Debug - Excluding archived completed scan:', doc.id);
               return false;
             }
             // Exclude cancelled and failed scans from "In Queue" tab (only show active scans)
             if (data.status === 'cancelled' || data.status === 'failed') {
-              console.log('API Debug - Excluding cancelled/failed scan:', doc.id, 'status:', data.status);
               return false;
             }
             // Keep all active scans (pending, processing, and non-archived completed)
-            console.log('API Debug - Including scan:', doc.id, 'status:', data.status, 'archivedFromQueue:', data.archivedFromQueue);
             return true;
           });
-          console.log('API Debug - In-queue filtered docs count:', filteredDocs.length);
         } else if (status === 'all') {
           // For "all" status: show all scans (no filtering)
           filteredDocs = queueSnapshot.docs;

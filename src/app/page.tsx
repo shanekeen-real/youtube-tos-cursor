@@ -76,7 +76,7 @@ export default function Home() {
   const [scanModalTitle, setScanModalTitle] = useState<string | null>(null);
 
   // Helper to fetch YouTube video thumbnail and title using oEmbed API
-  const fetchYouTubeThumbnailAndTitle = async (url: string): Promise<{ thumbnail: string; title: string }> => {
+  const fetchYouTubeThumbnailAndTitle = async (url: string): Promise<{ success: boolean; thumbnail: string; title: string; error?: string }> => {
     try {
       // Use YouTube's oEmbed API (much faster, no authentication required)
       const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
@@ -85,20 +85,28 @@ export default function Home() {
       if (response.ok) {
         const data = await response.json();
         return { 
+          success: true,
           thumbnail: data.thumbnail_url || '', 
           title: data.title || '' 
+        };
+      } else {
+        // Video doesn't exist or is not accessible
+        return {
+          success: false,
+          thumbnail: '',
+          title: '',
+          error: 'This YouTube video does not exist or is not accessible. Please check the URL and try again.'
         };
       }
     } catch (error) {
       console.error('Failed to fetch video metadata via oEmbed:', error);
+      return {
+        success: false,
+        thumbnail: '',
+        title: '',
+        error: 'This YouTube video does not exist or is not accessible. Please check the URL and try again.'
+      };
     }
-    
-    // Fallback to just thumbnail if oEmbed fails
-    const match = url.match(/[?&]v=([\w-]{11})/) || url.match(/youtu\.be\/([\w-]{11})/);
-    const videoId = match ? match[1] : null;
-    if (!videoId) return { thumbnail: '', title: '' };
-    const thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-    return { thumbnail, title: '' };
   };
 
   useEffect(() => {
@@ -131,8 +139,13 @@ export default function Home() {
   }, [loadingFree, loadingFull]);
 
   const handleFullReport = async () => {
-    if (!inputValue.trim()) return;
+    setLoadingFull(true);
+    if (!inputValue.trim()) {
+      setLoadingFull(false);
+      return;
+    }
     if (!auth?.user) {
+      setLoadingFull(false);
       auth?.setAuthOpen(true);
       return;
     }
@@ -141,6 +154,13 @@ export default function Home() {
     let title = '';
     if (analysisType === 'url') {
       const meta = await fetchYouTubeThumbnailAndTitle(inputValue);
+      
+      if (!meta.success) {
+        showError('Invalid YouTube URL', meta.error || 'This YouTube video does not exist or is not accessible. Please check the URL and try again.');
+        setLoadingFull(false);
+        return;
+      }
+      
       thumbnail = meta.thumbnail;
       title = meta.title;
     }
@@ -148,7 +168,11 @@ export default function Home() {
     setScanModalThumbnail(thumbnail);
     setScanModalTitle(title);
     setShowScanModal(true);
-    setLoadingFull(true);
+    
+    // Show success toast immediately (optimistic UI)
+    if (analysisType === 'url') {
+      showSuccess('Scan Added to Queue', 'Your video has been added to the scan queue and will be processed in the background. You can check the status in your queue anytime.');
+    }
     
     try {
       const isUrl = analysisType === 'url';
@@ -179,8 +203,7 @@ export default function Home() {
         
         const data = await response.json();
         
-        // Show success message but keep modal open for progress animation
-        showSuccess('Scan Added to Queue', 'Your video has been added to the scan queue and will be processed in the background. You can check the status in your queue anytime.');
+        // Clear any errors since the operation succeeded
         
       } else {
         // Direct processing for text/policy scans (keep existing flow)
@@ -194,6 +217,11 @@ export default function Home() {
       }
     } catch (e: unknown) {
       setShowScanModal(false);
+      
+      // Show error toast to replace the optimistic success toast for URL scans
+      if (analysisType === 'url') {
+        showError('Scan Failed', 'Failed to add scan to queue. Please try again.');
+      }
       if (e && typeof e === 'object' && 'response' in e && e.response && typeof e.response === 'object' && 'status' in e.response) {
         const response = e.response as { status: number; data?: { error?: string; existingQueueId?: string; existingStatus?: string; existingProgress?: number } };
         if (response.status === 400) {

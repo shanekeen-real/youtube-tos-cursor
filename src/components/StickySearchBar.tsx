@@ -10,7 +10,7 @@ import { useToastContext } from '@/contexts/ToastContext';
 const StickySearchBar = () => {
   const auth = useContext(AuthContext);
   const router = useRouter();
-  const { showSuccess } = useToastContext();
+  const { showSuccess, showError } = useToastContext();
   const [searchValue, setSearchValue] = useState('');
   const [activeTab, setActiveTab] = useState<'url' | 'text'>('url');
   const [collapsed, setCollapsed] = useState(false);
@@ -47,7 +47,7 @@ const StickySearchBar = () => {
   const handleExpand = () => setCollapsed(false);
 
   // Helper to fetch YouTube video thumbnail and title using oEmbed API
-  const fetchYouTubeThumbnailAndTitle = async (url: string): Promise<{ thumbnail: string; title: string }> => {
+  const fetchYouTubeThumbnailAndTitle = async (url: string): Promise<{ success: boolean; thumbnail: string; title: string; error?: string }> => {
     try {
       // Use YouTube's oEmbed API (much faster, no authentication required)
       const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
@@ -56,27 +56,40 @@ const StickySearchBar = () => {
       if (response.ok) {
         const data = await response.json();
         return { 
+          success: true,
           thumbnail: data.thumbnail_url || '', 
           title: data.title || '' 
+        };
+      } else {
+        // Video doesn't exist or is not accessible
+        return {
+          success: false,
+          thumbnail: '',
+          title: '',
+          error: 'This YouTube video does not exist or is not accessible. Please check the URL and try again.'
         };
       }
     } catch (error) {
       console.error('Failed to fetch video metadata via oEmbed:', error);
+      return {
+        success: false,
+        thumbnail: '',
+        title: '',
+        error: 'This YouTube video does not exist or is not accessible. Please check the URL and try again.'
+      };
     }
-    
-    // Fallback to just thumbnail if oEmbed fails
-    const match = url.match(/[?&]v=([\w-]{11})/) || url.match(/youtu\.be\/([\w-]{11})/);
-    const videoId = match ? match[1] : null;
-    if (!videoId) return { thumbnail: '', title: '' };
-    const thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-    return { thumbnail, title: '' };
   };
 
   const handleScan = async () => {
     setError(null);
     setShowQueueButton(false);
-    if (!searchValue.trim()) return;
+    setLoading(true);
+    if (!searchValue.trim()) {
+      setLoading(false);
+      return;
+    }
     if (!auth?.user) {
+      setLoading(false);
       auth?.setAuthOpen(true);
       return;
     }
@@ -85,6 +98,13 @@ const StickySearchBar = () => {
     let title = '';
     if (activeTab === 'url') {
       const meta = await fetchYouTubeThumbnailAndTitle(searchValue);
+      
+      if (!meta.success) {
+        setError(meta.error || 'This YouTube video does not exist or is not accessible. Please check the URL and try again.');
+        setLoading(false);
+        return;
+      }
+      
       thumbnail = meta.thumbnail;
       title = meta.title;
     }
@@ -92,7 +112,11 @@ const StickySearchBar = () => {
     setScanModalThumbnail(thumbnail);
     setScanModalTitle(title);
     setShowScanModal(true);
-    setLoading(true);
+    
+    // Show success toast immediately (optimistic UI)
+    if (activeTab === 'url') {
+      showSuccess('Scan Added to Queue', 'Your video has been added to the scan queue and will be processed in the background. You can check the status in your queue anytime.');
+    }
     
     try {
       const isUrl = activeTab === 'url';
@@ -123,9 +147,8 @@ const StickySearchBar = () => {
         
         const data = await response.json();
         
-        // Show success message but keep modal open for progress animation
+        // Clear any errors since the operation succeeded
         setError(null);
-        showSuccess('Scan Added to Queue', 'Your video has been added to the scan queue and will be processed in the background. You can check the status in your queue anytime.');
         
       } else {
         // Direct processing for text/policy scans (keep existing flow)
@@ -139,6 +162,11 @@ const StickySearchBar = () => {
       }
     } catch (e: any) {
       setShowScanModal(false);
+      
+      // Show error toast to replace the optimistic success toast
+      if (activeTab === 'url') {
+        showError('Scan Failed', 'Failed to add scan to queue. Please try again.');
+      }
       
       // Handle different error response formats
       let errorMessage = 'Error analyzing content. Please try again.';

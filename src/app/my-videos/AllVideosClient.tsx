@@ -63,7 +63,7 @@ interface PaginationInfo {
 export default function AllVideosClient() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { showSuccess } = useToastContext();
+  const { showSuccess, showError } = useToastContext();
   
   // State management
   const [videos, setVideos] = useState<Video[]>([]);
@@ -332,6 +332,10 @@ export default function AllVideosClient() {
     setScanModalThumbnail(thumbnail);
     setScanModalTitle(title);
     setShowScanModal(true);
+    
+    // Show success toast immediately (optimistic UI)
+    showSuccess('Scan Added to Queue', 'Your video has been added to the scan queue and will be processed in the background. You can check the status in your queue anytime.');
+    
     try {
       const url = `https://www.youtube.com/watch?v=${videoId}`;
       
@@ -359,10 +363,12 @@ export default function AllVideosClient() {
       }
       
       const data = await response.json();
-      // Show success message but keep modal open for progress animation
-      showSuccess('Scan Added to Queue', 'Your video has been added to the scan queue and will be processed in the background. You can check the status in your queue anytime.');
+      // Clear any errors since the operation succeeded
     } catch (err: unknown) {
       setShowScanModal(false);
+      
+      // Show error toast to replace the optimistic success toast
+      showError('Scan Failed', 'Failed to add video to scan queue. Please try again.');
       setAnalyzeError(err instanceof Error ? err.message : 'Failed to add video to scan queue');
     } finally {
       setAnalyzingVideoId(null);

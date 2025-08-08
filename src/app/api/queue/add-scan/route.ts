@@ -3,7 +3,7 @@ import { auth } from '@/lib/auth';
 import { adminDb } from '@/lib/firebase-admin';
 import { ScanQueueItem } from '@/types/queue';
 import { checkUserCanScan } from '@/lib/subscription-utils';
-import { extractVideoId, isValidYouTubeUrl } from '@/lib/constants/url-patterns';
+import { extractVideoId, isValidYouTubeUrl, isValidAndExistingYouTubeUrl } from '@/lib/constants/url-patterns';
 import { Timestamp } from 'firebase-admin/firestore';
 import * as Sentry from "@sentry/nextjs";
 
@@ -27,6 +27,14 @@ export async function POST(req: NextRequest) {
 
         if (!url || !isValidYouTubeUrl(url)) {
           return NextResponse.json({ error: 'A valid YouTube URL is required' }, { status: 400 });
+        }
+
+        // Enhanced validation: Check if video actually exists
+        const videoExists = await isValidAndExistingYouTubeUrl(url);
+        if (!videoExists) {
+          return NextResponse.json({ 
+            error: 'This YouTube video does not exist or is not accessible. Please check the URL and try again.' 
+          }, { status: 400 });
         }
 
         // Check user's scan limit

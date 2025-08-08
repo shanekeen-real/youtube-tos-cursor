@@ -101,6 +101,35 @@ export function isValidYouTubeUrl(url: string): boolean {
 }
 
 /**
+ * Utility function to validate if a YouTube video actually exists
+ * @param videoId - The video ID to validate
+ * @returns Promise<boolean> - True if video exists and is accessible
+ */
+export async function validateVideoExists(videoId: string): Promise<boolean> {
+  try {
+    const response = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
+    return response.ok;
+  } catch (error) {
+    console.error('Error validating video existence:', error);
+    return false;
+  }
+}
+
+/**
+ * Enhanced YouTube URL validation that checks both format and existence
+ * @param url - The URL to validate
+ * @returns Promise<boolean> - True if it's a valid and existing YouTube URL
+ */
+export async function isValidAndExistingYouTubeUrl(url: string): Promise<boolean> {
+  const videoId = extractVideoId(url);
+  if (!videoId || videoId.length !== 11) {
+    return false;
+  }
+  
+  return await validateVideoExists(videoId);
+}
+
+/**
  * Utility function to detect language from text
  * @param text - The text to analyze
  * @returns The detected language name

@@ -22,6 +22,7 @@ import {
   FORM_PARSING_PATTERNS,
   extractVideoId, 
   isValidYouTubeUrl, 
+  isValidAndExistingYouTubeUrl,
   detectLanguage, 
   isNonEnglish 
 } from '@/lib/constants/url-patterns';
@@ -301,6 +302,14 @@ export async function POST(req: NextRequest) {
 
     if (!url || !isValidYouTubeUrl(url)) {
       return NextResponse.json({ error: 'A valid YouTube URL is required' }, { status: 400 });
+    }
+
+    // Enhanced validation: Check if video actually exists
+    const videoExists = await isValidAndExistingYouTubeUrl(url);
+    if (!videoExists) {
+      return NextResponse.json({ 
+        error: 'This YouTube video does not exist or is not accessible. Please check the URL and try again.' 
+      }, { status: 400 });
     }
 
     // Check user's scan limit

@@ -194,6 +194,20 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: 'Invalid YouTube URL' }, { status: 400 });
         }
 
+        // Enhanced validation: Check if video actually exists
+        try {
+          const response = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
+          if (!response.ok) {
+            return NextResponse.json({ 
+              error: 'This YouTube video does not exist or is not accessible. Please check the URL and try again.' 
+            }, { status: 400 });
+          }
+        } catch (error) {
+          return NextResponse.json({ 
+            error: 'This YouTube video does not exist or is not accessible. Please check the URL and try again.' 
+          }, { status: 400 });
+        }
+
         const accessToken = session.accessToken;
         const results: TestVideoResults = { videoId };
 
