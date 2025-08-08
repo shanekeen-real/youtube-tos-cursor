@@ -306,11 +306,11 @@ export default function Home() {
           <HeroSection />
           <FeaturesSection />
           <BenefitsSection />
-          <ComparisonSection />
           <div className="h-48" />
           <section id="pricing-section-mobile" className="w-full">
             <StaticPricingSection />
           </section>
+          <ComparisonSection />
           <FAQSection />
         </div>
         
@@ -325,11 +325,11 @@ export default function Home() {
           <div className="w-full px-4 sm:px-6 md:px-12 lg:px-18 xl:px-24 2xl:px-[150px]">
           <FeaturesSection />
           <BenefitsSection />
-          <ComparisonSection />
           <div className="h-48" />
           <section id="pricing-section-desktop" className="w-full">
             <StaticPricingSection />
           </section>
+          <ComparisonSection />
           <FAQSection />
           </div>
         </div>

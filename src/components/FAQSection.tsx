@@ -53,8 +53,8 @@ export default function FAQSection() {
             Frequently Asked Questions
           </h2>
           <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-            Have questions about protecting your YouTube revenue? 
-            We've got answers to help you get started.
+            Have any questions about protecting your YouTube revenue? 
+            We've got the answers here to help you get started.
           </p>
         </div>
 
