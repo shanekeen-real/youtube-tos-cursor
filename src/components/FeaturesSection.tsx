@@ -31,9 +31,9 @@ export default function FeaturesSection() {
       <div className="w-full">
         <div className="mb-16 text-center">
           <div className="text-sm font-medium text-yellow-600 mb-2">Features</div>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
-            AI-Powered YouTube Demonetization Protection
-          </h2>
+                  <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
+          AI-Powered YouTube Protection
+        </h2>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
             Advanced AI technology that scans your content against YouTube's latest policies to identify and prevent demonetization risks before they impact your revenue.
           </p>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, HelpCircle, Shield, Zap, Users, Clock, CreditCard, Code, MessageSquare } from 'lucide-react';
+import { ChevronDown, ChevronUp, HelpCircle, Shield, Zap, Users, Clock, CreditCard, Code, MessageSquare, Play } from 'lucide-react';
 
 const faqs = [
   {
@@ -9,33 +9,32 @@ const faqs = [
   },
   {
     question: 'What types of content can Yellow Dollar analyze for demonetization protection?',
-    answer: 'Our platform can analyze video content, thumbnails, titles, descriptions, and even audio tracks for YouTube demonetization risks. We support all major video formats and can process content through direct upload, URL analysis, or API integration.',
+    answer: 'Yellow Dollar analyzes video content, visual frames, audio tracks, transcripts, thumbnails, titles, and descriptions. Our AI examines actual video content, not just transcripts, providing deeper insights into potential demonetization risks.',
     icon: Zap
   },
   {
-    question: 'How accurate is Yellow Dollar\'s AI for YouTube demonetization protection?',
-    answer: 'Our AI has a 98.5% accuracy rate in identifying potential YouTube policy violations and demonetization risks. We continuously train our models on the latest YouTube policy updates and real-world demonetization cases to maintain high precision.',
+    question: 'How quickly do I get analysis results?',
+    answer: 'Scan times vary based on video length, complexity, and system demand. All scans are processed in the background with real-time progress updates. You\'ll receive notifications when scans complete, allowing you to continue working while analysis runs. Our queue system ensures efficient processing even during high demand.',
     icon: HelpCircle
   },
   {
+    question: 'Can I scan my own YouTube videos?',
+    answer: 'Yes! Connect your YouTube channel to scan your videos for demonetization risks. You can analyze individual videos or use batch analysis to scan your entire video library. Our platform identifies high-risk content and provides actionable recommendations to protect your revenue.',
+    icon: Play
+  },
+  {
     question: 'Can I use Yellow Dollar for multiple YouTube channels?',
-    answer: 'Yes! All paid plans support multiple channel monitoring. You can add unlimited channels to your account and monitor all of them from a single dashboard.',
+    answer: 'Multiple channel support will be available soon for Advanced tier subscribers. This feature will allow you to monitor all your YouTube channels from a single dashboard. <a href="#pricing-section" className="text-yellow-600 hover:text-yellow-700 underline">View our pricing plans</a> to learn more about upcoming features.',
     icon: Users
   },
   {
     question: 'What happens if YouTube changes their demonetization policies?',
-    answer: 'We monitor YouTube policy changes 24/7 and update our analysis algorithms within hours of any policy updates. You\'ll receive notifications about changes that might affect your content and cause demonetization, along with recommendations for staying compliant.',
+    answer: 'We monitor YouTube policy changes 24/7 and update our analysis algorithms within hours of any policy updates. You can choose to receive notifications about changes that might affect your content and cause demonetization, along with recommendations for staying compliant.',
     icon: Clock
-  },
-
-  {
-    question: 'How quickly do I get analysis results?',
-    answer: 'Most content analysis is completed within 30 seconds. Complex or longer content may take up to 2-3 minutes. You\'ll receive real-time updates during the analysis process.',
-    icon: Zap
   },
   {
     question: 'Do you offer API access for developers?',
-    answer: 'Yes! Our Advanced and Enterprise plans include full API access. You can integrate Yellow Dollar\'s analysis capabilities directly into your existing workflow or content management system.',
+    answer: 'Yes! API access is available for Enterprise customers. Contact us at <a href="mailto:support@yellowdollar.com" class="text-yellow-600 hover:text-yellow-700 underline">support@yellowdollar.com</a> to learn how you can integrate Yellow Dollar\'s YouTube demonetization protection capabilities directly into your existing workflow or content management system.',
     icon: Code
   }
 ];
@@ -94,9 +93,10 @@ export default function FAQSection() {
                     <div className="px-8 pb-6 animate-fade-in">
                       <div className="pl-14">
                         <div className="h-px bg-gray-200 mb-4"></div>
-                        <p className="text-gray-600 leading-relaxed text-base">
-                          {faq.answer}
-                        </p>
+                        <div 
+                          className="text-gray-600 leading-relaxed text-base"
+                          dangerouslySetInnerHTML={{ __html: faq.answer }}
+                        />
                       </div>
                     </div>
                   )}
