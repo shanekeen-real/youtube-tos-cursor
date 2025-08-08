@@ -22,7 +22,7 @@ const glowColorMap: Record<GlowColor, { base: number; spread: number }> = {
   purple: { base: 35, spread: 0 },
   green: { base: 35, spread: 0 },
   red: { base: 35, spread: 0 },
-  orange: { base: 35, spread: 0 },
+  orange: { base: 45, spread: 0 }, // Adjusted to match brand yellow #F6C232 (hue ~45)
 };
 
 const sizeMap: Record<GlowSize, string> = {
@@ -63,8 +63,8 @@ export const GlowCard: React.FC<GlowCardProps> = ({
     const onEnter = () => {
       if (!root) return;
       // Only enable border glows; keep interior fill off
-      root.style.setProperty("--border-spot-opacity", "0.8");
-      root.style.setProperty("--border-light-opacity", "0.9");
+      root.style.setProperty("--border-spot-opacity", "0.9");
+      root.style.setProperty("--border-light-opacity", "0.7");
     };
     const onLeave = () => {
       if (!root) return;
@@ -101,7 +101,7 @@ export const GlowCard: React.FC<GlowCardProps> = ({
       ["--bg-spot-opacity"]: 0,
       ["--border-spot-opacity"]: 0,
       ["--border-light-opacity"]: 0,
-      ["--size"]: 200,
+      ["--size"]: 300,
       ["--outer"]: 1,
       ["--border-size"]: "calc(var(--border, 2) * 1px)",
       ["--spotlight-size"]: "calc(var(--size, 150) * 1px)",
@@ -152,9 +152,9 @@ export const GlowCard: React.FC<GlowCardProps> = ({
         calc(var(--spotlight-size) * 0.75) calc(var(--spotlight-size) * 0.75) at
         calc(var(--x, 0) * 1px)
         calc(var(--y, 0) * 1px),
-        hsl(var(--hue, 210) 100% 50% / var(--border-spot-opacity, 0)), transparent 100%
+        rgba(246, 194, 50, var(--border-spot-opacity, 0)), transparent 100%
       );
-      filter: brightness(1.6);
+      filter: brightness(1.2) blur(1px);
       z-index: 1;
     }
     

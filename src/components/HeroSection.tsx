@@ -35,10 +35,10 @@ const HeroSection = () => {
           {/* Text Content */}
                       <div className="text-center lg:text-left animate-fade-in-up min-w-0 overflow-visible">
               <h1 className="text-3xl xs:text-3xl sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl 2xl:text-5xl font-bold leading-tight mb-4 sm:mb-6 break-words">
-                Protect Your <span className="text-gradient text-transparent">YouTube Revenue</span>
+                Stop YouTube Demonetization <span className="text-gradient text-transparent">Protect Your Revenue</span>
               </h1>
               <p className="text-xs xs:text-sm sm:text-base md:text-lg lg:text-xl text-muted-foreground mb-4 sm:mb-6 max-w-full lg:max-w-2xl mx-auto lg:mx-0 break-words">
-                Analyze YouTube policies and video content instantly. Get AI-powered risk assessment and fix recommendations to keep your channel monetized.
+                Yellow Dollar's AI instantly analyzes your content against YouTube's policies to prevent demonetization and protect your income stream.
               </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center lg:justify-start mb-6 max-w-full min-w-0">
               <Button 

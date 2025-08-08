@@ -29,8 +29,8 @@ export default function ComparisonSection() {
             />
           </div>
           <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-            Compare our comprehensive solution with other platforms in the market. 
-            See why creators trust Yellow Dollar to protect their revenue.
+            Compare our comprehensive YouTube demonetization protection with other platforms in the market. 
+            See why creators trust Yellow Dollar to prevent demonetization and protect their revenue.
           </p>
         </div>
 

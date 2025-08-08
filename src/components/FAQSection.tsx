@@ -3,18 +3,18 @@ import { ChevronDown, ChevronUp, HelpCircle, Shield, Zap, Users, Clock, CreditCa
 
 const faqs = [
   {
-    question: 'How does Yellow Dollar protect my YouTube revenue?',
-    answer: 'Yellow Dollar analyzes your content against YouTube\'s monetization policies and community guidelines in real-time. Our AI identifies potential demonetization risks before you publish, giving you actionable recommendations to fix issues and maintain your income stream.',
+    question: 'How does Yellow Dollar prevent YouTube demonetization?',
+    answer: 'Yellow Dollar analyzes your video content against YouTube\'s monetization policies and community guidelines in real-time. Our AI identifies potential demonetization risks before you publish, giving you actionable recommendations to fix issues and maintain your income stream.',
     icon: Shield
   },
   {
-    question: 'What types of content can Yellow Dollar analyze?',
-    answer: 'Our platform can analyze video content, thumbnails, titles, descriptions, and even audio tracks. We support all major video formats and can process content through direct upload, URL analysis, or API integration.',
+    question: 'What types of content can Yellow Dollar analyze for demonetization protection?',
+    answer: 'Our platform can analyze video content, thumbnails, titles, descriptions, and even audio tracks for YouTube demonetization risks. We support all major video formats and can process content through direct upload, URL analysis, or API integration.',
     icon: Zap
   },
   {
-    question: 'How accurate is the AI risk assessment?',
-    answer: 'Our AI has a 98.5% accuracy rate in identifying potential policy violations. We continuously train our models on the latest YouTube policy updates and real-world demonetization cases to maintain high precision.',
+    question: 'How accurate is Yellow Dollar\'s AI for YouTube demonetization protection?',
+    answer: 'Our AI has a 98.5% accuracy rate in identifying potential YouTube policy violations and demonetization risks. We continuously train our models on the latest YouTube policy updates and real-world demonetization cases to maintain high precision.',
     icon: HelpCircle
   },
   {
@@ -23,8 +23,8 @@ const faqs = [
     icon: Users
   },
   {
-    question: 'What happens if YouTube changes their policies?',
-    answer: 'We monitor YouTube policy changes 24/7 and update our analysis algorithms within hours of any policy updates. You\'ll receive notifications about changes that might affect your content, along with recommendations for staying compliant.',
+    question: 'What happens if YouTube changes their demonetization policies?',
+    answer: 'We monitor YouTube policy changes 24/7 and update our analysis algorithms within hours of any policy updates. You\'ll receive notifications about changes that might affect your content and cause demonetization, along with recommendations for staying compliant.',
     icon: Clock
   },
 

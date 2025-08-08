@@ -33,13 +33,13 @@ export default function BenefitsSection() {
         <div className="grid lg:grid-cols-2 gap-16 items-center">
           {/* Content */}
           <div>
-            <div className="text-sm font-medium text-yellow-600 mb-2">Revenue at-risk</div>
+            <div className="text-sm font-medium text-yellow-600 mb-2">YouTube Demonetization Protection</div>
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
-              Protect your revenue
+              Prevent YouTube Demonetization Protect Your Revenue
             </h2>
             <p className="text-lg text-gray-600 mb-8">
-              Don't let policy violations destroy months of hard work. Our AI-powered platform 
-              helps creators maintain monetization and build sustainable income streams.
+              Don't let YouTube demonetization destroy months of hard work. Yellow Dollar's AI-powered platform 
+              helps creators prevent demonetization and maintain sustainable income streams through advanced content analysis.
             </p>
             
 

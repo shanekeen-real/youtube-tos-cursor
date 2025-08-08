@@ -12,7 +12,7 @@ const Footer = () => {
               <Logo size="md" variant="allwhite" />
             </div>
             <p className="text-gray-300 text-sm leading-relaxed mb-4">
-              Protect your YouTube revenue with AI-powered content analysis and policy compliance monitoring.
+              Protect your YouTube revenue from demonetization with AI-powered content analysis and YouTube policy compliance monitoring.
             </p>
             <div className="flex space-x-4">
               <a href="#" className="text-gray-400 hover:text-white transition-colors">

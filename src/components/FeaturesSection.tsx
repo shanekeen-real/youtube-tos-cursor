@@ -5,23 +5,23 @@ import GlowCard from '@/components/ui/spotlight-card';
 const features = [
   {
     icon: Shield,
-    title: 'Policy Compliance Check',
-    description: 'Real-time analysis against YouTube\'s latest monetization policies and community guidelines.'
+    title: 'Multi-Modal Video Analysis',
+    description: 'Analyze actual video content, not just transcripts. Our AI examines visual elements, scenes, and actions to catch policy violations that text analysis misses.'
   },
   {
     icon: Zap,
-    title: 'Instant Analysis',
-    description: 'Get comprehensive risk assessment in seconds, not hours. Upload content and receive immediate feedback.'
+    title: 'Comprehensive Policy Analysis',
+    description: 'Complete analysis across all YouTube policy categories including content safety, community standards, advertiser-friendly guidelines, and legal compliance.'
   },
   {
     icon: BarChart3,
-    title: 'Revenue Protection',
-    description: 'Identify potential demonetization risks before publishing to protect your income stream.'
+    title: 'Advanced Transcript Highlighting',
+    description: 'See exactly which words and phrases are flagged with visual highlighting. Get context-aware explanations and understand why content might be at risk of demonetization.'
   },
   {
     icon: AlertTriangle,
-    title: 'Risk Assessment',
-    description: 'Advanced AI algorithms detect copyright, content, and policy violations with high accuracy.'
+    title: 'AI-Generated Content Detection',
+    description: 'Detect AI-generated content that could hurt your channel. Our advanced AI identifies patterns that may trigger YouTube\'s AI detection systems.'
   }
 ];
 
@@ -32,10 +32,10 @@ export default function FeaturesSection() {
         <div className="mb-16 text-center">
           <div className="text-sm font-medium text-yellow-600 mb-2">Features</div>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
-            Beautiful analytics to grow smarter
+            AI-Powered YouTube Demonetization Protection
           </h2>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Powerful, self-serve product and growth analytics to help you convert, engage, and retain more users. Trusted by over 4,000 startups.
+            Advanced AI technology that scans your content against YouTube's latest policies to identify and prevent demonetization risks before they impact your revenue.
           </p>
         </div>
 

@@ -1,0 +1,3 @@
+[33mbe9109a[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m Fix In-Queue Tab Display & Robust YouTube URL Validation
+[33m4262e36[m Fix Missing Firestore Indexes & Console Errors
+[33m8956f14[m Fix Missing Router Import in Results Page
