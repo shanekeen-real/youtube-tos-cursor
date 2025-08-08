@@ -14,39 +14,12 @@ import {
   RefreshCw,
   AlertTriangle,
   BarChart3,
-  Calendar,
   Eye
 } from 'lucide-react';
 import { ScanQueueItem } from '@/types/queue';
-import { format } from 'date-fns';
 
-// Helper function to safely convert timestamps
-const formatTimestamp = (timestamp: any): string => {
-  try {
-    if (timestamp?.toDate) {
-      // Firestore Timestamp
-      return format(timestamp.toDate(), 'MMM d, yyyy HH:mm');
-    } else if (timestamp?.toMillis) {
-      // Firestore Timestamp with toMillis
-      return format(new Date(timestamp.toMillis()), 'MMM d, yyyy HH:mm');
-    } else if (timestamp instanceof Date) {
-      // JavaScript Date
-      return format(timestamp, 'MMM d, yyyy HH:mm');
-    } else if (typeof timestamp === 'string') {
-      // ISO string
-      return format(new Date(timestamp), 'MMM d, yyyy HH:mm');
-    } else if (typeof timestamp === 'number') {
-      // Unix timestamp
-      return format(new Date(timestamp), 'MMM d, yyyy HH:mm');
-    } else {
-      // Fallback
-      return 'Unknown date';
-    }
-  } catch (error) {
-    console.error('Error formatting timestamp:', error, timestamp);
-    return 'Invalid date';
-  }
-};
+
+
 
 interface QueueStats {
   totalPending: number;
@@ -586,7 +559,7 @@ export default function QueuePage() {
             {queueItems.map((item, index) => (
               <Card 
                 key={item.id} 
-                className="p-6 transition-all duration-300 ease-in-out hover:shadow-md queue-item-enter"
+                className="p-6 transition-all duration-300 ease-in-out queue-item-enter"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-4 flex-1">
@@ -628,10 +601,7 @@ export default function QueuePage() {
                             {item.status}
                           </span>
                         </div>
-                        <div className="flex items-center space-x-1">
-                          <Calendar className="w-4 h-4" />
-                          <span>{formatTimestamp(item.createdAt)}</span>
-                        </div>
+
                       </div>
                       
                       {/* Error Message */}

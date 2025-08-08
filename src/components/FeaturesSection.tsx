@@ -1,5 +1,6 @@
 import React from 'react';
 import { Shield, Zap, BarChart3, AlertTriangle } from 'lucide-react';
+import GlowCard from '@/components/ui/spotlight-card';
 
 const features = [
   {
@@ -40,23 +41,22 @@ export default function FeaturesSection() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {features.map((feature, index) => (
-            <div 
-              key={index} 
-              className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm hover:shadow-lg transition-shadow duration-300 flex flex-col h-full"
-            >
-              <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mb-4">
-                <feature.icon className="h-6 w-6 text-yellow-600" />
+            <GlowCard key={index} glowColor="orange" customSize className="rounded-xl">
+              <div className="bg-white rounded-xl p-6 border border-transparent shadow-sm flex flex-col h-full">
+                <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mb-4">
+                  <feature.icon className="h-6 w-6 text-yellow-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3 text-left">
+                  {feature.title}
+                </h3>
+                <p className="text-gray-600 leading-relaxed text-left mb-4 flex-grow">
+                  {feature.description}
+                </p>
+                <a href="#" className="text-yellow-600 hover:text-yellow-700 font-medium text-sm inline-flex items-center text-left mt-auto">
+                  Learn more →
+                </a>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3 text-left">
-                {feature.title}
-              </h3>
-              <p className="text-gray-600 leading-relaxed text-left mb-4 flex-grow">
-                {feature.description}
-              </p>
-              <a href="#" className="text-yellow-600 hover:text-yellow-700 font-medium text-sm inline-flex items-center text-left mt-auto">
-                Learn more →
-              </a>
-            </div>
+            </GlowCard>
           ))}
         </div>
       </div>
