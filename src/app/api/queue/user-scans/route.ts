@@ -134,14 +134,14 @@ export async function GET(req: NextRequest) {
           ...doc.data()
         } as ScanQueueItem));
 
-        // Calculate stats from the main query results to avoid additional Firebase calls
+        // Calculate stats - need to fetch ALL user scans for accurate stats, not just paginated results
         const stats = skipStats ? {
           totalPending: 0,
           totalProcessing: 0,
           totalCompleted: 0,
           totalFailed: 0,
           totalCancelled: 0
-        } : (() => {
+        } : await (async () => {
           const stats = {
             totalPending: 0,
             totalProcessing: 0,
@@ -150,32 +150,38 @@ export async function GET(req: NextRequest) {
             totalCancelled: 0
           };
 
-          // Use the original queueSnapshot.docs (before filtering) to calculate accurate stats
-          queueSnapshot.docs.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
-            const data = doc.data();
-            // For 'in-queue' status, exclude archived completed scans from stats
-            if (status === 'in-queue' && data.status === 'completed' && data.archivedFromQueue === true) {
-              return;
-            }
+          try {
+            // Fetch ALL user scans for accurate stats calculation (no pagination)
+            const allUserScansQuery = adminDb.collection('scan_queue')
+              .where('userId', '==', userId);
             
-            switch (data.status) {
-              case 'pending':
-                stats.totalPending++;
-                break;
-              case 'processing':
-                stats.totalProcessing++;
-                break;
-              case 'completed':
-                stats.totalCompleted++;
-                break;
-              case 'failed':
-                stats.totalFailed++;
-                break;
-              case 'cancelled':
-                stats.totalCancelled++;
-                break;
-            }
-          });
+            const allUserScansSnapshot = await allUserScansQuery.get();
+            
+            // Calculate stats from ALL user scans
+            allUserScansSnapshot.docs.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
+              const data = doc.data();
+              
+              switch (data.status) {
+                case 'pending':
+                  stats.totalPending++;
+                  break;
+                case 'processing':
+                  stats.totalProcessing++;
+                  break;
+                case 'completed':
+                  stats.totalCompleted++;
+                  break;
+                case 'failed':
+                  stats.totalFailed++;
+                  break;
+                case 'cancelled':
+                  stats.totalCancelled++;
+                  break;
+              }
+            });
+          } catch (statsError) {
+            console.warn('Failed to calculate stats, using zeros:', statsError);
+          }
           
           return stats;
         })();

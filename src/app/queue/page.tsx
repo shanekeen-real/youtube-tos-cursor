@@ -11,7 +11,6 @@ import {
   XCircle, 
   Play, 
   Pause, 
-  Trash2, 
   RefreshCw,
   AlertTriangle,
   BarChart3,
@@ -75,7 +74,7 @@ export default function QueuePage() {
   const [processingNotification, setProcessingNotification] = useState<string | null>(null);
   const [isPolling, setIsPolling] = useState(false);
   const [autoProcessingTriggered, setAutoProcessingTriggered] = useState(false);
-  const [isRemovingCompleted, setIsRemovingCompleted] = useState(false);
+
   const [lastFetchTime, setLastFetchTime] = useState(0);
   const [isFetching, setIsFetching] = useState(false);
   const [isMigrating, setIsMigrating] = useState(false);
@@ -543,44 +542,7 @@ export default function QueuePage() {
                   )}
                 </Button>
               )}
-              
-              {/* Cleanup Button - Only show for non-in-queue tabs since completed scans auto-archive */}
-              {stats.totalCompleted > 0 && filter !== 'in-queue' && (
-                <Button
-                  disabled={isRemovingCompleted}
-                  onClick={async () => {
-                    try {
-                      // For other tabs, use the backend cleanup
-                      const response = await fetch('/api/queue/cleanup-old-scans', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' }
-                      });
-                      
-                      if (response.ok) {
-                        const data = await response.json();
-                        console.log('Cleanup result:', data.message);
-                        fetchQueueData(true);
-                      }
-                    } catch (error) {
-                      console.error('Error cleaning up scans:', error);
-                    }
-                  }}
-                  variant="outlined"
-                  className="text-gray-600 border-gray-300 hover:bg-gray-50"
-                >
-                  {isRemovingCompleted ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-500 mr-2"></div>
-                  ) : (
-                    <Trash2 className="w-4 h-4 mr-2" />
-                  )}
-                  {isRemovingCompleted 
-                    ? 'Removing...' 
-                    : filter === 'completed' 
-                      ? 'Cleanup Old' 
-                      : 'Remove Completed'
-                  }
-                </Button>
-              )}
+
             </div>
           </div>
         </div>
