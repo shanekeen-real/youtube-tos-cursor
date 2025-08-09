@@ -38,11 +38,16 @@ export async function POST(req: NextRequest) {
           console.log(`Processing scan ${processedCount + 1}/${maxScans}: ${queueItem.id} for video ${queueItem.videoId}`);
           
           try {
-            // Trigger processing of this specific scan
+            // Trigger processing of this specific scan with timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000); // 10 minute timeout
+            
             const processResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/queue/process-next`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' }
+              method: 'GET',
+              signal: controller.signal
             });
+            
+            clearTimeout(timeoutId);
             
             if (processResponse.ok) {
               const processData = await processResponse.json();
@@ -124,11 +129,16 @@ export async function GET(req: NextRequest) {
           console.log(`Processing scan ${processedCount + 1}/${maxScans}: ${queueItem.id} for video ${queueItem.videoId}`);
           
           try {
-            // Trigger processing of this specific scan
+            // Trigger processing of this specific scan with timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000); // 10 minute timeout
+            
             const processResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/queue/process-next`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' }
+              method: 'GET',
+              signal: controller.signal
             });
+            
+            clearTimeout(timeoutId);
             
             if (processResponse.ok) {
               const processData = await processResponse.json();

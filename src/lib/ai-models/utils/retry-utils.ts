@@ -10,17 +10,19 @@ export async function callAIWithRetry<T>(aiCall: (model: AIModel) => Promise<T>,
     } catch (error: unknown) {
       const aiError = error as AIError;
       if (aiError.status === 429 || (aiError.message && aiError.message.includes('429'))) {
-        console.log(`Quota limit hit on attempt ${attempt + 1}, retrying in ${Math.pow(2, attempt)}s...`);
+        const delay = Math.min(Math.pow(2, attempt) * 1000, 30000); // Cap delay at 30 seconds
+        console.log(`Quota limit hit on attempt ${attempt + 1}, retrying in ${delay/1000}s...`);
         if (attempt < maxRetries - 1) {
-          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+          await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
       }
       if (aiError.status === 503 || (aiError.message && aiError.message.includes('503')) || 
           (aiError.message && aiError.message.includes('overloaded'))) {
-        console.log(`Model overloaded on attempt ${attempt + 1}, retrying in ${Math.pow(2, attempt)}s...`);
+        const delay = Math.min(Math.pow(2, attempt) * 1000, 30000); // Cap delay at 30 seconds
+        console.log(`Model overloaded on attempt ${attempt + 1}, retrying in ${delay/1000}s...`);
         if (attempt < maxRetries - 1) {
-          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+          await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
       }

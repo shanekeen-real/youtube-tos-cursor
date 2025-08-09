@@ -20,6 +20,12 @@ export interface ScanQueueItem {
   priority: 'low' | 'normal' | 'high';
   isOwnVideo: boolean;
   archivedFromQueue?: boolean; // New field to track if completed scan was removed from "In Queue" tab
+  tabReadAt?: {
+    completed?: Timestamp;
+    failed?: Timestamp;
+    pending?: Timestamp;
+    processing?: Timestamp;
+  };
   scanOptions?: {
     includeTranscript: boolean;
     includeAI: boolean;
@@ -55,6 +61,13 @@ export interface QueueStats {
   totalFailed: number;
   averageProcessingTime: number; // in seconds
   queueSize: number;
+}
+
+export interface UnreadCounts {
+  completed: number;
+  failed: number;
+  pending: number;
+  processing: number;
 }
 
 export interface UserQueueLimits {

@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/lib/imports';
 import { Button } from '@/lib/imports';
+import { Badge } from '@/lib/imports';
 import { 
   Clock, 
   CheckCircle, 
@@ -16,7 +17,7 @@ import {
   BarChart3,
   Eye
 } from 'lucide-react';
-import { ScanQueueItem } from '@/types/queue';
+import { ScanQueueItem, UnreadCounts } from '@/types/queue';
 
 
 
@@ -39,6 +40,12 @@ export default function QueuePage() {
     totalCompleted: 0,
     totalFailed: 0,
     totalCancelled: 0
+  });
+  const [unreadCounts, setUnreadCounts] = useState<UnreadCounts>({
+    completed: 0,
+    failed: 0,
+    pending: 0,
+    processing: 0
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -108,6 +115,15 @@ export default function QueuePage() {
           return data.stats;
         }
         return prevStats;
+      });
+      
+      setUnreadCounts(prevCounts => {
+        // Only update if unread counts have actually changed
+        if (JSON.stringify(prevCounts) !== JSON.stringify(data.unreadCounts)) {
+          console.log('Unread counts updated:', data.unreadCounts);
+          return data.unreadCounts;
+        }
+        return prevCounts;
       });
     } catch (err: unknown) {
       if (!isBackground) {
@@ -235,10 +251,10 @@ export default function QueuePage() {
 
     setIsPolling(true);
     
-    // Use shorter interval (3s) when there are active scans, longer (10s) when idle
+    // Use shorter interval (2s) when there are processing scans, (3s) for pending, longer (10s) when idle
     const interval = setInterval(() => {
       fetchQueueData(true);
-    }, hasActiveScans ? 3000 : 10000);
+    }, stats.totalProcessing > 0 ? 2000 : hasActiveScans ? 3000 : 10000);
 
     return () => {
       clearInterval(interval);
@@ -345,7 +361,31 @@ export default function QueuePage() {
   const handleFilterChange = (newFilter: typeof filter) => {
     console.log('Filter change requested:', newFilter, 'Current filter:', filter);
     setFilter(newFilter);
-    // Don't fetch data here - let the useEffect handle it
+    
+    // Mark tab as read when user clicks on it
+    if (newFilter !== 'in-queue') {
+      markTabAsRead(newFilter);
+    }
+  };
+
+  const markTabAsRead = async (tabName: string) => {
+    try {
+      const response = await fetch('/api/queue/mark-tab-read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tabName })
+      });
+      
+      if (response.ok) {
+        // Update local unread counts
+        setUnreadCounts(prev => ({
+          ...prev,
+          [tabName]: 0
+        }));
+      }
+    } catch (error) {
+      console.error('Error marking tab as read:', error);
+    }
   };
 
   return (
@@ -443,16 +483,30 @@ export default function QueuePage() {
         <div className="mb-6">
           <div className="flex justify-between items-center">
             <div className="flex space-x-2">
-              {(['in-queue', 'pending', 'processing', 'completed', 'failed'] as const).map((status) => (
-                <Button
-                  key={status}
-                  variant={filter === status ? 'primary' : 'outlined'}
-                  onClick={() => handleFilterChange(status as typeof filter)}
-                  className="capitalize"
-                >
-                  {status === 'in-queue' ? 'In Queue' : status}
-                </Button>
-              ))}
+              {(['in-queue', 'pending', 'processing', 'completed', 'failed'] as const).map((status) => {
+                const displayName = status === 'in-queue' ? 'In Queue' : status;
+                const unreadCount = status === 'in-queue' ? 0 : unreadCounts[status as keyof UnreadCounts] || 0;
+                
+                return (
+                  <div key={status} className="relative">
+                    <Button
+                      variant={filter === status ? 'primary' : 'outlined'}
+                      onClick={() => handleFilterChange(status as typeof filter)}
+                      className="capitalize"
+                    >
+                      {displayName}
+                    </Button>
+                    {unreadCount > 0 && (
+                      <Badge 
+                        variant={status === 'completed' ? 'safe' : status === 'failed' ? 'risk' : 'neutral'}
+                        className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs font-bold"
+                      >
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </Badge>
+                    )}
+                  </div>
+                );
+              })}
             </div>
             
             {/* Action Buttons */}

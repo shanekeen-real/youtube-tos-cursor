@@ -285,6 +285,24 @@ async function processNextQueueItem() {
       progress: 10
     });
 
+    // Set up a timeout to prevent scans from getting stuck
+    const timeoutId = setTimeout(async () => {
+      try {
+        const currentDoc = await queueDoc.ref.get();
+        const currentData = currentDoc.data();
+        if (currentData && currentData.status === 'processing') {
+          console.warn(`Scan ${queueItem.id} timed out, marking as failed`);
+          await queueDoc.ref.update({
+            status: 'failed',
+            error: 'Scan timed out after 5 minutes',
+            completedAt: new Date()
+          });
+        }
+      } catch (timeoutError) {
+        console.error('Error in timeout handler:', timeoutError);
+      }
+    }, 5 * 60 * 1000); // 5 minutes timeout
+
     try {
       const videoId = extractVideoId(queueItem.originalUrl);
       if (!videoId) {
@@ -476,6 +494,9 @@ async function processNextQueueItem() {
         // Continue - this is not critical
       }
 
+      // Clear the timeout since scan completed successfully
+      clearTimeout(timeoutId);
+
       // Update queue item as completed and auto-archive from "In Queue" tab
       await queueDoc.ref.update({
         status: 'completed',
@@ -537,6 +558,9 @@ async function processNextQueueItem() {
     } catch (analysisError: unknown) {
       console.error('Analysis failed for queue item:', queueItem.id, analysisError);
       
+      // Clear the timeout since scan failed
+      clearTimeout(timeoutId);
+      
       // Update queue item as failed
       await queueDoc.ref.update({
         status: 'failed',
@@ -544,7 +568,12 @@ async function processNextQueueItem() {
         completedAt: Timestamp.now()
       });
 
-      throw analysisError;
+      // Don't throw the error, just return it as a response
+      return NextResponse.json({ 
+        error: 'Analysis failed', 
+        details: analysisError instanceof Error ? analysisError.message : 'Unknown error',
+        queueId: queueItem.id
+      }, { status: 500 });
     }
 
   } catch (error: unknown) {

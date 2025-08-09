@@ -75,19 +75,11 @@ export async function GET(req: NextRequest) {
         // Use server-sorted docs directly
         let filteredDocs = queueSnapshot.docs;
         if (status === 'in-queue') {
-          // For "In Queue" tab: only show active scans (exclude archived completed, cancelled, failed)
+          // For "In Queue" tab: only show active scans (exclude completed, cancelled, failed)
           filteredDocs = queueSnapshot.docs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
             const data = doc.data();
-            // Exclude completed scans that are archived from "In Queue" tab
-            if (data.status === 'completed' && data.archivedFromQueue === true) {
-              return false;
-            }
-            // Exclude cancelled and failed scans from "In Queue" tab (only show active scans)
-            if (data.status === 'cancelled' || data.status === 'failed') {
-              return false;
-            }
-            // Keep all active scans (pending, processing, and non-archived completed)
-            return true;
+            // Only show pending and processing scans in "In Queue" tab
+            return data.status === 'pending' || data.status === 'processing';
           });
         } else if (status === 'all') {
           // For "all" status: show all scans (no filtering)
@@ -134,13 +126,21 @@ export async function GET(req: NextRequest) {
           ...doc.data()
         } as ScanQueueItem));
 
-        // Calculate stats - need to fetch ALL user scans for accurate stats, not just paginated results
-        const stats = skipStats ? {
-          totalPending: 0,
-          totalProcessing: 0,
-          totalCompleted: 0,
-          totalFailed: 0,
-          totalCancelled: 0
+        // Calculate stats and unread counts - need to fetch ALL user scans for accurate stats, not just paginated results
+        const { stats, unreadCounts } = skipStats ? {
+          stats: {
+            totalPending: 0,
+            totalProcessing: 0,
+            totalCompleted: 0,
+            totalFailed: 0,
+            totalCancelled: 0
+          },
+          unreadCounts: {
+            completed: 0,
+            failed: 0,
+            pending: 0,
+            processing: 0
+          }
         } : await (async () => {
           const stats = {
             totalPending: 0,
@@ -150,6 +150,13 @@ export async function GET(req: NextRequest) {
             totalCancelled: 0
           };
 
+          const unreadCounts = {
+            completed: 0,
+            failed: 0,
+            pending: 0,
+            processing: 0
+          };
+
           try {
             // Fetch ALL user scans for accurate stats calculation (no pagination)
             const allUserScansQuery = adminDb.collection('scan_queue')
@@ -157,7 +164,7 @@ export async function GET(req: NextRequest) {
             
             const allUserScansSnapshot = await allUserScansQuery.get();
             
-            // Calculate stats from ALL user scans
+            // Calculate stats and unread counts from ALL user scans
             allUserScansSnapshot.docs.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
               const data = doc.data();
               
@@ -170,9 +177,19 @@ export async function GET(req: NextRequest) {
                   break;
                 case 'completed':
                   stats.totalCompleted++;
+                  // Check if this completed scan is unread
+                  if (!data.tabReadAt?.completed) {
+                    unreadCounts.completed++;
+                    console.log('Debug: Found unread completed scan:', doc.id, 'tabReadAt:', data.tabReadAt);
+                  }
                   break;
                 case 'failed':
                   stats.totalFailed++;
+                  // Check if this failed scan is unread
+                  if (!data.tabReadAt?.failed) {
+                    unreadCounts.failed++;
+                    console.log('Debug: Found unread failed scan:', doc.id, 'tabReadAt:', data.tabReadAt);
+                  }
                   break;
                 case 'cancelled':
                   stats.totalCancelled++;
@@ -183,13 +200,15 @@ export async function GET(req: NextRequest) {
             console.warn('Failed to calculate stats, using zeros:', statsError);
           }
           
-          return stats;
+          return { stats, unreadCounts };
         })();
 
+        console.log('Debug: Final unread counts:', unreadCounts);
         return NextResponse.json({
           success: true,
           queueItems,
           stats,
+          unreadCounts,
           total: queueItems.length,
           hasMore: queueItems.length === limit
         });

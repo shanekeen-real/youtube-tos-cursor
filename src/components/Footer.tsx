@@ -11,8 +11,8 @@ const Footer = () => {
             <div className="mb-4">
               <Logo size="md" variant="allwhite" />
             </div>
-            <p className="text-gray-300 text-sm leading-relaxed mb-4">
-              Protect your YouTube revenue from demonetization with AI-powered content analysis and YouTube policy compliance monitoring.
+            <p className="text-gray-300 text-sm leading-relaxed mb-4 w-[200px]">
+              Protect your YouTube revenue from demonetization.
             </p>
             <div className="flex space-x-4">
               <a href="#" className="text-gray-400 hover:text-white transition-colors">

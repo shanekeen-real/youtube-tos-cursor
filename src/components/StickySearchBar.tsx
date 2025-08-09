@@ -3,7 +3,7 @@ import { UIButton as Button, UIInput as Input } from '@/lib/imports';
 import { AuthContext } from '@/lib/imports';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { Search, Link, FileText } from 'lucide-react';
+import { Search, Link, FileText, Smartphone } from 'lucide-react';
 import ScanProgressModal from './ScanProgressModal';
 import { useToastContext } from '@/contexts/ToastContext';
 
@@ -12,7 +12,7 @@ const StickySearchBar = () => {
   const router = useRouter();
   const { showSuccess, showError } = useToastContext();
   const [searchValue, setSearchValue] = useState('');
-  const [activeTab, setActiveTab] = useState<'url' | 'text'>('url');
+  const [activeTab, setActiveTab] = useState<'url' | 'text' | 'shorts'>('url');
   const [collapsed, setCollapsed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,6 +20,7 @@ const StickySearchBar = () => {
   const [showScanModal, setShowScanModal] = useState(false);
   const [scanModalThumbnail, setScanModalThumbnail] = useState('');
   const [scanModalTitle, setScanModalTitle] = useState('');
+  const [showShortsTooltip, setShowShortsTooltip] = useState(false);
   const lastScrollY = useRef(0);
   const ticking = useRef(false);
 
@@ -45,6 +46,17 @@ const StickySearchBar = () => {
   }, []);
 
   const handleExpand = () => setCollapsed(false);
+
+  // Auto-hide shorts tooltip after 1.5 seconds
+  useEffect(() => {
+    if (showShortsTooltip) {
+      const timer = setTimeout(() => {
+        setShowShortsTooltip(false);
+      }, 1500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [showShortsTooltip]);
 
   // Helper to fetch YouTube video thumbnail and title using oEmbed API
   const fetchYouTubeThumbnailAndTitle = async (url: string): Promise<{ success: boolean; thumbnail: string; title: string; error?: string }> => {
@@ -218,7 +230,7 @@ const StickySearchBar = () => {
           {/* Tab Buttons */}
           <div className="flex justify-center mb-3 sm:mb-4">
             <div className="inline-flex rounded-lg p-1 bg-gray-100 border border-gray-200">
-              {/* Analyze by URL on the left, Analyze by Text on the right */}
+              {/* Analyze by URL on the left, Analyze by Text in the middle, Scan Shorts on the right */}
               <button
                 onClick={() => setActiveTab('url')}
                 className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 ${
@@ -251,6 +263,29 @@ const StickySearchBar = () => {
                 <span className="hidden xs:inline">Analyze by Text</span>
                 <span className="xs:hidden">Analyze Text</span>
               </button>
+              <div className="relative group">
+                <button
+                  onClick={() => setShowShortsTooltip(!showShortsTooltip)}
+                  className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 ${
+                    activeTab === 'shorts'
+                      ? 'bg-yellow-500 text-gray-900 shadow'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                  aria-pressed={activeTab === 'shorts'}
+                  tabIndex={0}
+                  type="button"
+                  disabled={loading}
+                >
+                  <Smartphone className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden xs:inline">Scan YouTube Shorts</span>
+                  <span className="xs:hidden">Scan Shorts</span>
+                </button>
+                <div className={`absolute left-1/2 -translate-x-1/2 mt-2 px-3 py-2 rounded-lg bg-gray-900 text-white text-xs pointer-events-none transition-opacity z-50 whitespace-nowrap shadow-lg ${
+                  showShortsTooltip ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                }`}>
+                  Coming soon
+                </div>
+              </div>
             </div>
           </div>
 
@@ -258,7 +293,13 @@ const StickySearchBar = () => {
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1">
               <Input
-                placeholder={activeTab === 'text' ? 'Paste YouTube terms or policy text here for scan...' : 'Enter YouTube Video URL for scan...'}
+                placeholder={
+                  activeTab === 'text' 
+                    ? 'Paste YouTube terms or policy text here for scan...' 
+                    : activeTab === 'shorts'
+                    ? 'Enter YouTube Shorts URL for scan...'
+                    : 'Enter YouTube Video URL for scan...'
+                }
                 value={searchValue}
                 onChange={e => {
                   setSearchValue(e.target.value);
@@ -268,7 +309,13 @@ const StickySearchBar = () => {
                   }
                 }}
                 className="h-10 sm:h-12 text-sm sm:text-base bg-white"
-                aria-label={activeTab === 'text' ? 'Analyze by Text' : 'Analyze by URL'}
+                aria-label={
+                  activeTab === 'text' 
+                    ? 'Analyze by Text' 
+                    : activeTab === 'shorts'
+                    ? 'Analyze by Shorts'
+                    : 'Analyze by URL'
+                }
                 disabled={loading}
               />
             </div>
@@ -277,11 +324,16 @@ const StickySearchBar = () => {
               className="h-10 sm:h-12 px-4 sm:px-6 lg:px-8 btn-hover w-full sm:w-auto sm:min-w-[120px] lg:min-w-[130px]" 
               type="button" 
               onClick={handleScan} 
-              disabled={loading || !searchValue.trim()}
+              disabled={loading || !searchValue.trim() || activeTab === 'shorts'}
             >
               <Search className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
               <span className="text-xs sm:text-sm">
-                {activeTab === 'text' ? (loading ? 'Scanning...' : 'Scan Text') : (loading ? 'Scanning...' : 'Scan URL')}
+                {activeTab === 'text' 
+                  ? (loading ? 'Scanning...' : 'Scan Text') 
+                  : activeTab === 'shorts'
+                  ? 'Coming Soon'
+                  : (loading ? 'Scanning...' : 'Scan URL')
+                }
               </span>
             </Button>
           </div>
@@ -329,7 +381,12 @@ const StickySearchBar = () => {
                 style={{ minWidth: '200px' }}
               >
                 <Search className="h-4 w-4 lg:h-5 lg:w-5 mr-2 text-black" />
-                {activeTab === 'text' ? 'Scan Text' : 'Scan Video'}
+                {activeTab === 'text' 
+                  ? 'Scan Text' 
+                  : activeTab === 'shorts'
+                  ? 'Scan Shorts'
+                  : 'Scan Video'
+                }
               </Button>
             </div>
           </div>
