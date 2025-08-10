@@ -17,6 +17,16 @@ export async function checkVideoProcessingTools(): Promise<{ ytdlp: boolean; ffm
       execAsync('ffprobe -version')
     ]);
     
+    // Try to update yt-dlp to latest version to handle YouTube changes
+    try {
+      console.log('Checking for yt-dlp updates...');
+      await execAsync('yt-dlp -U');
+      console.log('yt-dlp updated successfully');
+    } catch (updateError) {
+      console.warn('Failed to update yt-dlp:', updateError);
+      // Continue anyway - the current version might still work
+    }
+    
     console.log('Tool check results:', {
       ytdlp: { status: results[0].status, error: results[0].status === 'rejected' ? (results[0] as PromiseRejectedResult).reason : null },
       ffmpeg: { status: results[1].status, error: results[1].status === 'rejected' ? (results[1] as PromiseRejectedResult).reason : null },
