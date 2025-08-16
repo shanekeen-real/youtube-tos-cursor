@@ -58,30 +58,71 @@ export default function QueuePage() {
   const [lastFetchTime, setLastFetchTime] = useState(0);
   const [isFetching, setIsFetching] = useState(false);
   const [isMigrating, setIsMigrating] = useState(false);
+  const [previousStats, setPreviousStats] = useState<QueueStats>({
+    totalPending: 0,
+    totalProcessing: 0,
+    totalCompleted: 0,
+    totalFailed: 0,
+    totalCancelled: 0
+  });
+  const [lastFilter, setLastFilter] = useState<string>('in-queue');
+  const [userInitiatedFilterChange, setUserInitiatedFilterChange] = useState(false);
+
+  // Detect scan completion and trigger immediate updates
+  useEffect(() => {
+    // Check if any scans completed or failed
+    const completedScans = stats.totalCompleted - previousStats.totalCompleted;
+    const failedScans = stats.totalFailed - previousStats.totalFailed;
+    
+    if (completedScans > 0 || failedScans > 0) {
+      console.log(`Detected ${completedScans} completed and ${failedScans} failed scans - triggering immediate update`);
+      // Trigger immediate fetch to update UI
+      fetchQueueData(true);
+      
+      // Only force refresh if we're on the in-queue tab AND we have active scans
+      // AND user hasn't just initiated a filter change
+      // This prevents interference with user-initiated tab changes
+      if (filter === 'in-queue' && (stats.totalPending > 0 || stats.totalProcessing > 0) && !userInitiatedFilterChange) {
+        setTimeout(() => {
+          console.log('Forcing refresh of in-queue filter due to scan completion');
+          fetchQueueData(false); // Force a non-background refresh
+        }, 1000);
+      }
+    }
+    
+    // Update previous stats
+    setPreviousStats(stats);
+  }, [stats.totalCompleted, stats.totalFailed, filter, userInitiatedFilterChange]);
 
   // Fetch queue data with background polling support
   const fetchQueueData = async (isBackground = false) => {
     // Prevent concurrent fetches and add debouncing for background calls
     if (isFetching) return;
     
-    // For background calls, only fetch if it's been at least 2 seconds since last fetch
-    if (isBackground && Date.now() - lastFetchTime < 2000) {
+    // For background calls, only fetch if it's been at least 1 second since last fetch
+    if (isBackground && Date.now() - lastFetchTime < 1000) {
       return;
     }
     
     try {
       setIsFetching(true);
+      // Set loading for non-background calls to show proper loading state
       if (!isBackground) {
         setLoading(true);
+        // Clear queue items only for non-background calls to prevent stale data
+        // But don't clear if user just initiated a filter change to prevent empty states
+        if (!userInitiatedFilterChange) {
+          setQueueItems([]);
+        }
       }
       setError(null);
       
       // Use the filter directly - backend now handles all filtering logic
       const apiFilter = filter;
       console.log('Fetching queue data with filter:', filter, 'apiFilter:', apiFilter);
-      // Skip stats calculation for background calls to reduce processing
-      const skipStats = isBackground ? '&skipStats=true' : '';
-      const response = await fetch(`/api/queue/user-scans?status=${apiFilter}${skipStats}`);
+      
+      // Always fetch stats for background calls to ensure real-time updates
+      const response = await fetch(`/api/queue/user-scans?status=${apiFilter}`);
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to fetch queue data');
@@ -92,6 +133,8 @@ export default function QueuePage() {
       // Debug logging
       console.log('API Response for filter:', filter, 'Data:', data);
       console.log('Queue items count:', data.queueItems?.length || 0);
+      console.log('Current filter:', filter);
+      console.log('Queue items data:', data.queueItems);
       
       // Use the queue items directly since backend now handles filtering
       let filteredQueueItems = data.queueItems;
@@ -100,38 +143,35 @@ export default function QueuePage() {
       // No additional client-side filtering needed
       filteredQueueItems = data.queueItems;
       
-      // Smooth update without jarring refresh
-      setQueueItems(prevItems => {
-        // Only update if data has actually changed
-        if (JSON.stringify(prevItems) !== JSON.stringify(filteredQueueItems)) {
-          return filteredQueueItems;
-        }
-        return prevItems;
-      });
+      // Always update queue items for real-time changes
+      console.log('Setting queue items:', filteredQueueItems);
+      setQueueItems(filteredQueueItems);
       
-      setStats(prevStats => {
-        // Only update if stats have actually changed
-        if (JSON.stringify(prevStats) !== JSON.stringify(data.stats)) {
-          return data.stats;
-        }
-        return prevStats;
-      });
+      // Always update stats for real-time monitoring
+      console.log('Setting stats:', data.stats);
+      setStats(data.stats);
       
-      setUnreadCounts(prevCounts => {
-        // Only update if unread counts have actually changed
-        if (JSON.stringify(prevCounts) !== JSON.stringify(data.unreadCounts)) {
-          console.log('Unread counts updated:', data.unreadCounts);
-          return data.unreadCounts;
-        }
-        return prevCounts;
-      });
+      // Always update unread counts for notification dots
+      if (data.unreadCounts) {
+        setUnreadCounts(prevCounts => {
+          // Only update if unread counts have actually changed
+          if (JSON.stringify(prevCounts) !== JSON.stringify(data.unreadCounts)) {
+            console.log('Unread counts updated:', data.unreadCounts);
+            return data.unreadCounts;
+          }
+          return prevCounts;
+        });
+      }
     } catch (err: unknown) {
+      console.error('Error fetching queue data:', err);
       if (!isBackground) {
         setError(err instanceof Error ? err.message : 'Failed to fetch queue data');
+        // Don't clear queue items on error to prevent empty state
       }
     } finally {
       setIsFetching(false);
       setLastFetchTime(Date.now());
+      // Only clear loading for non-background calls
       if (!isBackground) {
         setLoading(false);
       }
@@ -198,9 +238,17 @@ export default function QueuePage() {
   // Handle filter changes
   useEffect(() => {
     if (status === 'authenticated') {
-      console.log('Filter changed to:', filter, 'Fetching data...');
+      console.log('Filter changed to:', filter, 'Last filter was:', lastFilter);
+      setLastFilter(filter);
+      setUserInitiatedFilterChange(true);
       // When filter changes, fetch data for the new filter
-      fetchQueueData(false); // Not background - this is a user-initiated change
+      // Use non-background fetch to ensure proper loading state and data fetching
+      fetchQueueData(false); // Use non-background fetch for filter changes
+      
+      // Reset the user initiated flag after a short delay
+      setTimeout(() => {
+        setUserInitiatedFilterChange(false);
+      }, 2000);
     }
   }, [filter]); // Only depend on filter, not status
 
@@ -210,6 +258,9 @@ export default function QueuePage() {
       // Only fetch data if we don't have any queue items or if this is the first load
       if (queueItems.length === 0) {
         fetchQueueData(false); // Initial load (not background)
+      } else {
+        // If we have items but they might be for a different filter, do a background refresh
+        fetchQueueData(true);
       }
       
       // Check if we should auto-process (e.g., when redirected from add-scan)
@@ -236,31 +287,40 @@ export default function QueuePage() {
     }
   }, [stats.totalPending, status, autoProcessingTriggered]);
 
-  // Smart background polling - only when there are active scans and on "In Queue" tab
+  // Smart background polling - always active when authenticated, with optimized frequency
   useEffect(() => {
     if (status !== 'authenticated') return;
 
-    // Only poll if there are pending or processing scans AND we're on the "In Queue" tab
+    // Always poll when authenticated, but with different frequencies based on activity
     const hasActiveScans = stats.totalPending > 0 || stats.totalProcessing > 0;
-    const isOnInQueueTab = filter === 'in-queue';
     
-    if (!hasActiveScans || !isOnInQueueTab) {
-      setIsPolling(false);
-      return;
-    }
-
     setIsPolling(true);
     
-    // Use shorter interval (2s) when there are processing scans, (3s) for pending, longer (10s) when idle
+    // Optimized polling frequency:
+    // - 2s when processing scans (real-time updates needed)
+    // - 3s when pending scans (frequent updates for queue changes)
+    // - 5s when no active scans but user might have completed scans (for notifications)
+    // - 10s when idle (background monitoring)
+    const getPollingInterval = () => {
+      if (stats.totalProcessing > 0) return 2000; // Real-time for processing
+      if (hasActiveScans) return 3000; // Frequent for pending
+      if (stats.totalCompleted > 0 || stats.totalFailed > 0) return 5000; // Check for new completions
+      return 10000; // Background monitoring
+    };
+
     const interval = setInterval(() => {
-      fetchQueueData(true);
-    }, stats.totalProcessing > 0 ? 2000 : hasActiveScans ? 3000 : 10000);
+      // Only poll for the current filter to avoid overriding user selections
+      // Skip polling if user just initiated a filter change
+      if (!userInitiatedFilterChange) {
+        fetchQueueData(true);
+      }
+    }, getPollingInterval());
 
     return () => {
       clearInterval(interval);
       setIsPolling(false);
     };
-  }, [status, stats.totalPending, stats.totalProcessing]); // Removed filter from dependencies
+  }, [status, stats.totalPending, stats.totalProcessing, stats.totalCompleted, stats.totalFailed]);
 
   // Handle authentication
   if (status === 'loading') {
@@ -403,7 +463,11 @@ export default function QueuePage() {
             {isPolling && (
               <div className="flex items-center text-sm text-gray-500">
                 <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                <span>Live updates</span>
+                <span>
+                  Live updates
+                  {stats.totalProcessing > 0 && ` (${stats.totalProcessing} processing)`}
+                  {stats.totalPending > 0 && ` (${stats.totalPending} pending)`}
+                </span>
               </div>
             )}
           </div>
@@ -591,20 +655,34 @@ export default function QueuePage() {
         ) : queueItems.length === 0 ? (
           <Card className="p-12">
             <div className="text-center">
-              <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                {filter === 'in-queue' ? 'No active scans in queue' : 'No scans in queue'}
-              </h3>
-              <p className="text-gray-600 mb-4">
-                {filter === 'in-queue' 
-                  ? 'Start analyzing videos to see them here. Completed, cancelled, and failed scans automatically move to their respective tabs.'
-                  : filter === 'completed'
-                  ? 'No completed scans found'
-                  : `No ${filter} scans found`
-                }
-              </p>
-              {filter !== 'in-queue' && (
-                <Button onClick={() => handleFilterChange('in-queue')}>View Active Scans</Button>
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500 mx-auto mb-4"></div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading scans...</h3>
+                  <p className="text-gray-600 mb-4">Please wait while we fetch your scan data.</p>
+                </>
+              ) : (
+                <>
+                  <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    {filter === 'in-queue' ? 'No active scans in queue' : 'No scans in queue'}
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    {filter === 'in-queue' 
+                      ? 'Start analyzing videos to see them here. Completed, cancelled, and failed scans automatically move to their respective tabs.'
+                      : filter === 'completed'
+                      ? 'No completed scans found'
+                      : `No ${filter} scans found`
+                    }
+                  </p>
+                  {/* Debug info */}
+                  <div className="text-xs text-gray-400 mt-2">
+                    Debug: Filter={filter}, Loading={loading}, QueueItems={queueItems.length}, Stats={JSON.stringify(stats)}, LastFilter={lastFilter}, UserInitiated={userInitiatedFilterChange}
+                  </div>
+                  {filter !== 'in-queue' && (
+                    <Button onClick={() => handleFilterChange('in-queue')}>View Active Scans</Button>
+                  )}
+                </>
               )}
             </div>
           </Card>
