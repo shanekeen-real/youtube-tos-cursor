@@ -18,11 +18,11 @@ let redis: Redis | null = null;
 // Initialize Redis in production
 if (process.env.NODE_ENV === 'production' && process.env.REDIS_URL) {
   redis = new Redis(process.env.REDIS_URL, {
-    maxRetriesPerRequest: 3,
-    lazyConnect: true,
-    keepAlive: 30000,
-    connectTimeout: 10000,
-    commandTimeout: 5000
+    maxRetriesPerRequest: 1, // Reduced for serverless
+    lazyConnect: false, // Connect immediately
+    keepAlive: 10000, // Reduced for serverless
+    connectTimeout: 5000, // Faster timeout
+    commandTimeout: 3000 // Faster timeout
   });
 
   redis.on('error', (error) => {
@@ -31,6 +31,14 @@ if (process.env.NODE_ENV === 'production' && process.env.REDIS_URL) {
 
   redis.on('connect', () => {
     console.log('Redis connected successfully');
+  });
+
+  redis.on('close', () => {
+    console.log('Redis connection closed');
+  });
+
+  redis.on('reconnecting', () => {
+    console.log('Redis reconnecting...');
   });
 }
 
@@ -79,8 +87,12 @@ export class CacheManager {
             memoryCache.set(key, { data: parsed, expires: Date.now() + 5000 });
             return parsed;
           }
-        } catch (redisError) {
-          console.warn('Redis get error:', redisError);
+        } catch (redisError: unknown) {
+          // Only log if it's not a connection error (to reduce noise)
+          const errorMessage = redisError instanceof Error ? redisError.message : String(redisError);
+          if (!errorMessage.includes('ECONNRESET') && !errorMessage.includes('MaxRetriesPerRequestError')) {
+            console.warn('Redis get error:', errorMessage);
+          }
         }
       }
 
@@ -102,8 +114,12 @@ export class CacheManager {
       if (redis && process.env.NODE_ENV === 'production') {
         try {
           await redis.setex(key, ttlSeconds, JSON.stringify(data));
-        } catch (redisError) {
-          console.warn('Redis set error:', redisError);
+        } catch (redisError: unknown) {
+          // Only log if it's not a connection error (to reduce noise)
+          const errorMessage = redisError instanceof Error ? redisError.message : String(redisError);
+          if (!errorMessage.includes('ECONNRESET') && !errorMessage.includes('MaxRetriesPerRequestError')) {
+            console.warn('Redis set error:', errorMessage);
+          }
         }
       }
       
