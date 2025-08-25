@@ -17,11 +17,14 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     return;
   }
 
-  if (res.socket.server.io) {
+  // Type assertion to access server property
+  const socketWithServer = res.socket as any;
+  
+  if (socketWithServer.server.io) {
     // Only log once per request, not on every connection attempt
-    if (!res.socket.server.ioInitialized) {
+    if (!socketWithServer.server.ioInitialized) {
       console.log('Socket.IO server already running');
-      res.socket.server.ioInitialized = true;
+      socketWithServer.server.ioInitialized = true;
     }
     res.end();
     return;
@@ -29,7 +32,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
 
   console.log('Setting up Socket.IO server...');
   
-  const httpServer: HTTPServer = res.socket.server as any;
+  const httpServer: HTTPServer = socketWithServer.server as any;
   
   io = new SocketIOServer(httpServer, {
     cors: {
@@ -82,7 +85,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   });
 
   // Store the io instance on the server
-  (res.socket.server as any).io = io;
+  socketWithServer.server.io = io;
   
   res.end();
 }
