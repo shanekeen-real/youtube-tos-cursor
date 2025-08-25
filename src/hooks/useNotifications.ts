@@ -73,7 +73,7 @@ export function useNotifications() {
 
     // Only poll on relevant pages where notifications matter
     const relevantPages = ['/dashboard', '/queue', '/results', '/my-videos', '/settings'];
-    const isRelevantPage = relevantPages.some(page => pathname.startsWith(page));
+    const isRelevantPage = pathname ? relevantPages.some(page => pathname.startsWith(page)) : false;
     
     return isRelevantPage;
   }, [status, session?.user?.id, pathname]);
@@ -224,7 +224,7 @@ export function useNotifications() {
         const userActive = isUserActive();
         
         // More frequent polling on queue page where users expect real-time updates
-        if (pathname.startsWith('/queue')) {
+        if (pathname?.startsWith('/queue')) {
           return userActive ? 8000 : 30000; // 8s if active, 30s if inactive
         }
         
