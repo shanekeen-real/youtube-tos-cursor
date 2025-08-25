@@ -10,6 +10,13 @@ let io: SocketIOServer | null = null;
 const connectedUsers = new Map<string, string>(); // socketId -> userId
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
+  // Add null checks for res.socket
+  if (!res.socket) {
+    console.error('Socket not available');
+    res.status(500).json({ error: 'Socket not available' });
+    return;
+  }
+
   if (res.socket.server.io) {
     // Only log once per request, not on every connection attempt
     if (!res.socket.server.ioInitialized) {
