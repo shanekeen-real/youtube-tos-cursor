@@ -52,6 +52,19 @@ class UsageTracker {
 
   private async loadUsage(): Promise<void> {
     try {
+      if (!adminDb) {
+        console.warn('adminDb not available, using default values');
+        const today = new Date().toISOString().split('T')[0];
+        this.usage.set(today, {
+          date: today,
+          gemini: 0,
+          claude: 0,
+          youtube: 0,
+          lastReset: new Date().toISOString()
+        });
+        return;
+      }
+
       const today = new Date().toISOString().split('T')[0];
       const usageRef = adminDb.collection('usage_tracking').doc(today);
       const doc = await usageRef.get();
