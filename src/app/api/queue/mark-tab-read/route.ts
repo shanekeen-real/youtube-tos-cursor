@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { adminDb } from '@/lib/firebase-admin';
 import { Timestamp, QueryDocumentSnapshot, DocumentData } from 'firebase-admin/firestore';
+import { CacheManager } from '@/lib/cache';
 import * as Sentry from "@sentry/nextjs";
 
 export async function POST(req: NextRequest) {
@@ -43,6 +44,11 @@ export async function POST(req: NextRequest) {
         });
 
         await batch.commit();
+
+        // Invalidate cache for this user
+        const cache = CacheManager.getInstance();
+        await cache.invalidate(`user_scans:${userId}`);
+        await cache.invalidate(`notifications:${userId}`);
 
         return NextResponse.json({
           success: true,

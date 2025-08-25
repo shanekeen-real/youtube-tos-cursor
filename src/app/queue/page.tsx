@@ -18,6 +18,7 @@ import {
   Eye
 } from 'lucide-react';
 import { ScanQueueItem, UnreadCounts } from '@/types/queue';
+import { useWebSocket } from '@/hooks/useWebSocket';
 
 
 
@@ -47,7 +48,7 @@ export default function QueuePage() {
     pending: 0,
     processing: 0
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'in-queue' | 'pending' | 'processing' | 'completed' | 'failed'>('in-queue');
   const [processingQueue, setProcessingQueue] = useState(false);
@@ -68,6 +69,54 @@ export default function QueuePage() {
   const [lastFilter, setLastFilter] = useState<string>('in-queue');
   const [userInitiatedFilterChange, setUserInitiatedFilterChange] = useState(false);
 
+  // WebSocket integration for real-time updates
+  const { isConnected: wsConnected, lastError: wsError } = useWebSocket({
+    enabled: status === 'authenticated',
+    onScanProgress: (scanId: string, progress: number) => {
+      console.log('Socket.IO: Scan progress update', scanId, progress);
+      // Update scan progress in real-time
+      setQueueItems(prev => prev.map(item => 
+        item.id === scanId ? { ...item, progress } : item
+      ));
+    },
+    onScanCompleted: (scanId: string, data: any) => {
+      console.log('Socket.IO: Scan completed', scanId, data);
+      // Update scan status to completed
+      setQueueItems(prev => prev.map(item => 
+        item.id === scanId ? { ...item, status: 'completed', progress: 100 } : item
+      ));
+      // Trigger stats update
+      fetchQueueData(true);
+    },
+    onScanFailed: (scanId: string, error: string) => {
+      console.log('Socket.IO: Scan failed', scanId, error);
+      // Update scan status to failed
+      setQueueItems(prev => prev.map(item => 
+        item.id === scanId ? { ...item, status: 'failed', error } : item
+      ));
+      // Trigger stats update
+      fetchQueueData(true);
+    },
+    onScanCancelled: (scanId: string) => {
+      console.log('Socket.IO: Scan cancelled', scanId);
+      // Update scan status to cancelled
+      setQueueItems(prev => prev.map(item => 
+        item.id === scanId ? { ...item, status: 'cancelled' } : item
+      ));
+      // Trigger stats update
+      fetchQueueData(true);
+    },
+    onConnect: () => {
+      console.log('Socket.IO connected - real-time updates enabled');
+    },
+    onDisconnect: () => {
+      console.log('Socket.IO disconnected - falling back to polling');
+    },
+    onError: (error: Event) => {
+      console.error('Socket.IO error:', error);
+    }
+  });
+
   // Detect scan completion and trigger immediate updates
   useEffect(() => {
     // Check if any scans completed or failed
@@ -76,31 +125,57 @@ export default function QueuePage() {
     
     if (completedScans > 0 || failedScans > 0) {
       console.log(`Detected ${completedScans} completed and ${failedScans} failed scans - triggering immediate update`);
-      // Trigger immediate fetch to update UI
-      fetchQueueData(true);
       
-      // Only force refresh if we're on the in-queue tab AND we have active scans
-      // AND user hasn't just initiated a filter change
-      // This prevents interference with user-initiated tab changes
-      if (filter === 'in-queue' && (stats.totalPending > 0 || stats.totalProcessing > 0) && !userInitiatedFilterChange) {
-        setTimeout(() => {
-          console.log('Forcing refresh of in-queue filter due to scan completion');
-          fetchQueueData(false); // Force a non-background refresh
-        }, 1000);
+      // Only trigger updates if user hasn't just initiated a filter change
+      if (!userInitiatedFilterChange) {
+        // Only trigger immediate fetch if we're on the in-queue tab
+        // This prevents interference with user tab selections
+        if (filter === 'in-queue') {
+          console.log('Triggering immediate fetch for in-queue tab due to scan completion');
+          fetchQueueData(true);
+          
+          // Only force refresh if we have active scans
+          if (stats.totalPending > 0 || stats.totalProcessing > 0) {
+            setTimeout(() => {
+              console.log('Forcing refresh of in-queue filter due to scan completion');
+              fetchQueueData(false); // Force a non-background refresh
+            }, 1000);
+          }
+        } else {
+          console.log('Skipping completion detection fetch - user is on different tab:', filter);
+        }
+      } else {
+        console.log('Skipping completion detection update due to user-initiated filter change');
       }
+    }
+    
+    // Clear processing notification if no scans are processing
+    if (stats.totalProcessing === 0 && processingNotification) {
+      console.log('Clearing processing notification - no scans processing');
+      setProcessingNotification(null);
     }
     
     // Update previous stats
     setPreviousStats(stats);
-  }, [stats.totalCompleted, stats.totalFailed, filter, userInitiatedFilterChange]);
+  }, [stats.totalCompleted, stats.totalFailed, stats.totalProcessing, filter, userInitiatedFilterChange, processingNotification]);
 
   // Fetch queue data with background polling support
   const fetchQueueData = async (isBackground = false) => {
+    console.log('=== fetchQueueData called ===');
+    console.log('isBackground:', isBackground);
+    console.log('current filter:', filter);
+    console.log('userInitiatedFilterChange:', userInitiatedFilterChange);
+    console.log('isFetching:', isFetching);
+    
     // Prevent concurrent fetches and add debouncing for background calls
-    if (isFetching) return;
+    if (isFetching) {
+      console.log('Skipping fetch - already fetching');
+      return;
+    }
     
     // For background calls, only fetch if it's been at least 1 second since last fetch
     if (isBackground && Date.now() - lastFetchTime < 1000) {
+      console.log('Skipping background fetch - too soon since last fetch');
       return;
     }
     
@@ -113,6 +188,8 @@ export default function QueuePage() {
         // But don't clear if user just initiated a filter change to prevent empty states
         if (!userInitiatedFilterChange) {
           setQueueItems([]);
+        } else {
+          console.log('Skipping queue items clear due to user-initiated filter change');
         }
       }
       setError(null);
@@ -135,6 +212,8 @@ export default function QueuePage() {
       console.log('Queue items count:', data.queueItems?.length || 0);
       console.log('Current filter:', filter);
       console.log('Queue items data:', data.queueItems);
+      console.log('UserInitiatedFilterChange:', userInitiatedFilterChange);
+      console.log('IsBackground:', isBackground);
       
       // Use the queue items directly since backend now handles filtering
       let filteredQueueItems = data.queueItems;
@@ -145,7 +224,17 @@ export default function QueuePage() {
       
       // Always update queue items for real-time changes
       console.log('Setting queue items:', filteredQueueItems);
-      setQueueItems(filteredQueueItems);
+      console.log('FilteredQueueItems type:', typeof filteredQueueItems);
+      console.log('FilteredQueueItems is array:', Array.isArray(filteredQueueItems));
+      
+      // Always set queue items when we receive data, regardless of userInitiatedFilterChange
+      if (filteredQueueItems && Array.isArray(filteredQueueItems)) {
+        console.log('Setting queue items with length:', filteredQueueItems.length);
+        setQueueItems(filteredQueueItems);
+      } else {
+        console.log('No valid queue items received, setting empty array');
+        setQueueItems([]);
+      }
       
       // Always update stats for real-time monitoring
       console.log('Setting stats:', data.stats);
@@ -175,6 +264,9 @@ export default function QueuePage() {
       if (!isBackground) {
         setLoading(false);
       }
+      console.log('=== fetchQueueData completed ===');
+      console.log('Final queue items count:', queueItems.length);
+      console.log('Final filter:', filter);
     }
   };
 
@@ -241,16 +333,26 @@ export default function QueuePage() {
       console.log('Filter changed to:', filter, 'Last filter was:', lastFilter);
       setLastFilter(filter);
       setUserInitiatedFilterChange(true);
+      
+      // Immediately clear any pending background operations
+      setIsFetching(false);
+      setLastFetchTime(0);
+      
+      // Clear processing notification when switching tabs
+      if (processingNotification) {
+        setProcessingNotification(null);
+      }
+      
       // When filter changes, fetch data for the new filter
       // Use non-background fetch to ensure proper loading state and data fetching
       fetchQueueData(false); // Use non-background fetch for filter changes
       
-      // Reset the user initiated flag after a short delay
+      // Reset the user initiated flag after a longer delay
       setTimeout(() => {
         setUserInitiatedFilterChange(false);
-      }, 2000);
+      }, 5000); // Increased from 3000ms to 5000ms to give more time for data loading
     }
-  }, [filter]); // Only depend on filter, not status
+  }, [filter, processingNotification]); // Added processingNotification to dependencies
 
   // Initial load
   useEffect(() => {
@@ -296,16 +398,23 @@ export default function QueuePage() {
     
     setIsPolling(true);
     
-    // Optimized polling frequency:
-    // - 2s when processing scans (real-time updates needed)
-    // - 3s when pending scans (frequent updates for queue changes)
-    // - 5s when no active scans but user might have completed scans (for notifications)
-    // - 10s when idle (background monitoring)
+    // Optimized polling frequency based on WebSocket connection status
+    // When WebSocket is connected, reduce polling frequency significantly
+    // When WebSocket is disconnected, use higher frequency as fallback
     const getPollingInterval = () => {
-      if (stats.totalProcessing > 0) return 2000; // Real-time for processing
-      if (hasActiveScans) return 3000; // Frequent for pending
-      if (stats.totalCompleted > 0 || stats.totalFailed > 0) return 5000; // Check for new completions
-      return 10000; // Background monitoring
+      if (wsConnected) {
+        // WebSocket is connected - minimal polling as fallback
+        if (stats.totalProcessing > 0) return 60000; // 60s for processing (was 10s)
+        if (hasActiveScans) return 90000; // 90s for pending (was 15s)
+        if (stats.totalCompleted > 0 || stats.totalFailed > 0) return 120000; // 2min for completions (was 30s)
+        return 300000; // 5min for idle (was 60s)
+      } else {
+        // WebSocket is disconnected - use higher frequency as fallback
+        if (stats.totalProcessing > 0) return 10000; // 10s for processing
+        if (hasActiveScans) return 15000; // 15s for pending
+        if (stats.totalCompleted > 0 || stats.totalFailed > 0) return 30000; // 30s for completions
+        return 60000; // 60s for idle
+      }
     };
 
     const interval = setInterval(() => {
@@ -313,14 +422,16 @@ export default function QueuePage() {
       // Skip polling if user just initiated a filter change
       if (!userInitiatedFilterChange) {
         fetchQueueData(true);
+      } else {
+        console.log('Skipping background polling due to user-initiated filter change');
       }
-    }, getPollingInterval());
+    }, userInitiatedFilterChange ? 30000 : getPollingInterval()); // Use 30s interval during user changes (was 15s)
 
     return () => {
       clearInterval(interval);
       setIsPolling(false);
     };
-  }, [status, stats.totalPending, stats.totalProcessing, stats.totalCompleted, stats.totalFailed]);
+  }, [status, userInitiatedFilterChange, wsConnected, stats.totalProcessing, stats.totalPending, stats.totalCompleted, stats.totalFailed]); // Removed stats dependencies to prevent restarting
 
   // Handle authentication
   if (status === 'loading') {
@@ -459,17 +570,27 @@ export default function QueuePage() {
               <p className="text-gray-600">Monitor and manage your video analysis scans</p>
             </div>
             
-            {/* Background Polling Indicator */}
-            {isPolling && (
-              <div className="flex items-center text-sm text-gray-500">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                <span>
-                  Live updates
-                  {stats.totalProcessing > 0 && ` (${stats.totalProcessing} processing)`}
-                  {stats.totalPending > 0 && ` (${stats.totalPending} pending)`}
+            <div className="flex items-center space-x-4">
+              {/* WebSocket Status Indicator */}
+              <div className="flex items-center space-x-1">
+                <div className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                <span className="text-sm text-gray-600">
+                  {wsConnected ? 'Real-time' : 'Polling'}
                 </span>
               </div>
-            )}
+              
+              {/* Background Polling Indicator */}
+              {isPolling && (
+                <div className="flex items-center text-sm text-gray-500">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                  <span>
+                    Live updates
+                    {stats.totalProcessing > 0 && ` (${stats.totalProcessing} processing)`}
+                    {stats.totalPending > 0 && ` (${stats.totalPending} pending)`}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
           
           {/* Processing Notification */}

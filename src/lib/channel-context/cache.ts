@@ -1,4 +1,4 @@
-import { adminDb } from '../firebase-admin';
+import { adminDb } from '@/lib/firebase-admin';
 import { ChannelContext } from './types';
 import { CACHE_CONFIG } from './config';
 import { isExpired } from './utils';

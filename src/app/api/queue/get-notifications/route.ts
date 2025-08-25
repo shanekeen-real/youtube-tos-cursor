@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { adminDb } from '@/lib/firebase-admin';
 import { QueryDocumentSnapshot, DocumentData } from 'firebase-admin/firestore';
+import { withCache, cacheKeys, CacheManager } from '@/lib/cache';
 import * as Sentry from "@sentry/nextjs";
 
 export async function GET(req: NextRequest) {
@@ -24,49 +25,56 @@ export async function GET(req: NextRequest) {
         const unreadOnly = searchParams.get('unreadOnly') === 'true';
         const limit = parseInt(searchParams.get('limit') || '10');
 
-        // Build query
-        let query = adminDb.collection('scan_notifications')
-          .where('userId', '==', userId);
+        // Use cache with 30-second TTL
+        const cacheKey = cacheKeys.notifications(userId, unreadOnly, limit);
+        
+        const result = await withCache(cacheKey, 30, async () => {
+          // Build query
+          let query = adminDb.collection('scan_notifications')
+            .where('userId', '==', userId);
 
-        if (unreadOnly) {
-          query = query.where('read', '==', false);
-        }
-
-        // Get notifications with server-side sorting
-        let notificationsSnapshot;
-        try {
-          notificationsSnapshot = await query
-            .orderBy('createdAt', 'desc') // Server-side sorting
-            .limit(limit) // Server-side limiting
-            .get();
-        } catch (firebaseError: any) {
-          // Handle Firebase quota exceeded errors gracefully
-          if (firebaseError.code === 8 || firebaseError.message?.includes('RESOURCE_EXHAUSTED')) {
-            console.warn('Firebase quota exceeded for notifications, returning empty results');
-            return NextResponse.json({
-              success: true,
-              notifications: [],
-              unreadCount: 0,
-              total: 0
-            });
+          if (unreadOnly) {
+            query = query.where('read', '==', false);
           }
-          throw firebaseError; // Re-throw other errors
-        }
-        
-        // Use server-sorted notifications directly
-        const limitedDocs = notificationsSnapshot.docs;
-        
-        const notifications = limitedDocs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
-          id: doc.id,
-          ...doc.data()
-        }));
 
-        return NextResponse.json({
-          success: true,
-          notifications,
-          totalCount: notifications.length,
-          unreadCount: notifications.filter((n: { read: boolean }) => !n.read).length
+          // Get notifications with server-side sorting
+          let notificationsSnapshot;
+          try {
+            notificationsSnapshot = await query
+              .orderBy('createdAt', 'desc') // Server-side sorting
+              .limit(limit) // Server-side limiting
+              .get();
+          } catch (firebaseError: any) {
+            // Handle Firebase quota exceeded errors gracefully
+            if (firebaseError.code === 8 || firebaseError.message?.includes('RESOURCE_EXHAUSTED')) {
+              console.warn('Firebase quota exceeded for notifications, returning empty results');
+              return {
+                success: true,
+                notifications: [],
+                unreadCount: 0,
+                total: 0
+              };
+            }
+            throw firebaseError; // Re-throw other errors
+          }
+          
+          // Use server-sorted notifications directly
+          const limitedDocs = notificationsSnapshot.docs;
+          
+          const notifications = limitedDocs.map((doc: QueryDocumentSnapshot<DocumentData>) => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+
+          return {
+            success: true,
+            notifications,
+            totalCount: notifications.length,
+            unreadCount: notifications.filter((n: { read: boolean }) => !n.read).length
+          };
         });
+
+        return NextResponse.json(result);
 
       } catch (error: unknown) {
         console.error('Error fetching notifications:', error);

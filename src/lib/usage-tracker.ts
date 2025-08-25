@@ -50,22 +50,17 @@ class UsageTracker {
     }
   }
 
-  private async loadUsage() {
+  private async loadUsage(): Promise<void> {
     try {
-      if (!adminDb) {
-        console.warn('adminDb not available, skipping usage loading');
-        return;
-      }
-      
       const today = new Date().toISOString().split('T')[0];
       const usageRef = adminDb.collection('usage_tracking').doc(today);
       const doc = await usageRef.get();
-      
+
       if (doc.exists) {
         const data = doc.data() as UsageData;
         this.usage.set(today, data);
       } else {
-        // Initialize today's usage
+        // Initialize with default values if no data exists
         this.usage.set(today, {
           date: today,
           gemini: 0,
@@ -74,8 +69,30 @@ class UsageTracker {
           lastReset: new Date().toISOString()
         });
       }
-    } catch (error) {
-      console.error('Error loading usage data:', error);
+    } catch (error: any) {
+      // Handle Firebase quota exhaustion gracefully
+      if (error.code === 8 || error.message?.includes('RESOURCE_EXHAUSTED') || error.message?.includes('Quota exceeded')) {
+        console.warn('Firebase quota exceeded for usage tracking, using default values');
+        const today = new Date().toISOString().split('T')[0];
+        this.usage.set(today, {
+          date: today,
+          gemini: 0,
+          claude: 0,
+          youtube: 0,
+          lastReset: new Date().toISOString()
+        });
+      } else {
+        console.error('Error loading usage data:', error);
+        // Still provide default values to prevent app crashes
+        const today = new Date().toISOString().split('T')[0];
+        this.usage.set(today, {
+          date: today,
+          gemini: 0,
+          claude: 0,
+          youtube: 0,
+          lastReset: new Date().toISOString()
+        });
+      }
     }
   }
 

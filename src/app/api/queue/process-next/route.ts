@@ -14,6 +14,7 @@ import { EnhancedAnalysisResult } from '@/types/ai-analysis';
 import { createHash } from 'crypto';
 import axios from 'axios';
 import * as Sentry from "@sentry/nextjs";
+import { sendToUser } from '@/pages/api/socketio';
 
 // Get video metadata from YouTube
 async function getVideoMetadata(videoId: string): Promise<{ title: string; description: string; channelId?: string } | null> {
@@ -316,6 +317,19 @@ async function processNextQueueItem() {
         currentStepIndex: 1
       });
 
+      // Send WebSocket notification for progress update
+      try {
+        sendToUser(queueItem.userId, {
+          type: 'scan_progress',
+          scanId: queueItem.id,
+          userId: queueItem.userId,
+          data: { progress: 20 },
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        console.warn('Failed to send WebSocket progress notification:', error);
+      }
+
       let contentToAnalyze = '';
       let analyzedContent = '';
       let analysisSource = '';
@@ -331,6 +345,19 @@ async function processNextQueueItem() {
         progress: 40,
         currentStepIndex: 2
       });
+
+      // Send WebSocket notification for progress update
+      try {
+        sendToUser(queueItem.userId, {
+          type: 'scan_progress',
+          scanId: queueItem.id,
+          userId: queueItem.userId,
+          data: { progress: 40 },
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        console.warn('Failed to send WebSocket progress notification:', error);
+      }
 
       // 1. Try multi-modal video analysis first (primary method)
       console.log(`Attempting multi-modal video analysis for: ${videoId}`);
@@ -399,6 +426,19 @@ async function processNextQueueItem() {
         currentStepIndex: 3
       });
 
+      // Send WebSocket notification for progress update
+      try {
+        sendToUser(queueItem.userId, {
+          type: 'scan_progress',
+          scanId: queueItem.id,
+          userId: queueItem.userId,
+          data: { progress: 60 },
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        console.warn('Failed to send WebSocket progress notification:', error);
+      }
+
       // Get channel context for AI detection ONLY if video belongs to user's connected YouTube channel
       let channelContext = null;
       if (queueItem.isOwnVideo && metadata?.channelId) {
@@ -412,7 +452,7 @@ async function processNextQueueItem() {
             
               if (isOwned) {
                 console.log(`Applying channel context for user's own video: ${videoId}`);
-                channelContext = await getChannelContext(userData.youtube.channel.id, '');
+                channelContext = await getChannelContext(userData.youtube.channel.id);
               } else {
                 console.log(`Skipping channel context for external video: ${videoId}`);
               }
@@ -507,6 +547,23 @@ async function processNextQueueItem() {
         archivedFromQueue: true  // Auto-archive completed scans from "In Queue" tab
       });
 
+      // Send WebSocket notification for scan completion
+      try {
+        sendToUser(queueItem.userId, {
+          type: 'scan_completed',
+          scanId: queueItem.id,
+          userId: queueItem.userId,
+          data: { 
+            scanId: cacheRef.id,
+            videoTitle: queueItem.videoTitle,
+            videoId: queueItem.videoId
+          },
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        console.warn('Failed to send WebSocket completion notification:', error);
+      }
+
       console.log(`Successfully completed analysis for queue item: ${queueItem.id}`);
 
       // Send completion notification
@@ -567,6 +624,22 @@ async function processNextQueueItem() {
         error: analysisError instanceof Error ? analysisError.message : 'Analysis failed',
         completedAt: Timestamp.now()
       });
+
+      // Send WebSocket notification for scan failure
+      try {
+        sendToUser(queueItem.userId, {
+          type: 'scan_failed',
+          scanId: queueItem.id,
+          userId: queueItem.userId,
+          data: { 
+            scanId: queueItem.id,
+            error: analysisError instanceof Error ? analysisError.message : 'Analysis failed'
+          },
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        console.warn('Failed to send WebSocket failure notification:', error);
+      }
 
       // Don't throw the error, just return it as a response
       return NextResponse.json({ 

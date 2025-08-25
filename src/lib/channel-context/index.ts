@@ -8,47 +8,30 @@ import {
   cacheChannelContext, 
   isChannelContextValid 
 } from './cache';
+import { adminDb } from '@/lib/firebase-admin';
 
 /**
  * Get channel context with smart caching and quota management
  */
-export async function getChannelContext(channelId: string, accessToken: string): Promise<ChannelContext | null> {
+export async function getChannelContext(userId: string): Promise<ChannelContext | null> {
   try {
-    // Check cache first
-    const cached = await getCachedChannelContext(channelId);
-    if (cached && isChannelContextValid(cached)) {
-      console.log(`Using cached channel context for ${channelId}`);
-      return cached;
+    const userDoc = await adminDb.collection('users').doc(userId).get();
+    
+    if (!userDoc.exists) {
+      return null;
     }
 
-    // Check API quota
-    const quotaCheck = await usageTracker.checkQuota('youtube');
-    if (!quotaCheck.available) {
-      console.warn('YouTube API quota exceeded, using cached data if available');
-      return cached;
+    const userData = userDoc.data();
+    return userData?.channelContext || null;
+  } catch (error: any) {
+    // Handle Firebase quota exhaustion gracefully
+    if (error.code === 8 || error.message?.includes('RESOURCE_EXHAUSTED') || error.message?.includes('Quota exceeded')) {
+      console.warn('Firebase quota exceeded for channel context, returning null');
+      return null;
+    } else {
+      console.error('Error getting channel context:', error);
+      return null;
     }
-
-    // Collect fresh data
-    const channelData = await collectChannelData(channelId, accessToken);
-    if (!channelData) return null;
-
-    // Calculate AI indicators
-    const aiIndicators = calculateAIIndicators(channelData);
-
-    const context: ChannelContext = {
-      channelData,
-      aiIndicators,
-      lastUpdated: new Date().toISOString(),
-      cacheKey: `channel_${channelId}`,
-    };
-
-    // Cache the result
-    await cacheChannelContext(channelId, context);
-
-    return context;
-  } catch (error) {
-    console.error('Error getting channel context:', error);
-    return null;
   }
 }
 
