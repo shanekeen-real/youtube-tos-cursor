@@ -1,1 +1,6 @@
 [33m90fd3dd[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m feat: optimize landing page SEO and enhance feature presentation
+[33m057ee97[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m Fix Next.js Dev Server Memory Allocation Error
+[33m4a237f9[m Attempt at auto-updates on 'In-Queue' tab on 'Scan Queue' page, not yet completed
+[33m7c8b940[m fix: improve video download reliability and implement multiple fallback strategies
+[33mafe00fe[m # fix: improve scan queue reliability and implement notification system
+[33mb13813a[m feat: improve landing page copy and reorder sections for better conversion
