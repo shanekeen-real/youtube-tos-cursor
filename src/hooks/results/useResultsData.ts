@@ -16,9 +16,9 @@ export function useResultsData() {
     const fetchData = async () => {
       setLoading(true);
       setError(null);
-      const scanId = searchParams.get('scanId');
-      const directData = searchParams.get('data');
-      const url = searchParams.get('url');
+      const scanId = searchParams?.get('scanId');
+      const directData = searchParams?.get('data');
+      const url = searchParams?.get('url');
 
       // Debug: Log scanId and session user
       console.log('[ResultsPage] scanId:', scanId, 'url:', url, 'sessionUser:', session?.user);

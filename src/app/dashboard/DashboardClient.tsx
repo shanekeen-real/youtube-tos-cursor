@@ -79,7 +79,7 @@ export default function DashboardClient() {
 
   // Handle payment success celebration
   useEffect(() => {
-    if (searchParams.get('payment_success') === 'true') {
+    if (searchParams?.get('payment_success') === 'true') {
       setShowCelebration(true);
       // Remove the query param so it doesn't show again
       const params = new URLSearchParams(window.location.search);
